@@ -27,6 +27,14 @@ func (o optimizer[V]) Optimize(ast AST) AST {
 			}
 		}
 	}
+	// evaluate const operations like -1
+	if oper, ok := ast.(*Unary); ok {
+		if operator, ok := o.g.uMap[oper.Operator]; ok {
+			if c, ok := o.isConst(oper.Value); ok {
+				return Const[V]{operator.Impl(c)}
+			}
+		}
+	}
 	// evaluate const list literals like [1,2,3]
 	if o.g.listHandler != nil {
 		if list, ok := ast.(ListLiteral); ok {
@@ -56,7 +64,7 @@ func (o optimizer[V]) Optimize(ast AST) AST {
 	if fc, ok := ast.(*FunctionCall); ok {
 		if name, ok := fc.Func.(Ident); ok {
 			if fu, ok := o.g.staticFuncs[string(name)]; ok && fu.IsPure {
-				if fu.Args != len(fc.Args) {
+				if fu.Args >= 0 && fu.Args != len(fc.Args) {
 					panic(fmt.Sprintf("number of args wrong in: %v", fc))
 				}
 				if c, ok := o.allConst(fc.Args); ok {

@@ -13,6 +13,11 @@ type Operator[V any] struct {
 	Impl     func(a, b V) V
 }
 
+type UnaryOperator[V any] struct {
+	Operator string
+	Impl     func(a V) V
+}
+
 type ClosureHandler[V any] interface {
 	FromClosure(c Closure[V]) V
 	ToClosure(fu V) (Closure[V], bool)
@@ -31,16 +36,17 @@ type MapHandler[V any] interface {
 type FunctionGenerator[V any] struct {
 	parser          *Parser[V]
 	operators       []Operator[V]
+	unary           []UnaryOperator[V]
 	numberParser    NumberParser[V]
 	stringHandler   StringHandler[V]
 	closureHandler  ClosureHandler[V]
 	listHandler     ListHandler[V]
 	mapHandler      MapHandler[V]
 	optimizer       Optimizer
-	toFunction      func(f V) (Function[V], bool)
 	staticFuncs     map[string]Function[V]
 	constants       map[string]V
 	opMap           map[string]Operator[V]
+	uMap            map[string]UnaryOperator[V]
 	customGenerator Generator[V]
 	typeOfValue     reflect.Type
 }
@@ -71,8 +77,15 @@ func (g *FunctionGenerator[V]) Parser() *Parser[V] {
 			parser.Op(o.Operator)
 			opMap[o.Operator] = o
 		}
+		uMap := map[string]UnaryOperator[V]{}
+		for _, u := range g.unary {
+			parser.Unary(u.Operator)
+			uMap[u.Operator] = u
+		}
+
 		g.parser = parser
 		g.opMap = opMap
+		g.uMap = uMap
 	}
 	return g.parser
 }
@@ -112,11 +125,6 @@ func (g *FunctionGenerator[V]) SetCustomGenerator(generator Generator[V]) *Funct
 	return g
 }
 
-func (g *FunctionGenerator[V]) ToFunction(toFunc func(V) (Function[V], bool)) *FunctionGenerator[V] {
-	g.toFunction = toFunc
-	return g
-}
-
 func (g *FunctionGenerator[V]) AddStaticFunction(n string, f Function[V]) *FunctionGenerator[V] {
 	g.staticFuncs[n] = f
 	return g
@@ -129,6 +137,14 @@ func (g *FunctionGenerator[V]) AddConstant(n string, c V) *FunctionGenerator[V] 
 
 func (g *FunctionGenerator[V]) AddOp(operator string, impl func(a V, b V) V) *FunctionGenerator[V] {
 	g.operators = append(g.operators, Operator[V]{
+		Operator: operator,
+		Impl:     impl,
+	})
+	return g
+}
+
+func (g *FunctionGenerator[V]) AddUnary(operator string, impl func(a V) V) *FunctionGenerator[V] {
+	g.unary = append(g.unary, UnaryOperator[V]{
 		Operator: operator,
 		Impl:     impl,
 	})
@@ -269,6 +285,12 @@ func (g *FunctionGenerator[V]) Gen(ast AST) Code[V] {
 			va := cVal(v)
 			return inner(addVar[V]{name: a.Name, val: va, parent: v})
 		}
+	case *Unary:
+		c := g.Gen(a.Value)
+		op := g.uMap[a.Operator].Impl
+		return func(v Vars[V]) V {
+			return op(c(v))
+		}
 	case *Operate:
 		ca := g.Gen(a.A)
 		cb := g.Gen(a.B)
@@ -328,7 +350,7 @@ func (g *FunctionGenerator[V]) Gen(ast AST) Code[V] {
 	case *FunctionCall:
 		if id, ok := a.Func.(Ident); ok {
 			if fun, ok := g.staticFuncs[string(id)]; ok {
-				if fun.Args != len(a.Args) {
+				if fun.Args >= 0 && fun.Args != len(a.Args) {
 					panic(fmt.Errorf("wrong number of arguments in call to %v", id))
 				}
 				argsCode := g.genList(a.Args)
@@ -344,7 +366,7 @@ func (g *FunctionGenerator[V]) Gen(ast AST) Code[V] {
 			if !ok {
 				panic(fmt.Errorf("not a function: %v", a.Func))
 			}
-			if theFunc.Args != len(a.Args) {
+			if theFunc.Args >= 0 && theFunc.Args != len(a.Args) {
 				panic(fmt.Errorf("wrong number of arguments in call to %v", a.Func))
 			}
 			return theFunc.Func(evalList(argsCode, v))
@@ -404,9 +426,6 @@ func (g *FunctionGenerator[V]) extractFunction(fu V) (Function[V], bool) {
 		if c, ok := g.closureHandler.ToClosure(fu); ok {
 			return c.CreateFunction(), true
 		}
-	}
-	if g.toFunction != nil {
-		return g.toFunction(fu)
 	}
 	return Function[V]{}, false
 }

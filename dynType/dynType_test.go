@@ -34,6 +34,9 @@ func Test(t *testing.T) {
 		{exp: "false & (a<1)", res: vBool(false)},
 		{exp: "[1,2,3].size()", res: vFloat(3)},
 		{exp: "[1,2,3].map(e->e*2)", res: vList{vFloat(2), vFloat(4), vFloat(6)}},
+		{exp: "let lp=lowPass(-1/ln(0.5)); [lp(0,0),lp(1,1),lp(2,1),lp(3,1)]", res: vList{vFloat(0), vFloat(0.5), vFloat(0.75), vFloat(0.875)}},
+		{exp: "let a=1;sprintf(\"%v->%v\",a,2)", res: vString("1->2")},
+		{exp: "let a=1;sprintf(\"%v->\",a)", res: vString("1->")},
 	}
 
 	for _, test := range tests {
@@ -62,6 +65,9 @@ func TestOptimizer(t *testing.T) {
 		{exp: "(1+pi)/(pi+1)", res: vFloat(1)},
 		{exp: "sqrt(4/2)", res: vFloat(math.Sqrt(2))},
 		{exp: "(1<2) & (2<3)", res: vBool(true)},
+		{exp: "-2/(-1)", res: vFloat(2)},
+		{exp: "sprintf(\"%v->%v\",1,2)", res: vString("1->2")},
+		{exp: "sprintf(\"%v->\",1)", res: vString("1->")},
 	}
 
 	for _, test := range tests {

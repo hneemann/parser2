@@ -96,6 +96,10 @@ func (v vMap) Bool() bool {
 	return len(v) > 0
 }
 
+func vNeg(a Value) Value {
+	return vFloat(-a.Float())
+}
+
 func vOr(a, b Value) Value {
 	return vBool(a.Bool() || b.Bool())
 }
@@ -282,6 +286,7 @@ var DynType = parser2.New[Value]().
 	AddOp("-", vSub).
 	AddOp("*", vMul).
 	AddOp("/", vDiv).
+	AddUnary("-", vNeg).
 	SetListHandler(th).
 	SetMapHandler(th).
 	SetStringHandler(th).
@@ -295,4 +300,64 @@ var DynType = parser2.New[Value]().
 		Func:   func(v []Value) Value { return vFloat(math.Sqrt(v[0].Float())) },
 		Args:   1,
 		IsPure: true,
+	}).
+	AddStaticFunction("ln", parser2.Function[Value]{
+		Func:   func(v []Value) Value { return vFloat(math.Log(v[0].Float())) },
+		Args:   1,
+		IsPure: true,
+	}).
+	AddStaticFunction("sprintf", parser2.Function[Value]{
+		Func:   sprintf,
+		Args:   -1,
+		IsPure: true,
+	}).
+	AddStaticFunction("lowPass", parser2.Function[Value]{
+		Func:   lowPass,
+		Args:   1,
+		IsPure: false,
 	})
+
+func sprintf(a []Value) Value {
+	switch len(a) {
+	case 0:
+		return vString("")
+	case 1:
+		return vString(fmt.Sprint(a[0]))
+	default:
+		if s, ok := a[0].(vString); ok {
+			values := make([]any, len(a)-1)
+			for i, v := range a[1:] {
+				values[i] = v
+			}
+			return vString(fmt.Sprintf(string(s), values...))
+		} else {
+			panic("sprintf requires string as first argument")
+		}
+	}
+}
+
+func lowPass(a []Value) Value {
+	tau := a[0].Float()
+	init := false
+	lt := 0.0
+	lx := 0.0
+	return vClosure{
+		Names: []string{"t", "x"},
+		Func: func(v parser2.Vars[Value]) Value {
+			t := v.Get("t").Float()
+			x := v.Get("x").Float()
+			if !init {
+				lt = t
+				lx = x
+				init = true
+			} else {
+				dt := t - lt
+				a := math.Exp(-dt / tau)
+				lx = lx*a + x*(1-a)
+				lt = t
+			}
+			return vFloat(lx)
+		},
+		Context: nil,
+	}
+}
