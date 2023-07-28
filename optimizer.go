@@ -35,6 +35,23 @@ func (o optimizer[V]) Optimize(ast AST) AST {
 			}
 		}
 	}
+	// evaluate const map literals like {a:1,b:2}
+	if o.g.mapHandler != nil {
+		if m, ok := ast.(MapLiteral); ok {
+			cm := map[string]V{}
+			for k, e := range m {
+				if v, ok := o.isConst(e); ok {
+					cm[k] = v
+				} else {
+					cm = nil
+					break
+				}
+			}
+			if cm != nil {
+				return Const[V]{o.g.mapHandler.FromMap(cm)}
+			}
+		}
+	}
 	// evaluate const static function calls like sqrt(2)
 	if fc, ok := ast.(*FunctionCall); ok {
 		if name, ok := fc.Func.(Ident); ok {
@@ -48,7 +65,6 @@ func (o optimizer[V]) Optimize(ast AST) AST {
 			}
 		}
 	}
-
 	return nil
 }
 

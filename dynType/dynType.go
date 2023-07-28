@@ -55,6 +55,11 @@ func (v vClosure) Bool() bool {
 	return false
 }
 
+func (v vClosure) CreateFunction() parser2.Function[Value] {
+	c := parser2.Closure[Value](v)
+	return c.CreateFunction()
+}
+
 type vList []Value
 
 func (v vList) Float() float64 {
@@ -63,6 +68,22 @@ func (v vList) Float() float64 {
 
 func (v vList) Bool() bool {
 	return len(v) > 0
+}
+
+func (v vList) Size() Value {
+	return vFloat(len(v))
+}
+
+func (v vList) Map(c vClosure) Value {
+	f := c.CreateFunction()
+	if f.Args != 1 {
+		panic("map requires closure with one argument")
+	}
+	var m = make([]Value, len(v))
+	for i, e := range v {
+		m[i] = f.Func([]Value{e})
+	}
+	return vList(m)
 }
 
 type vMap map[string]Value

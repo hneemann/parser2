@@ -32,16 +32,21 @@ func Test(t *testing.T) {
 		{exp: "ite(1>2,a,2)", res: vFloat(2)},
 		{exp: "true | (a<1)", res: vBool(true)},
 		{exp: "false & (a<1)", res: vBool(false)},
+		{exp: "[1,2,3].size()", res: vFloat(3)},
+		{exp: "[1,2,3].map(e->e*2)", res: vList{vFloat(2), vFloat(4), vFloat(6)}},
 	}
 
 	for _, test := range tests {
-		fu, err := DynType.Generate(test.exp)
-		assert.NoError(t, err, test.exp)
-		if fu != nil {
-			res, err := fu(parser2.Variables[Value]{})
+		test := test
+		t.Run(test.exp, func(t *testing.T) {
+			fu, err := DynType.Generate(test.exp)
 			assert.NoError(t, err, test.exp)
-			assert.EqualValues(t, test.res, res, test.exp)
-		}
+			if fu != nil {
+				res, err := fu(parser2.Variables[Value]{})
+				assert.NoError(t, err, test.exp)
+				assert.EqualValues(t, test.res, res, test.exp)
+			}
+		})
 	}
 }
 
@@ -53,18 +58,22 @@ func TestOptimizer(t *testing.T) {
 		{exp: "1+2", res: float64(3)},
 		{exp: "\"test\"+\"hello\"", res: vString("testhello")},
 		{exp: "[1+2,8/4]", res: vList{vFloat(3), vFloat(2)}},
+		{exp: "{a:1+2,b:8/4}", res: vMap{"a": vFloat(3), "b": vFloat(2)}},
 		{exp: "(1+pi)/(pi+1)", res: vFloat(1)},
 		{exp: "sqrt(4/2)", res: vFloat(math.Sqrt(2))},
 		{exp: "(1<2) & (2<3)", res: vBool(true)},
 	}
 
 	for _, test := range tests {
-		ast, err := DynType.CreateAst(test.exp)
-		assert.NoError(t, err, test.exp)
-		if c, ok := ast.(parser2.Const[Value]); ok {
-			assert.EqualValues(t, test.res, c.Value)
-		} else {
-			t.Errorf("not a constant: %v -> %v", test.exp, ast)
-		}
+		test := test
+		t.Run(test.exp, func(t *testing.T) {
+			ast, err := DynType.CreateAst(test.exp)
+			assert.NoError(t, err, test.exp)
+			if c, ok := ast.(parser2.Const[Value]); ok {
+				assert.EqualValues(t, test.res, c.Value)
+			} else {
+				t.Errorf("not a constant: %v -> %v", test.exp, ast)
+			}
+		})
 	}
 }

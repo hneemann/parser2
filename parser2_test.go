@@ -63,11 +63,14 @@ func TestParser(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		ast, err := parser.Parse(test.exp)
-		assert.NoError(t, err, test.exp)
-		assert.EqualValues(t, test.ast, ast.String())
-		ast = Optimize(ast, simpleOptimizer{})
-		assert.EqualValues(t, test.opt, ast.String())
+		test := test
+		t.Run(test.exp, func(t *testing.T) {
+			ast, err := parser.Parse(test.exp)
+			assert.NoError(t, err, test.exp)
+			assert.EqualValues(t, test.ast, ast.String())
+			ast = Optimize(ast, simpleOptimizer{})
+			assert.EqualValues(t, test.opt, ast.String())
+		})
 	}
 }
 
@@ -128,13 +131,16 @@ func TestCodeGen(t *testing.T) {
 
 	v := vars{"a": 2, "b": 3}
 	for _, test := range tests {
-		ast, err := parser.Parse(test.exp)
-		assert.NoError(t, err, test.exp)
-		fu := codeGen(ast)
-		assert.EqualValues(t, test.res, fu(v))
+		test := test
+		t.Run(test.exp, func(t *testing.T) {
+			ast, err := parser.Parse(test.exp)
+			assert.NoError(t, err, test.exp)
+			fu := codeGen(ast)
+			assert.EqualValues(t, test.res, fu(v))
 
-		ast = Optimize(ast, simpleOptimizer{})
-		fu = codeGen(ast)
-		assert.EqualValues(t, test.res, fu(v))
+			ast = Optimize(ast, simpleOptimizer{})
+			fu = codeGen(ast)
+			assert.EqualValues(t, test.res, fu(v))
+		})
 	}
 }

@@ -1,7 +1,11 @@
 package parser2
 
 import (
+	"bytes"
 	"fmt"
+	"reflect"
+	"unicode"
+	"unicode/utf8"
 )
 
 type Operator[V any] struct {
@@ -38,12 +42,15 @@ type FunctionGenerator[V any] struct {
 	constants       map[string]V
 	opMap           map[string]Operator[V]
 	customGenerator Generator[V]
+	typeOfValue     reflect.Type
 }
 
 func New[V any]() *FunctionGenerator[V] {
+	var v *V
 	g := &FunctionGenerator[V]{
 		staticFuncs: map[string]Function[V]{},
 		constants:   map[string]V{},
+		typeOfValue: reflect.TypeOf(v).Elem(),
 	}
 	g.optimizer = NewOptimizer(g)
 	return g
@@ -222,6 +229,22 @@ type Closure[V any] struct {
 	Context Vars[V]
 }
 
+func (c *Closure[V]) CreateFunction() Function[V] {
+	return Function[V]{
+		Func: func(args []V) V {
+			vm := map[string]V{}
+			for i, n := range c.Names {
+				vm[n] = args[i]
+			}
+			return c.Func(AddVars[V]{
+				Vars:   vm,
+				Parent: c.Context,
+			})
+		},
+		Args: len(c.Names),
+	}
+}
+
 func (g *FunctionGenerator[V]) Gen(ast AST) Code[V] {
 	if g.customGenerator != nil {
 		c := g.customGenerator.Generate(ast, g)
@@ -326,6 +349,20 @@ func (g *FunctionGenerator[V]) Gen(ast AST) Code[V] {
 			}
 			return theFunc.Func(evalList(argsCode, v))
 		}
+	case *MethodCall:
+		valueCode := g.Gen(a.Value)
+		name := a.Name
+		argsCode := g.genList(a.Args)
+		tov := g.typeOfValue
+		return func(v Vars[V]) V {
+			value := valueCode(v)
+			argsValues := make([]reflect.Value, len(argsCode)+1)
+			argsValues[0] = reflect.ValueOf(value)
+			for i, arg := range argsCode {
+				argsValues[i+1] = reflect.ValueOf(arg(v))
+			}
+			return callMethod(value, name, argsValues, tov)
+		}
 	}
 	panic(fmt.Sprintf("not supported: %v", ast))
 }
@@ -365,23 +402,65 @@ func evalMap[V any](argsCode map[string]Code[V], v Vars[V]) map[string]V {
 func (g *FunctionGenerator[V]) extractFunction(fu V) (Function[V], bool) {
 	if g.closureHandler != nil {
 		if c, ok := g.closureHandler.ToClosure(fu); ok {
-			return Function[V]{
-				Func: func(args []V) V {
-					vm := map[string]V{}
-					for i, n := range c.Names {
-						vm[n] = args[i]
-					}
-					return c.Func(AddVars[V]{
-						Vars:   vm,
-						Parent: c.Context,
-					})
-				},
-				Args: len(c.Names),
-			}, true
+			return c.CreateFunction(), true
 		}
 	}
 	if g.toFunction != nil {
 		return g.toFunction(fu)
 	}
 	return Function[V]{}, false
+}
+
+func callMethod[V any](value V, name string, args []reflect.Value, typeOfValue reflect.Type) V {
+	name = firstRuneUpper(name)
+	typeOf := reflect.TypeOf(value)
+	if m, ok := typeOf.MethodByName(name); ok {
+		res := m.Func.Call(args)
+		if len(res) == 1 {
+			if v, ok := res[0].Interface().(V); ok {
+				return v
+			} else {
+				panic(fmt.Errorf("result of method %v is not a value. It is: %v", name, res[0]))
+			}
+		} else {
+			panic(fmt.Errorf("method %v does not return a single value: %v", name, len(res)))
+		}
+	} else {
+		var buf bytes.Buffer
+	outer:
+		for i := 0; i < typeOf.NumMethod(); i++ {
+			m := typeOf.Method(i)
+			mt := m.Type
+			if mt.NumOut() == 1 {
+				if mt.Out(0).Implements(typeOfValue) {
+					for i := 0; i < mt.NumIn(); i++ {
+						if !mt.In(i).Implements(typeOfValue) {
+							continue outer
+						}
+					}
+					if buf.Len() > 0 {
+						buf.WriteString(", ")
+					}
+					buf.WriteString(m.Name)
+					buf.WriteString("(")
+					for i := 1; i < mt.NumIn(); i++ {
+						if i > 1 {
+							buf.WriteString(", ")
+						}
+						buf.WriteString(mt.In(i).Name())
+					}
+					buf.WriteString(")")
+				}
+			}
+		}
+		panic(fmt.Errorf("method %v not found, available are: "+buf.String(), name))
+	}
+}
+
+func firstRuneUpper(name string) string {
+	r, l := utf8.DecodeRune([]byte(name))
+	if unicode.IsUpper(r) {
+		return name
+	}
+	return string(unicode.ToUpper(r)) + name[l:]
 }
