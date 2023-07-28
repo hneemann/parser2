@@ -2,8 +2,8 @@ package dynType
 
 import (
 	"fmt"
+	"github.com/hneemann/parser2"
 	"math"
-	"parser2"
 	"strconv"
 )
 

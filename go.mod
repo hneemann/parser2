@@ -1,4 +1,4 @@
-module parser2
+module github.com/hneemann/parser2
 
 go 1.18
 

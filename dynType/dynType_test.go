@@ -1,9 +1,9 @@
 package dynType
 
 import (
+	"github.com/hneemann/parser2"
 	"github.com/stretchr/testify/assert"
 	"math"
-	"parser2"
 	"testing"
 )
 
