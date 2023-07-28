@@ -1,0 +1,277 @@
+package dynType
+
+import (
+	"fmt"
+	"math"
+	"parser2"
+	"strconv"
+)
+
+type Value interface {
+	Float() float64
+	Bool() bool
+}
+
+type vFloat float64
+
+func (v vFloat) Float() float64 {
+	return float64(v)
+}
+
+func (v vFloat) Bool() bool {
+	return v != 0
+}
+
+type vString string
+
+func (v vString) Float() float64 {
+	return 0
+}
+
+func (v vString) Bool() bool {
+	return len(v) > 0
+}
+
+type vBool bool
+
+func (v vBool) Float() float64 {
+	if v {
+		return 1
+	}
+	return 0
+}
+
+func (v vBool) Bool() bool {
+	return bool(v)
+}
+
+type vClosure parser2.Closure[Value]
+
+func (v vClosure) Float() float64 {
+	return 0
+}
+
+func (v vClosure) Bool() bool {
+	return false
+}
+
+type vList []Value
+
+func (v vList) Float() float64 {
+	return 0
+}
+
+func (v vList) Bool() bool {
+	return len(v) > 0
+}
+
+type vMap map[string]Value
+
+func (v vMap) Float() float64 {
+	return 0
+}
+
+func (v vMap) Bool() bool {
+	return len(v) > 0
+}
+
+func vOr(a, b Value) Value {
+	return vBool(a.Bool() || b.Bool())
+}
+
+func vAnd(a, b Value) Value {
+	return vBool(a.Bool() && b.Bool())
+}
+
+func vEqual(a, b Value) Value {
+	if as, oka := a.(vString); oka {
+		if bs, okb := b.(vString); okb {
+			return vBool(as == bs)
+		}
+	}
+	if ab, oka := a.(vBool); oka {
+		if bb, okb := b.(vBool); okb {
+			return vBool(ab == bb)
+		}
+	}
+	return vBool(a.Float() == b.Float())
+}
+
+func vNotEqual(a, b Value) Value {
+	return !vEqual(a, b).(vBool)
+}
+
+func vLess(a, b Value) Value {
+	if as, oka := a.(vString); oka {
+		if bs, okb := b.(vString); okb {
+			return vBool(as < bs)
+		}
+	}
+	return vBool(a.Float() < b.Float())
+}
+
+func vLessEqual(a, b Value) Value {
+	if as, oka := a.(vString); oka {
+		if bs, okb := b.(vString); okb {
+			return vBool(as <= bs)
+		}
+	}
+	return vBool(a.Float() <= b.Float())
+}
+
+func swap(f func(a, b Value) Value) func(a, b Value) Value {
+	return func(a, b Value) Value {
+		return f(b, a)
+	}
+}
+
+func vAdd(a, b Value) Value {
+	if af, oka := a.(vString); oka {
+		if bf, okb := b.(vString); okb {
+			return af + bf
+		}
+	}
+	return vFloat(a.Float() + b.Float())
+}
+
+func vSub(a, b Value) Value {
+	return vFloat(a.Float() - b.Float())
+}
+
+func vMul(a, b Value) Value {
+	return vFloat(a.Float() * b.Float())
+}
+
+func vDiv(a, b Value) Value {
+	return vFloat(a.Float() / b.Float())
+}
+
+type typeHandler struct{}
+
+func (th typeHandler) Parse(s string) (Value, error) {
+	f, err := strconv.ParseFloat(s, 64)
+	return vFloat(f), err
+}
+
+func (th typeHandler) FromClosure(closure parser2.Closure[Value]) Value {
+	return vClosure(closure)
+}
+
+func (th typeHandler) ToClosure(fu Value) (parser2.Closure[Value], bool) {
+	cl, ok := fu.(vClosure)
+	return parser2.Closure[Value](cl), ok
+}
+
+func (th typeHandler) FromList(items []Value) Value {
+	return vList(items)
+}
+
+func (th typeHandler) AccessList(list Value, index Value) (Value, error) {
+	li, ok := list.(vList)
+	if ok {
+		i := int(index.Float())
+		if i < 0 || i >= len(li) {
+			return nil, fmt.Errorf("list index out of bounds: %v", i)
+		}
+		return li[i], nil
+	} else {
+		return nil, fmt.Errorf("not a list: %v", list)
+	}
+}
+
+func (th typeHandler) FromMap(items map[string]Value) Value {
+	return vMap(items)
+}
+
+func (th typeHandler) AccessMap(m Value, key string) (Value, error) {
+	ma, ok := m.(vMap)
+	if ok {
+		if v, ok := ma[key]; ok {
+			return v, nil
+		} else {
+			return nil, fmt.Errorf("map does not contain %v", key)
+		}
+	} else {
+		return nil, fmt.Errorf("not a map: %v", m)
+	}
+}
+
+func (th typeHandler) FromString(s string) Value {
+	return vString(s)
+}
+
+func (th typeHandler) Generate(ast parser2.AST, g *parser2.FunctionGenerator[Value]) parser2.Code[Value] {
+	// ite without evaluation of not required expression
+	if fc, ok := ast.(*parser2.FunctionCall); ok && len(fc.Args) == 3 {
+		if id, ok := fc.Func.(parser2.Ident); ok {
+			if id == "ite" {
+				condCode := g.Gen(fc.Args[0])
+				thenCode := g.Gen(fc.Args[1])
+				elseCode := g.Gen(fc.Args[2])
+				return func(v parser2.Vars[Value]) Value {
+					if condCode(v).Bool() {
+						return thenCode(v)
+					} else {
+						return elseCode(v)
+					}
+				}
+			}
+		}
+	}
+	if op, ok := ast.(*parser2.Operate); ok {
+		// AND and OR with short evaluation
+		switch op.Operator {
+		case "&":
+			aCode := g.Gen(op.A)
+			bCode := g.Gen(op.B)
+			return func(v parser2.Vars[Value]) Value {
+				if !aCode(v).Bool() {
+					return vBool(false)
+				} else {
+					return vBool(bCode(v).Bool())
+				}
+			}
+		case "|":
+			aCode := g.Gen(op.A)
+			bCode := g.Gen(op.B)
+			return func(v parser2.Vars[Value]) Value {
+				if aCode(v).Bool() {
+					return vBool(true)
+				} else {
+					return vBool(bCode(v).Bool())
+				}
+			}
+		}
+	}
+	return nil
+}
+
+var th typeHandler
+
+var DynType = parser2.New[Value]().
+	AddOp("|", vOr).
+	AddOp("&", vAnd).
+	AddOp("=", vEqual).
+	AddOp("!=", vNotEqual).
+	AddOp("<", vLess).
+	AddOp(">", swap(vLess)).
+	AddOp("<=", vLessEqual).
+	AddOp(">=", swap(vLessEqual)).
+	AddOp("+", vAdd).
+	AddOp("-", vSub).
+	AddOp("*", vMul).
+	AddOp("/", vDiv).
+	SetListHandler(th).
+	SetMapHandler(th).
+	SetStringHandler(th).
+	SetClosureHandler(th).
+	SetNumberParser(th).
+	SetCustomGenerator(th).
+	AddConstant("pi", vFloat(math.Pi)).
+	AddConstant("true", vBool(true)).
+	AddConstant("false", vBool(false)).
+	AddStaticFunction("sqrt", parser2.Function[Value]{
+		Func:   func(v []Value) Value { return vFloat(math.Sqrt(v[0].Float())) },
+		Args:   1,
+		IsPure: true,
+	})
