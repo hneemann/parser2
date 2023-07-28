@@ -19,7 +19,7 @@ func (o optimizer[V]) Optimize(ast AST) AST {
 	}
 	// evaluate const operations like 1+2
 	if oper, ok := ast.(*Operate); ok {
-		if operator, ok := o.g.opMap[oper.Operator]; ok {
+		if operator, ok := o.g.opMap[oper.Operator]; ok && operator.IsPure {
 			if ac, ok := o.isConst(oper.A); ok {
 				if bc, ok := o.isConst(oper.B); ok {
 					return Const[V]{operator.Impl(ac, bc)}

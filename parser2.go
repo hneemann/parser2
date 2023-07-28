@@ -447,20 +447,20 @@ func (p *Parser[V]) SetStringHandler(stringHandler StringHandler[V]) *Parser[V] 
 	return p
 }
 
-// Number sets the number Matcher
-func (p *Parser[V]) Number(num Matcher) *Parser[V] {
+// SetNumberMatcher sets the number Matcher
+func (p *Parser[V]) SetNumberMatcher(num Matcher) *Parser[V] {
 	p.number = num
 	return p
 }
 
-// Identifier sets the identifier Matcher
-func (p *Parser[V]) Identifier(ident Matcher) *Parser[V] {
+// SetIdentMatcher sets the identifier Matcher
+func (p *Parser[V]) SetIdentMatcher(ident Matcher) *Parser[V] {
 	p.identifier = ident
 	return p
 }
 
-// Operator sets the operator Matcher
-func (p *Parser[V]) Operator(operator Matcher) *Parser[V] {
+// SetOperatorMatcher sets the operator Matcher
+func (p *Parser[V]) SetOperatorMatcher(operator Matcher) *Parser[V] {
 	p.operator = operator
 	return p
 }

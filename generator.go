@@ -11,6 +11,7 @@ import (
 type Operator[V any] struct {
 	Operator string
 	Impl     func(a, b V) V
+	IsPure   bool
 }
 
 type UnaryOperator[V any] struct {
@@ -91,6 +92,9 @@ func (g *FunctionGenerator[V]) Parser() *Parser[V] {
 }
 
 func (g *FunctionGenerator[V]) SetNumberParser(numberParser NumberParser[V]) *FunctionGenerator[V] {
+	if g.parser != nil {
+		panic("parser already created")
+	}
 	g.numberParser = numberParser
 	return g
 }
@@ -111,6 +115,9 @@ func (g *FunctionGenerator[V]) SetMapHandler(mapHandler MapHandler[V]) *Function
 }
 
 func (g *FunctionGenerator[V]) SetStringHandler(stringHandler StringHandler[V]) *FunctionGenerator[V] {
+	if g.parser != nil {
+		panic("parser already created")
+	}
 	g.stringHandler = stringHandler
 	return g
 }
@@ -136,18 +143,35 @@ func (g *FunctionGenerator[V]) AddConstant(n string, c V) *FunctionGenerator[V] 
 }
 
 func (g *FunctionGenerator[V]) AddOp(operator string, impl func(a V, b V) V) *FunctionGenerator[V] {
+	g.AddOpPure(operator, impl, true)
+	return g
+}
+
+func (g *FunctionGenerator[V]) AddOpPure(operator string, impl func(a V, b V) V, isPure bool) *FunctionGenerator[V] {
+	if g.parser != nil {
+		panic("parser already created")
+	}
 	g.operators = append(g.operators, Operator[V]{
+		Operator: operator,
+		Impl:     impl,
+		IsPure:   isPure,
+	})
+	return g
+}
+
+func (g *FunctionGenerator[V]) AddUnary(operator string, impl func(a V) V) *FunctionGenerator[V] {
+	if g.parser != nil {
+		panic("parser already created")
+	}
+	g.unary = append(g.unary, UnaryOperator[V]{
 		Operator: operator,
 		Impl:     impl,
 	})
 	return g
 }
 
-func (g *FunctionGenerator[V]) AddUnary(operator string, impl func(a V) V) *FunctionGenerator[V] {
-	g.unary = append(g.unary, UnaryOperator[V]{
-		Operator: operator,
-		Impl:     impl,
-	})
+func (g *FunctionGenerator[V]) ModifyParser(modify func(a *Parser[V])) *FunctionGenerator[V] {
+	modify(g.Parser())
 	return g
 }
 
@@ -237,6 +261,10 @@ type Function[V any] struct {
 	Func   func(a []V) V
 	Args   int
 	IsPure bool
+}
+
+func (f *Function[V]) Eval(a ...V) V {
+	return f.Func(a)
 }
 
 type Closure[V any] struct {
