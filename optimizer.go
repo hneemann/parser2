@@ -63,7 +63,7 @@ func (o optimizer[V]) Optimize(ast AST) AST {
 	// evaluate const static function calls like sqrt(2)
 	if fc, ok := ast.(*FunctionCall); ok {
 		if name, ok := fc.Func.(Ident); ok {
-			if fu, ok := o.g.staticFuncs[string(name)]; ok && fu.IsPure {
+			if fu, ok := o.g.staticFunctions[string(name)]; ok && fu.IsPure {
 				if fu.Args >= 0 && fu.Args != len(fc.Args) {
 					panic(fmt.Sprintf("number of args wrong in: %v", fc))
 				}

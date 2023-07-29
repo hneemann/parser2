@@ -208,6 +208,11 @@ func (th typeHandler) FromMap(items map[string]Value) Value {
 	return vMap(items)
 }
 
+func (th typeHandler) IsMap(m Value) bool {
+	_, ok := m.(vMap)
+	return ok
+}
+
 func (th typeHandler) AccessMap(m Value, key string) (Value, error) {
 	ma, ok := m.(vMap)
 	if ok {

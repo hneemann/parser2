@@ -37,6 +37,7 @@ func Test(t *testing.T) {
 		{exp: "let lp=lowPass(-1/ln(0.5)); [lp(0,0),lp(1,1),lp(2,1),lp(3,1)]", res: vList{vFloat(0), vFloat(0.5), vFloat(0.75), vFloat(0.875)}},
 		{exp: "let a=1;sprintf(\"%v->%v\",a,2)", res: vString("1->2")},
 		{exp: "let a=1;sprintf(\"%v->\",a)", res: vString("1->")},
+		{exp: "{a:x->x*2,b:x->x*3}.b(4)", res: vFloat(12)},
 	}
 
 	for _, test := range tests {

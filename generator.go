@@ -8,32 +8,55 @@ import (
 	"unicode/utf8"
 )
 
+// Operator defines a operator like +
 type Operator[V any] struct {
+	// Operator is the operator as a string like "+"
 	Operator string
-	Impl     func(a, b V) V
-	IsPure   bool
+	// Impl is the implementation of the operation
+	Impl func(a, b V) V
+	// IsPure is true if the result of the operation depends only on the operands.
+	// This is usually the case, there are only special corner cases where it is not.
+	// So IsPure is usually true.
+	IsPure bool
 }
 
+// UnaryOperator defines a operator like - or !
 type UnaryOperator[V any] struct {
+	// Operator is the operator as a string like "+"
 	Operator string
-	Impl     func(a V) V
+	// Impl is the implementation of the operation
+	Impl func(a V) V
 }
 
+// ClosureHandler is used to convert closures
 type ClosureHandler[V any] interface {
+	// FromClosure is used to convert a closure to a value
 	FromClosure(c Closure[V]) V
-	ToClosure(fu V) (Closure[V], bool)
+	// ToClosure is used to convert a value to a closure
+	// It returns the closure and a bool which is true if the value was a closure
+	ToClosure(c V) (Closure[V], bool)
 }
 
+// ListHandler is used to create and access lists or array
 type ListHandler[V any] interface {
+	// FromList is used to convert a list to a value
 	FromList(items []V) V
+	// AccessList is used to get a value from a list
 	AccessList(list V, index V) (V, error)
 }
 
+// MapHandler is used to create and access maps
 type MapHandler[V any] interface {
+	// FromMap creates a map
 	FromMap(items map[string]V) V
+	// AccessMap is used to get a value from a map
 	AccessMap(m V, key string) (V, error)
+	// IsMap is used to check if the given value is a map
+	IsMap(value V) bool
 }
 
+// FunctionGenerator is used to create a closure based implementation of
+// the given expression. The type parameter gives the type the parser works on.
 type FunctionGenerator[V any] struct {
 	parser          *Parser[V]
 	operators       []Operator[V]
@@ -44,7 +67,7 @@ type FunctionGenerator[V any] struct {
 	listHandler     ListHandler[V]
 	mapHandler      MapHandler[V]
 	optimizer       Optimizer
-	staticFuncs     map[string]Function[V]
+	staticFunctions map[string]Function[V]
 	constants       map[string]V
 	opMap           map[string]Operator[V]
 	uMap            map[string]UnaryOperator[V]
@@ -52,18 +75,19 @@ type FunctionGenerator[V any] struct {
 	typeOfValue     reflect.Type
 }
 
+// New creates a new FunctionGenerator
 func New[V any]() *FunctionGenerator[V] {
 	var v *V
 	g := &FunctionGenerator[V]{
-		staticFuncs: map[string]Function[V]{},
-		constants:   map[string]V{},
-		typeOfValue: reflect.TypeOf(v).Elem(),
+		staticFunctions: map[string]Function[V]{},
+		constants:       map[string]V{},
+		typeOfValue:     reflect.TypeOf(v).Elem(),
 	}
 	g.optimizer = NewOptimizer(g)
 	return g
 }
 
-func (g *FunctionGenerator[V]) Parser() *Parser[V] {
+func (g *FunctionGenerator[V]) getParser() *Parser[V] {
 	if g.parser == nil {
 		if g.numberParser == nil {
 			panic("no number parser set")
@@ -133,7 +157,7 @@ func (g *FunctionGenerator[V]) SetCustomGenerator(generator Generator[V]) *Funct
 }
 
 func (g *FunctionGenerator[V]) AddStaticFunction(n string, f Function[V]) *FunctionGenerator[V] {
-	g.staticFuncs[n] = f
+	g.staticFunctions[n] = f
 	return g
 }
 
@@ -171,7 +195,7 @@ func (g *FunctionGenerator[V]) AddUnary(operator string, impl func(a V) V) *Func
 }
 
 func (g *FunctionGenerator[V]) ModifyParser(modify func(a *Parser[V])) *FunctionGenerator[V] {
-	modify(g.Parser())
+	modify(g.getParser())
 	return g
 }
 
@@ -246,7 +270,7 @@ func (g *FunctionGenerator[V]) Generate(exp string) (c func(Vars[V]) (V, error),
 }
 
 func (g *FunctionGenerator[V]) CreateAst(exp string) (AST, error) {
-	ast, err := g.Parser().Parse(exp)
+	ast, err := g.getParser().Parse(exp)
 	if err != nil {
 		return nil, fmt.Errorf("error parsing expression: %w", err)
 	}
@@ -377,7 +401,7 @@ func (g *FunctionGenerator[V]) Gen(ast AST) Code[V] {
 		}
 	case *FunctionCall:
 		if id, ok := a.Func.(Ident); ok {
-			if fun, ok := g.staticFuncs[string(id)]; ok {
+			if fun, ok := g.staticFunctions[string(id)]; ok {
 				if fun.Args >= 0 && fun.Args != len(a.Args) {
 					panic(fmt.Errorf("wrong number of arguments in call to %v", id))
 				}
@@ -406,6 +430,15 @@ func (g *FunctionGenerator[V]) Gen(ast AST) Code[V] {
 		tov := g.typeOfValue
 		return func(v Vars[V]) V {
 			value := valueCode(v)
+			// name could be a method, but it could also be the name of a field which stores a closure
+			// If it is a closure field, this should be a map access!
+			if g.mapHandler != nil && g.mapHandler.IsMap(value) {
+				if va, err := g.mapHandler.AccessMap(value, name); err == nil {
+					if theFunc, ok := g.extractFunction(va); ok {
+						return theFunc.Func(evalList(argsCode, v))
+					}
+				}
+			}
 			argsValues := make([]reflect.Value, len(argsCode)+1)
 			argsValues[0] = reflect.ValueOf(value)
 			for i, arg := range argsCode {

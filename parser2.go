@@ -405,7 +405,7 @@ type Parser[V any] struct {
 	allowComments bool
 }
 
-// New creates a new Parser
+// NewParser creates a new Parser
 func NewParser[V any]() *Parser[V] {
 	return &Parser[V]{
 		unary:      map[string]struct{}{},
