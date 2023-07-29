@@ -210,16 +210,17 @@ func (g *FunctionGenerator[V]) ModifyParser(modify func(a *Parser[V])) *Function
 }
 
 type Vars[V any] interface {
-	Get(string) V
+	Get(string) (V, bool)
 }
 
 type Variables[V any] map[string]V
 
-func (v Variables[V]) Get(k string) V {
+func (v Variables[V]) Get(k string) (V, bool) {
 	if va, ok := v[k]; ok {
-		return va
+		return va, true
+	} else {
+		return va, false
 	}
-	panic(fmt.Sprintf("variable not found: %v", k))
 }
 
 type addVar[V any] struct {
@@ -228,9 +229,9 @@ type addVar[V any] struct {
 	parent Vars[V]
 }
 
-func (a addVar[V]) Get(s string) V {
+func (a addVar[V]) Get(s string) (V, bool) {
 	if s == a.name {
-		return a.val
+		return a.val, true
 	}
 	return a.parent.Get(s)
 }
@@ -240,9 +241,9 @@ type AddVars[V any] struct {
 	Parent Vars[V]
 }
 
-func (a AddVars[V]) Get(s string) V {
+func (a AddVars[V]) Get(s string) (V, bool) {
 	if v, ok := a.Vars[s]; ok {
-		return v
+		return v, true
 	}
 	return a.Parent.Get(s)
 }
@@ -302,25 +303,7 @@ func (f *Function[V]) Eval(a ...V) V {
 }
 
 type Closure[V any] struct {
-	Names   []string
-	Func    Code[V]
-	Context Vars[V]
-}
-
-func (c *Closure[V]) CreateFunction() Function[V] {
-	return Function[V]{
-		Func: func(args []V) V {
-			vm := map[string]V{}
-			for i, n := range c.Names {
-				vm[n] = args[i]
-			}
-			return c.Func(AddVars[V]{
-				Vars:   vm,
-				Parent: c.Context,
-			})
-		},
-		Args: len(c.Names),
-	}
+	Impl Function[V]
 }
 
 func (g *FunctionGenerator[V]) Gen(ast AST) Code[V] {
@@ -333,7 +316,11 @@ func (g *FunctionGenerator[V]) Gen(ast AST) Code[V] {
 	switch a := ast.(type) {
 	case Ident:
 		return func(v Vars[V]) V {
-			return v.Get(string(a))
+			if va, ok := v.Get(string(a)); ok {
+				return va
+			} else {
+				panic(fmt.Sprintf("variable '%v' not found", a))
+			}
 		}
 	case Const[V]:
 		n := a.Value
@@ -363,7 +350,20 @@ func (g *FunctionGenerator[V]) Gen(ast AST) Code[V] {
 	case *ClosureLiteral:
 		fu := g.Gen(a.Func)
 		return func(v Vars[V]) V {
-			return g.closureHandler.FromClosure(Closure[V]{Names: a.Names, Func: fu, Context: v})
+			return g.closureHandler.FromClosure(Closure[V]{
+				Impl: Function[V]{
+					Func: func(args []V) V {
+						vm := map[string]V{}
+						for i, n := range a.Names {
+							vm[n] = args[i]
+						}
+						return fu(AddVars[V]{
+							Vars:   vm,
+							Parent: v,
+						})
+					},
+					Args: len(a.Names),
+				}})
 		}
 	case ListLiteral:
 		if g.listHandler != nil {
@@ -495,7 +495,7 @@ func evalMap[V any](argsCode map[string]Code[V], v Vars[V]) map[string]V {
 func (g *FunctionGenerator[V]) extractFunction(fu V) (Function[V], bool) {
 	if g.closureHandler != nil {
 		if c, ok := g.closureHandler.ToClosure(fu); ok {
-			return c.CreateFunction(), true
+			return c.Impl, true
 		}
 	}
 	return Function[V]{}, false

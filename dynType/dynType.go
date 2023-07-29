@@ -57,7 +57,7 @@ func (v vClosure) Bool() bool {
 
 func (v vClosure) CreateFunction() parser2.Function[Value] {
 	c := parser2.Closure[Value](v)
-	return c.CreateFunction()
+	return c.Impl
 }
 
 type vList []Value
@@ -347,22 +347,24 @@ func lowPass(a []Value) Value {
 	lt := 0.0
 	lx := 0.0
 	return vClosure{
-		Names: []string{"t", "x"},
-		Func: func(v parser2.Vars[Value]) Value {
-			t := v.Get("t").Float()
-			x := v.Get("x").Float()
-			if !init {
-				lt = t
-				lx = x
-				init = true
-			} else {
-				dt := t - lt
-				a := math.Exp(-dt / tau)
-				lx = lx*a + x*(1-a)
-				lt = t
-			}
-			return vFloat(lx)
+		Impl: parser2.Function[Value]{
+			Func: func(args []Value) Value {
+				t := args[0].Float()
+				x := args[1].Float()
+				if !init {
+					lt = t
+					lx = x
+					init = true
+				} else {
+					dt := t - lt
+					a := math.Exp(-dt / tau)
+					lx = lx*a + x*(1-a)
+					lt = t
+				}
+				return vFloat(lx)
+			},
+			Args:   2,
+			IsPure: false,
 		},
-		Context: nil,
 	}
 }
