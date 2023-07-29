@@ -37,7 +37,7 @@ type ClosureHandler[V any] interface {
 	ToClosure(c V) (Closure[V], bool)
 }
 
-// ListHandler is used to create and access lists or array
+// ListHandler is used to create and access lists or arrays
 type ListHandler[V any] interface {
 	// FromList is used to convert a list to a value
 	FromList(items []V) V

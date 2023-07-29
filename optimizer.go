@@ -27,7 +27,7 @@ func (o optimizer[V]) Optimize(ast AST) AST {
 			}
 		}
 	}
-	// evaluate const operations like -1
+	// evaluate const unary operations like -1
 	if oper, ok := ast.(*Unary); ok {
 		if operator, ok := o.g.uMap[oper.Operator]; ok {
 			if c, ok := o.isConst(oper.Value); ok {

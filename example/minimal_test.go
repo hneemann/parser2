@@ -33,13 +33,16 @@ func Test(t *testing.T) {
 		test := test
 		t.Run(test.exp, func(t *testing.T) {
 			// check result
+			// create the function which evaluates the given expression
 			f, err := minimal.Generate(test.exp)
 			assert.NoError(t, err)
+			// evaluate the function using the given variables
 			r, err := f(a)
 			assert.NoError(t, err)
 			assert.InDelta(t, test.result, r, 1e-6)
 
 			// check optimizer
+			// not required in production usage
 			ast, err := minimal.CreateAst(test.exp)
 			assert.NoError(t, err)
 			assert.EqualValues(t, test.optimizes, ast.String())

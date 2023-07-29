@@ -25,13 +25,16 @@ func TestBool(t *testing.T) {
 		test := test
 		t.Run(test.exp, func(t *testing.T) {
 			//check result
+			// create the function which evaluates the given expression
 			f, err := boolParser.Generate(test.exp)
 			assert.NoError(t, err)
+			// evaluate the function using the given variables
 			r, err := f(vars)
 			assert.NoError(t, err)
 			assert.Equal(t, test.result, r)
 
 			// check optimizer
+			// not required in production usage
 			ast, err := boolParser.CreateAst(test.exp)
 			assert.NoError(t, err)
 			assert.EqualValues(t, test.optimizes, ast.String())
