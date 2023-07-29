@@ -230,19 +230,19 @@ func (th typeHandler) FromString(s string) Value {
 	return vString(s)
 }
 
-func (th typeHandler) Generate(ast parser2.AST, g *parser2.FunctionGenerator[Value]) parser2.Code[Value] {
+func (th typeHandler) Generate(ast parser2.AST, g *parser2.FunctionGenerator[Value]) parser2.Func[Value] {
 	// ite without evaluation of not required expression
 	if fc, ok := ast.(*parser2.FunctionCall); ok && len(fc.Args) == 3 {
 		if id, ok := fc.Func.(parser2.Ident); ok {
 			if id == "ite" {
-				condCode := g.GenerateCode(fc.Args[0])
-				thenCode := g.GenerateCode(fc.Args[1])
-				elseCode := g.GenerateCode(fc.Args[2])
+				condFunc := g.GenerateFunc(fc.Args[0])
+				thenFunc := g.GenerateFunc(fc.Args[1])
+				elseFunc := g.GenerateFunc(fc.Args[2])
 				return func(v parser2.Variables[Value]) Value {
-					if condCode(v).Bool() {
-						return thenCode(v)
+					if condFunc(v).Bool() {
+						return thenFunc(v)
 					} else {
-						return elseCode(v)
+						return elseFunc(v)
 					}
 				}
 			}
@@ -252,23 +252,23 @@ func (th typeHandler) Generate(ast parser2.AST, g *parser2.FunctionGenerator[Val
 		// AND and OR with short evaluation
 		switch op.Operator {
 		case "&":
-			aCode := g.GenerateCode(op.A)
-			bCode := g.GenerateCode(op.B)
+			aFunc := g.GenerateFunc(op.A)
+			bFunc := g.GenerateFunc(op.B)
 			return func(v parser2.Variables[Value]) Value {
-				if !aCode(v).Bool() {
+				if !aFunc(v).Bool() {
 					return vBool(false)
 				} else {
-					return vBool(bCode(v).Bool())
+					return vBool(bFunc(v).Bool())
 				}
 			}
 		case "|":
-			aCode := g.GenerateCode(op.A)
-			bCode := g.GenerateCode(op.B)
+			aFunc := g.GenerateFunc(op.A)
+			bFunc := g.GenerateFunc(op.B)
 			return func(v parser2.Variables[Value]) Value {
-				if aCode(v).Bool() {
+				if aFunc(v).Bool() {
 					return vBool(true)
 				} else {
-					return vBool(bCode(v).Bool())
+					return vBool(bFunc(v).Bool())
 				}
 			}
 		}
