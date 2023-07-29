@@ -13,13 +13,23 @@ type Visitor interface {
 	Visit(AST)
 }
 
+// Optimizer is used to perform optimization on ast level
 type Optimizer interface {
+	// Optimize takes an AST and tries to optimize it.
+	// If an optimization is found, the optimizes AST is returned.
+	// If no optimization is found, nil is returned.
 	Optimize(AST) AST
 }
 
+// AST represents a node in the AST
 type AST interface {
+	// Traverse visits the complete AST
 	Traverse(Visitor)
+	// Optimize is called to optimize the AST
+	// At first the children Optimize method is called and
+	// After that the own node is to be optimized.
 	Optimize(Optimizer)
+	// String return a string representation of the AST
 	String() string
 }
 
@@ -300,6 +310,7 @@ func (i Ident) Traverse(visitor Visitor) {
 }
 
 func (i Ident) Optimize(optimizer Optimizer) {
+
 }
 
 func (i Ident) String() string {
@@ -384,8 +395,15 @@ func (s simpleOperator) Matches(r rune) bool {
 	return strings.ContainsRune("+-*/&|!~<=>^", r)
 }
 
+// NumberParser is used to convert a string to a number
 type NumberParser[V any] interface {
 	Parse(n string) (V, error)
+}
+
+type NumberParserFunc[V any] func(n string) (V, error)
+
+func (npf NumberParserFunc[V]) Parse(n string) (V, error) {
+	return npf(n)
 }
 
 type StringHandler[V any] interface {
@@ -416,8 +434,9 @@ func NewParser[V any]() *Parser[V] {
 }
 
 // Op adds an operation to the parser
-// The name gives the operation name e.g."+" and the function
-// needs to implement the operation.
+// The name gives the operations name e.g."+"
+// The operation with the lowest priority needs to be added first.
+// The operation with the highest priority needs to be added last.
 func (p *Parser[V]) Op(name ...string) *Parser[V] {
 	if len(p.operators) == 0 {
 		p.operators = name
@@ -478,7 +497,7 @@ func (p *Parser[V]) AllowComments() *Parser[V] {
 	return p
 }
 
-// Parse parses the given string and returns a Function
+// Parse parses the given string and returns an ast
 func (p *Parser[V]) Parse(str string) (ast AST, err error) {
 	defer func() {
 		rec := recover()

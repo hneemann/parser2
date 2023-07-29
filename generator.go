@@ -89,10 +89,6 @@ func New[V any]() *FunctionGenerator[V] {
 
 func (g *FunctionGenerator[V]) getParser() *Parser[V] {
 	if g.parser == nil {
-		if g.numberParser == nil {
-			panic("no number parser set")
-		}
-
 		parser := NewParser[V]().
 			SetNumberParser(g.numberParser).
 			SetStringHandler(g.stringHandler)
@@ -156,6 +152,14 @@ func (g *FunctionGenerator[V]) SetCustomGenerator(generator Generator[V]) *Funct
 	return g
 }
 
+func (g *FunctionGenerator[V]) AddSimpleFunction(name string, f func(V) V) *FunctionGenerator[V] {
+	return g.AddStaticFunction(name, Function[V]{
+		Func:   func(a []V) V { return f(a[0]) },
+		Args:   1,
+		IsPure: true,
+	})
+}
+
 func (g *FunctionGenerator[V]) AddStaticFunction(n string, f Function[V]) *FunctionGenerator[V] {
 	g.staticFunctions[n] = f
 	return g
@@ -166,11 +170,17 @@ func (g *FunctionGenerator[V]) AddConstant(n string, c V) *FunctionGenerator[V] 
 	return g
 }
 
+// AddOp adds an operation to the generator.
+// The Operation needs to be pure.
+// The operation with the lowest priority needs to be added first.
+// The operation with the highest priority needs to be added last.
 func (g *FunctionGenerator[V]) AddOp(operator string, impl func(a V, b V) V) *FunctionGenerator[V] {
-	g.AddOpPure(operator, impl, true)
-	return g
+	return g.AddOpPure(operator, impl, true)
 }
 
+// AddOpPure adds an operation to the generator.
+// The operation with the lowest priority needs to be added first.
+// The operation with the highest priority needs to be added last.
 func (g *FunctionGenerator[V]) AddOpPure(operator string, impl func(a V, b V) V, isPure bool) *FunctionGenerator[V] {
 	if g.parser != nil {
 		panic("parser already created")
