@@ -28,7 +28,7 @@ func Test(t *testing.T) {
 		{"sin(pi/a)", 1, "sin(3.141592653589793/a)"},
 	}
 
-	a := parser2.Variables[float64]{"a": 2}
+	a := parser2.VarMap[float64]{"a": 2}
 	for _, test := range tests {
 		test := test
 		t.Run(test.exp, func(t *testing.T) {

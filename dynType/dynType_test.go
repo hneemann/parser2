@@ -46,7 +46,7 @@ func Test(t *testing.T) {
 			fu, err := DynType.Generate(test.exp)
 			assert.NoError(t, err, test.exp)
 			if fu != nil {
-				res, err := fu(parser2.Variables[Value]{})
+				res, err := fu(parser2.VarMap[Value]{})
 				assert.NoError(t, err, test.exp)
 				assert.EqualValues(t, test.res, res, test.exp)
 			}

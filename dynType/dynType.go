@@ -235,10 +235,10 @@ func (th typeHandler) Generate(ast parser2.AST, g *parser2.FunctionGenerator[Val
 	if fc, ok := ast.(*parser2.FunctionCall); ok && len(fc.Args) == 3 {
 		if id, ok := fc.Func.(parser2.Ident); ok {
 			if id == "ite" {
-				condCode := g.Gen(fc.Args[0])
-				thenCode := g.Gen(fc.Args[1])
-				elseCode := g.Gen(fc.Args[2])
-				return func(v parser2.Vars[Value]) Value {
+				condCode := g.GenerateCode(fc.Args[0])
+				thenCode := g.GenerateCode(fc.Args[1])
+				elseCode := g.GenerateCode(fc.Args[2])
+				return func(v parser2.Variables[Value]) Value {
 					if condCode(v).Bool() {
 						return thenCode(v)
 					} else {
@@ -252,9 +252,9 @@ func (th typeHandler) Generate(ast parser2.AST, g *parser2.FunctionGenerator[Val
 		// AND and OR with short evaluation
 		switch op.Operator {
 		case "&":
-			aCode := g.Gen(op.A)
-			bCode := g.Gen(op.B)
-			return func(v parser2.Vars[Value]) Value {
+			aCode := g.GenerateCode(op.A)
+			bCode := g.GenerateCode(op.B)
+			return func(v parser2.Variables[Value]) Value {
 				if !aCode(v).Bool() {
 					return vBool(false)
 				} else {
@@ -262,9 +262,9 @@ func (th typeHandler) Generate(ast parser2.AST, g *parser2.FunctionGenerator[Val
 				}
 			}
 		case "|":
-			aCode := g.Gen(op.A)
-			bCode := g.Gen(op.B)
-			return func(v parser2.Vars[Value]) Value {
+			aCode := g.GenerateCode(op.A)
+			bCode := g.GenerateCode(op.B)
+			return func(v parser2.Variables[Value]) Value {
 				if aCode(v).Bool() {
 					return vBool(true)
 				} else {

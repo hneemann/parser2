@@ -209,13 +209,16 @@ func (g *FunctionGenerator[V]) ModifyParser(modify func(a *Parser[V])) *Function
 	return g
 }
 
-type Vars[V any] interface {
+// Variables is used to access variables
+type Variables[V any] interface {
+	// Get returns the value of the given name
+	// False is returned if the value does not exist.
 	Get(string) (V, bool)
 }
 
-type Variables[V any] map[string]V
+type VarMap[V any] map[string]V
 
-func (v Variables[V]) Get(k string) (V, bool) {
+func (v VarMap[V]) Get(k string) (V, bool) {
 	if va, ok := v[k]; ok {
 		return va, true
 	} else {
@@ -226,7 +229,7 @@ func (v Variables[V]) Get(k string) (V, bool) {
 type addVar[V any] struct {
 	name   string
 	val    V
-	parent Vars[V]
+	parent Variables[V]
 }
 
 func (a addVar[V]) Get(s string) (V, bool) {
@@ -236,9 +239,10 @@ func (a addVar[V]) Get(s string) (V, bool) {
 	return a.parent.Get(s)
 }
 
+// AddVars is used to add values to a Variables[V] instance.
 type AddVars[V any] struct {
 	Vars   map[string]V
-	Parent Vars[V]
+	Parent Variables[V]
 }
 
 func (a AddVars[V]) Get(s string) (V, bool) {
@@ -248,13 +252,17 @@ func (a AddVars[V]) Get(s string) (V, bool) {
 	return a.Parent.Get(s)
 }
 
-type Code[V any] func(v Vars[V]) V
+// Code represents a function which represents a node of the AST
+type Code[V any] func(v Variables[V]) V
 
+// Generator is used to define a customized generation of functions
 type Generator[V any] interface {
 	Generate(AST, *FunctionGenerator[V]) Code[V]
 }
 
-func (g *FunctionGenerator[V]) Generate(exp string) (c func(Vars[V]) (V, error), errE error) {
+// Generate takes a string and returns the function representing the expression given in
+// the string. This is the main entry point of the parser.
+func (g *FunctionGenerator[V]) Generate(exp string) (c func(Variables[V]) (V, error), errE error) {
 	defer func() {
 		rec := recover()
 		if rec != nil {
@@ -268,8 +276,8 @@ func (g *FunctionGenerator[V]) Generate(exp string) (c func(Vars[V]) (V, error),
 		return nil, err
 	}
 
-	code := g.Gen(ast)
-	return func(v Vars[V]) (res V, e error) {
+	code := g.GenerateCode(ast)
+	return func(v Variables[V]) (res V, e error) {
 		defer func() {
 			rec := recover()
 			if rec != nil {
@@ -280,6 +288,9 @@ func (g *FunctionGenerator[V]) Generate(exp string) (c func(Vars[V]) (V, error),
 	}, nil
 }
 
+// CreateAst uses the parser to create the abstract syntax tree.
+// This method is public manly to inspect the AST in tests that live outside
+// this package.
 func (g *FunctionGenerator[V]) CreateAst(exp string) (AST, error) {
 	ast, err := g.getParser().Parse(exp)
 	if err != nil {
@@ -292,21 +303,26 @@ func (g *FunctionGenerator[V]) CreateAst(exp string) (AST, error) {
 	return ast, nil
 }
 
+// Function represents a function
 type Function[V any] struct {
-	Func   func(a []V) V
-	Args   int
+	// Func is the function itself
+	Func func(a []V) V
+	// Args gives the number of arguments required. It is used for checking
+	// the number of arguments in the call. The value -1 means any number of
+	// arguments is allowed
+	Args int
+	// IsPure is true if this is a pure function
 	IsPure bool
 }
 
-func (f *Function[V]) Eval(a ...V) V {
-	return f.Func(a)
-}
-
+// Closure represents a closure
 type Closure[V any] struct {
 	Impl Function[V]
 }
 
-func (g *FunctionGenerator[V]) Gen(ast AST) Code[V] {
+// GenerateCode creates a Code[V] function.
+// This method is public to allow its usage in the custom code generator.
+func (g *FunctionGenerator[V]) GenerateCode(ast AST) Code[V] {
 	if g.customGenerator != nil {
 		c := g.customGenerator.Generate(ast, g)
 		if c != nil {
@@ -315,7 +331,7 @@ func (g *FunctionGenerator[V]) Gen(ast AST) Code[V] {
 	}
 	switch a := ast.(type) {
 	case Ident:
-		return func(v Vars[V]) V {
+		return func(v Variables[V]) V {
 			if va, ok := v.Get(string(a)); ok {
 				return va
 			} else {
@@ -324,32 +340,32 @@ func (g *FunctionGenerator[V]) Gen(ast AST) Code[V] {
 		}
 	case Const[V]:
 		n := a.Value
-		return func(v Vars[V]) V {
+		return func(v Variables[V]) V {
 			return n
 		}
 	case *Let:
-		cVal := g.Gen(a.Value)
-		inner := g.Gen(a.Inner)
-		return func(v Vars[V]) V {
+		cVal := g.GenerateCode(a.Value)
+		inner := g.GenerateCode(a.Inner)
+		return func(v Variables[V]) V {
 			va := cVal(v)
 			return inner(addVar[V]{name: a.Name, val: va, parent: v})
 		}
 	case *Unary:
-		c := g.Gen(a.Value)
+		c := g.GenerateCode(a.Value)
 		op := g.uMap[a.Operator].Impl
-		return func(v Vars[V]) V {
+		return func(v Variables[V]) V {
 			return op(c(v))
 		}
 	case *Operate:
-		ca := g.Gen(a.A)
-		cb := g.Gen(a.B)
+		ca := g.GenerateCode(a.A)
+		cb := g.GenerateCode(a.B)
 		op := g.opMap[a.Operator].Impl
-		return func(v Vars[V]) V {
+		return func(v Variables[V]) V {
 			return op(ca(v), cb(v))
 		}
 	case *ClosureLiteral:
-		fu := g.Gen(a.Func)
-		return func(v Vars[V]) V {
+		fu := g.GenerateCode(a.Func)
+		return func(v Variables[V]) V {
 			return g.closureHandler.FromClosure(Closure[V]{
 				Impl: Function[V]{
 					Func: func(args []V) V {
@@ -367,8 +383,8 @@ func (g *FunctionGenerator[V]) Gen(ast AST) Code[V] {
 		}
 	case ListLiteral:
 		if g.listHandler != nil {
-			items := g.genList(a)
-			return func(v Vars[V]) V {
+			items := g.genCodeList(a)
+			return func(v Variables[V]) V {
 				it := make([]V, len(items))
 				for i, item := range items {
 					it[i] = item(v)
@@ -378,9 +394,9 @@ func (g *FunctionGenerator[V]) Gen(ast AST) Code[V] {
 		}
 	case *ArrayAccess:
 		if g.listHandler != nil {
-			index := g.Gen(a.Index)
-			list := g.Gen(a.List)
-			return func(v Vars[V]) V {
+			index := g.GenerateCode(a.Index)
+			list := g.GenerateCode(a.List)
+			return func(v Variables[V]) V {
 				i := index(v)
 				l := list(v)
 				if v, err := g.listHandler.AccessList(l, i); err == nil {
@@ -392,15 +408,15 @@ func (g *FunctionGenerator[V]) Gen(ast AST) Code[V] {
 		}
 	case MapLiteral:
 		if g.mapHandler != nil {
-			itemsCode := g.genMap(a)
-			return func(v Vars[V]) V {
+			itemsCode := g.genCodeMap(a)
+			return func(v Variables[V]) V {
 				return g.mapHandler.FromMap(evalMap(itemsCode, v))
 			}
 		}
 	case *MapAccess:
 		if g.mapHandler != nil {
-			ma := g.Gen(a.MapValue)
-			return func(v Vars[V]) V {
+			ma := g.GenerateCode(a.MapValue)
+			return func(v Variables[V]) V {
 				l := ma(v)
 				if v, err := g.mapHandler.AccessMap(l, a.Key); err == nil {
 					return v
@@ -415,15 +431,15 @@ func (g *FunctionGenerator[V]) Gen(ast AST) Code[V] {
 				if fun.Args >= 0 && fun.Args != len(a.Args) {
 					panic(fmt.Errorf("wrong number of arguments in call to %v", id))
 				}
-				argsCode := g.genList(a.Args)
-				return func(v Vars[V]) V {
+				argsCode := g.genCodeList(a.Args)
+				return func(v Variables[V]) V {
 					return fun.Func(evalList(argsCode, v))
 				}
 			}
 		}
-		fu := g.Gen(a.Func)
-		argsCode := g.genList(a.Args)
-		return func(v Vars[V]) V {
+		fu := g.GenerateCode(a.Func)
+		argsCode := g.genCodeList(a.Args)
+		return func(v Variables[V]) V {
 			theFunc, ok := g.extractFunction(fu(v))
 			if !ok {
 				panic(fmt.Errorf("not a function: %v", a.Func))
@@ -434,11 +450,11 @@ func (g *FunctionGenerator[V]) Gen(ast AST) Code[V] {
 			return theFunc.Func(evalList(argsCode, v))
 		}
 	case *MethodCall:
-		valueCode := g.Gen(a.Value)
+		valueCode := g.GenerateCode(a.Value)
 		name := a.Name
-		argsCode := g.genList(a.Args)
+		argsCode := g.genCodeList(a.Args)
 		tov := g.typeOfValue
-		return func(v Vars[V]) V {
+		return func(v Variables[V]) V {
 			value := valueCode(v)
 			// name could be a method, but it could also be the name of a field which stores a closure
 			// If it is a closure field, this should be a map access!
@@ -460,23 +476,23 @@ func (g *FunctionGenerator[V]) Gen(ast AST) Code[V] {
 	panic(fmt.Sprintf("not supported: %v", ast))
 }
 
-func (g *FunctionGenerator[V]) genList(a []AST) []Code[V] {
+func (g *FunctionGenerator[V]) genCodeList(a []AST) []Code[V] {
 	args := make([]Code[V], len(a))
 	for i, arg := range a {
-		args[i] = g.Gen(arg)
+		args[i] = g.GenerateCode(arg)
 	}
 	return args
 }
 
-func (g *FunctionGenerator[V]) genMap(a map[string]AST) map[string]Code[V] {
+func (g *FunctionGenerator[V]) genCodeMap(a map[string]AST) map[string]Code[V] {
 	args := map[string]Code[V]{}
 	for i, arg := range a {
-		args[i] = g.Gen(arg)
+		args[i] = g.GenerateCode(arg)
 	}
 	return args
 }
 
-func evalList[V any](argsCode []Code[V], v Vars[V]) []V {
+func evalList[V any](argsCode []Code[V], v Variables[V]) []V {
 	argsValues := make([]V, len(argsCode))
 	for i, arg := range argsCode {
 		argsValues[i] = arg(v)
@@ -484,7 +500,7 @@ func evalList[V any](argsCode []Code[V], v Vars[V]) []V {
 	return argsValues
 }
 
-func evalMap[V any](argsCode map[string]Code[V], v Vars[V]) map[string]V {
+func evalMap[V any](argsCode map[string]Code[V], v Variables[V]) map[string]V {
 	argsValues := map[string]V{}
 	for i, arg := range argsCode {
 		argsValues[i] = arg(v)
@@ -492,6 +508,8 @@ func evalMap[V any](argsCode map[string]Code[V], v Vars[V]) map[string]V {
 	return argsValues
 }
 
+// extractFunction is used to extract a function from a value
+// Up to now only closures are supported.
 func (g *FunctionGenerator[V]) extractFunction(fu V) (Function[V], bool) {
 	if g.closureHandler != nil {
 		if c, ok := g.closureHandler.ToClosure(fu); ok {

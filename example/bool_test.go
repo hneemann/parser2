@@ -20,7 +20,7 @@ func TestBool(t *testing.T) {
 		{"a& !b", true, "a&!b"},
 	}
 
-	vars := parser2.Variables[bool]{"a": true, "b": false}
+	vars := parser2.VarMap[bool]{"a": true, "b": false}
 	for _, test := range tests {
 		test := test
 		t.Run(test.exp, func(t *testing.T) {
