@@ -17,7 +17,7 @@ func TestBool(t *testing.T) {
 		{"true & false", false, "false"},
 		{"a|b", true, "a|b"},
 		{"a&b", false, "a&b"},
-		{"a& !b", true, "a&!b"},
+		{"a & !b", true, "a&!b"},
 	}
 
 	vars := parser2.VarMap[bool]{"a": true, "b": false}

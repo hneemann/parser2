@@ -294,7 +294,7 @@ var DynType = parser2.New[Value]().
 	AddUnary("-", vNeg).
 	SetListHandler(th).
 	SetMapHandler(th).
-	SetStringHandler(th).
+	SetStringConverter(th).
 	SetClosureHandler(th).
 	SetNumberParser(th).
 	SetCustomGenerator(th).

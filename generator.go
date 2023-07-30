@@ -62,7 +62,7 @@ type FunctionGenerator[V any] struct {
 	operators       []Operator[V]
 	unary           []UnaryOperator[V]
 	numberParser    NumberParser[V]
-	stringHandler   StringHandler[V]
+	stringHandler   StringConverter[V]
 	closureHandler  ClosureHandler[V]
 	listHandler     ListHandler[V]
 	mapHandler      MapHandler[V]
@@ -91,7 +91,7 @@ func (g *FunctionGenerator[V]) getParser() *Parser[V] {
 	if g.parser == nil {
 		parser := NewParser[V]().
 			SetNumberParser(g.numberParser).
-			SetStringHandler(g.stringHandler)
+			SetStringConverter(g.stringHandler)
 
 		opMap := map[string]Operator[V]{}
 		for _, o := range g.operators {
@@ -134,11 +134,11 @@ func (g *FunctionGenerator[V]) SetMapHandler(mapHandler MapHandler[V]) *Function
 	return g
 }
 
-func (g *FunctionGenerator[V]) SetStringHandler(stringHandler StringHandler[V]) *FunctionGenerator[V] {
+func (g *FunctionGenerator[V]) SetStringConverter(stringConverter StringConverter[V]) *FunctionGenerator[V] {
 	if g.parser != nil {
 		panic("parser already created")
 	}
-	g.stringHandler = stringHandler
+	g.stringHandler = stringConverter
 	return g
 }
 

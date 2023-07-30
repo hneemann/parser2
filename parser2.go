@@ -21,6 +21,12 @@ type Optimizer interface {
 	Optimize(AST) AST
 }
 
+type OptimizerFunc func(AST) AST
+
+func (o OptimizerFunc) Optimize(ast AST) AST {
+	return o(ast)
+}
+
 // AST represents a node in the AST
 type AST interface {
 	// Traverse visits the complete AST
@@ -309,7 +315,7 @@ func (i Ident) Traverse(visitor Visitor) {
 	visitor.Visit(i)
 }
 
-func (i Ident) Optimize(optimizer Optimizer) {
+func (i Ident) Optimize(Optimizer) {
 
 }
 
@@ -325,7 +331,7 @@ func (n Const[V]) Traverse(visitor Visitor) {
 	visitor.Visit(n)
 }
 
-func (n Const[V]) Optimize(optimizer Optimizer) {
+func (n Const[V]) Optimize(Optimizer) {
 }
 
 func (n Const[V]) String() string {
@@ -406,8 +412,14 @@ func (npf NumberParserFunc[V]) ParseNumber(n string) (V, error) {
 	return npf(n)
 }
 
-type StringHandler[V any] interface {
+type StringConverter[V any] interface {
 	FromString(s string) V
+}
+
+type StringConverterFunc[V any] func(n string) V
+
+func (shf StringConverterFunc[V]) FromString(s string) V {
+	return shf(s)
 }
 
 // Parser is the base class of the parser
@@ -416,7 +428,7 @@ type Parser[V any] struct {
 	unary         map[string]struct{}
 	textOperators map[string]string
 	numberParser  NumberParser[V]
-	stringHandler StringHandler[V]
+	stringHandler StringConverter[V]
 	number        Matcher
 	identifier    Matcher
 	operator      Matcher
@@ -460,9 +472,9 @@ func (p *Parser[V]) SetNumberParser(numberParser NumberParser[V]) *Parser[V] {
 	return p
 }
 
-// SetStringHandler sets the string handler
-func (p *Parser[V]) SetStringHandler(stringHandler StringHandler[V]) *Parser[V] {
-	p.stringHandler = stringHandler
+// SetStringConverter sets the string handler
+func (p *Parser[V]) SetStringConverter(stringConverter StringConverter[V]) *Parser[V] {
+	p.stringHandler = stringConverter
 	return p
 }
 
