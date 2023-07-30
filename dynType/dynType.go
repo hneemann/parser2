@@ -173,7 +173,7 @@ func vDiv(a, b Value) Value {
 
 type typeHandler struct{}
 
-func (th typeHandler) Parse(s string) (Value, error) {
+func (th typeHandler) ParseNumber(s string) (Value, error) {
 	f, err := strconv.ParseFloat(s, 64)
 	return vFloat(f), err
 }

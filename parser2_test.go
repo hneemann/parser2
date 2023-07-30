@@ -31,7 +31,7 @@ func (so simpleOptimizer) Optimize(ast AST) AST {
 
 type numberParser struct{}
 
-func (np numberParser) Parse(n string) (int, error) {
+func (np numberParser) ParseNumber(n string) (int, error) {
 	atoi, err := strconv.Atoi(n)
 	return atoi, err
 }

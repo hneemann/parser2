@@ -397,12 +397,12 @@ func (s simpleOperator) Matches(r rune) bool {
 
 // NumberParser is used to convert a string to a number
 type NumberParser[V any] interface {
-	Parse(n string) (V, error)
+	ParseNumber(n string) (V, error)
 }
 
 type NumberParserFunc[V any] func(n string) (V, error)
 
-func (npf NumberParserFunc[V]) Parse(n string) (V, error) {
+func (npf NumberParserFunc[V]) ParseNumber(n string) (V, error) {
 	return npf(n)
 }
 
@@ -688,7 +688,7 @@ func (p *Parser[V]) parseLiteral(tokenizer *Tokenizer) AST {
 		return ListLiteral(args)
 	case tNumber:
 		if p.numberParser != nil {
-			if number, err := p.numberParser.Parse(t.image); err == nil {
+			if number, err := p.numberParser.ParseNumber(t.image); err == nil {
 				return Const[V]{number}
 			} else {
 				panic(fmt.Sprintf("not a number: %v", err))
