@@ -13,6 +13,12 @@ type Visitor interface {
 	Visit(AST)
 }
 
+type VisitorFunc func(AST)
+
+func (v VisitorFunc) Visit(a AST) {
+	v(a)
+}
+
 // Optimizer is used to perform optimization on ast level
 type Optimizer interface {
 	// Optimize takes an AST and tries to optimize it.
