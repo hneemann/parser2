@@ -55,11 +55,6 @@ func (v vClosure) Bool() bool {
 	return false
 }
 
-func (v vClosure) CreateFunction() parser2.Function[Value] {
-	c := parser2.Closure[Value](v)
-	return c.Impl
-}
-
 type vList []Value
 
 func (v vList) Float() float64 {
@@ -75,7 +70,7 @@ func (v vList) Size() Value {
 }
 
 func (v vList) Map(c vClosure) Value {
-	f := c.CreateFunction()
+	f := c.Impl
 	if f.Args != 1 {
 		panic("map requires closure with one argument")
 	}
@@ -96,18 +91,6 @@ func (v vMap) Bool() bool {
 	return len(v) > 0
 }
 
-func vNeg(a Value) Value {
-	return vFloat(-a.Float())
-}
-
-func vOr(a, b Value) Value {
-	return vBool(a.Bool() || b.Bool())
-}
-
-func vAnd(a, b Value) Value {
-	return vBool(a.Bool() && b.Bool())
-}
-
 func vEqual(a, b Value) Value {
 	if as, oka := a.(vString); oka {
 		if bs, okb := b.(vString); okb {
@@ -120,10 +103,6 @@ func vEqual(a, b Value) Value {
 		}
 	}
 	return vBool(a.Float() == b.Float())
-}
-
-func vNotEqual(a, b Value) Value {
-	return !vEqual(a, b).(vBool)
 }
 
 func vLess(a, b Value) Value {
@@ -157,18 +136,6 @@ func vAdd(a, b Value) Value {
 		}
 	}
 	return vFloat(a.Float() + b.Float())
-}
-
-func vSub(a, b Value) Value {
-	return vFloat(a.Float() - b.Float())
-}
-
-func vMul(a, b Value) Value {
-	return vFloat(a.Float() * b.Float())
-}
-
-func vDiv(a, b Value) Value {
-	return vFloat(a.Float() / b.Float())
 }
 
 type typeHandler struct{}
@@ -279,19 +246,19 @@ func (th typeHandler) Generate(ast parser2.AST, g *parser2.FunctionGenerator[Val
 var th typeHandler
 
 var DynType = parser2.New[Value]().
-	AddOp("|", vOr).
-	AddOp("&", vAnd).
+	AddOp("|", func(a, b Value) Value { return vBool(a.Bool() || b.Bool()) }).
+	AddOp("&", func(a, b Value) Value { return vBool(a.Bool() && b.Bool()) }).
 	AddOp("=", vEqual).
-	AddOp("!=", vNotEqual).
+	AddOp("!=", func(a, b Value) Value { return !vEqual(a, b).(vBool) }).
 	AddOp("<", vLess).
 	AddOp(">", swap(vLess)).
 	AddOp("<=", vLessEqual).
 	AddOp(">=", swap(vLessEqual)).
 	AddOp("+", vAdd).
-	AddOp("-", vSub).
-	AddOp("*", vMul).
-	AddOp("/", vDiv).
-	AddUnary("-", vNeg).
+	AddOp("-", func(a, b Value) Value { return vFloat(a.Float() - b.Float()) }).
+	AddOp("*", func(a, b Value) Value { return vFloat(a.Float() * b.Float()) }).
+	AddOp("/", func(a, b Value) Value { return vFloat(a.Float() / b.Float()) }).
+	AddUnary("-", func(a Value) Value { return vFloat(-a.Float()) }).
 	SetListHandler(th).
 	SetMapHandler(th).
 	SetStringConverter(th).
