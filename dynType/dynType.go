@@ -246,18 +246,18 @@ func (th typeHandler) Generate(ast parser2.AST, g *parser2.FunctionGenerator[Val
 var th typeHandler
 
 var DynType = parser2.New[Value]().
-	AddOp("|", func(a, b Value) Value { return vBool(a.Bool() || b.Bool()) }).
-	AddOp("&", func(a, b Value) Value { return vBool(a.Bool() && b.Bool()) }).
-	AddOp("=", vEqual).
-	AddOp("!=", func(a, b Value) Value { return !vEqual(a, b).(vBool) }).
-	AddOp("<", vLess).
-	AddOp(">", swap(vLess)).
-	AddOp("<=", vLessEqual).
-	AddOp(">=", swap(vLessEqual)).
-	AddOp("+", vAdd).
-	AddOp("-", func(a, b Value) Value { return vFloat(a.Float() - b.Float()) }).
-	AddOp("*", func(a, b Value) Value { return vFloat(a.Float() * b.Float()) }).
-	AddOp("/", func(a, b Value) Value { return vFloat(a.Float() / b.Float()) }).
+	AddOp("|", true, func(a, b Value) Value { return vBool(a.Bool() || b.Bool()) }).
+	AddOp("&", true, func(a, b Value) Value { return vBool(a.Bool() && b.Bool()) }).
+	AddOp("=", true, vEqual).
+	AddOp("!=", true, func(a, b Value) Value { return !vEqual(a, b).(vBool) }).
+	AddOp("<", false, vLess).
+	AddOp(">", false, swap(vLess)).
+	AddOp("<=", false, vLessEqual).
+	AddOp(">=", false, swap(vLessEqual)).
+	AddOp("+", true, vAdd).
+	AddOp("-", false, func(a, b Value) Value { return vFloat(a.Float() - b.Float()) }).
+	AddOp("*", true, func(a, b Value) Value { return vFloat(a.Float() * b.Float()) }).
+	AddOp("/", false, func(a, b Value) Value { return vFloat(a.Float() / b.Float()) }).
 	AddUnary("-", func(a Value) Value { return vFloat(-a.Float()) }).
 	SetListHandler(th).
 	SetMapHandler(th).

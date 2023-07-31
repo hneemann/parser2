@@ -18,6 +18,8 @@ type Operator[V any] struct {
 	// This is usually the case, there are only special corner cases where it is not.
 	// So IsPure is usually true.
 	IsPure bool
+	// IsCommutative is true if the operation is commutative
+	IsCommutative bool
 }
 
 // UnaryOperator defines a operator like - or !
@@ -174,21 +176,22 @@ func (g *FunctionGenerator[V]) AddConstant(n string, c V) *FunctionGenerator[V] 
 // The Operation needs to be pure.
 // The operation with the lowest priority needs to be added first.
 // The operation with the highest priority needs to be added last.
-func (g *FunctionGenerator[V]) AddOp(operator string, impl func(a V, b V) V) *FunctionGenerator[V] {
-	return g.AddOpPure(operator, impl, true)
+func (g *FunctionGenerator[V]) AddOp(operator string, isCommutative bool, impl func(a V, b V) V) *FunctionGenerator[V] {
+	return g.AddOpPure(operator, isCommutative, impl, true)
 }
 
 // AddOpPure adds an operation to the generator.
 // The operation with the lowest priority needs to be added first.
 // The operation with the highest priority needs to be added last.
-func (g *FunctionGenerator[V]) AddOpPure(operator string, impl func(a V, b V) V, isPure bool) *FunctionGenerator[V] {
+func (g *FunctionGenerator[V]) AddOpPure(operator string, isCommutative bool, impl func(a V, b V) V, isPure bool) *FunctionGenerator[V] {
 	if g.parser != nil {
 		panic("parser already created")
 	}
 	g.operators = append(g.operators, Operator[V]{
-		Operator: operator,
-		Impl:     impl,
-		IsPure:   isPure,
+		Operator:      operator,
+		Impl:          impl,
+		IsPure:        isPure,
+		IsCommutative: isCommutative,
 	})
 	return g
 }

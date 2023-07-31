@@ -19,14 +19,35 @@ func (o optimizer[V]) Optimize(ast AST) AST {
 	}
 	// evaluate const operations like 1+2
 	if oper, ok := ast.(*Operate); ok {
-		if operator, ok := o.g.opMap[oper.Operator]; ok && operator.IsPure {
-			if ac, ok := o.isConst(oper.A); ok {
-				if bc, ok := o.isConst(oper.B); ok {
-					return Const[V]{operator.Impl(ac, bc)}
+		if operator, ok := o.g.opMap[oper.Operator]; ok {
+			if bc, ok := o.isConst(oper.B); ok {
+				if operator.IsPure {
+					if ac, ok := o.isConst(oper.A); ok {
+						return Const[V]{operator.Impl(ac, bc)}
+					}
+				}
+				if operator.IsCommutative {
+					if aOp, ok := oper.A.(*Operate); ok && aOp.Operator == oper.Operator {
+						if iac, ok := o.isConst(aOp.A); ok {
+							return &Operate{
+								Operator: oper.Operator,
+								A:        Const[V]{operator.Impl(iac, bc)},
+								B:        aOp.B,
+							}
+						}
+						if ibc, ok := o.isConst(aOp.B); ok {
+							return &Operate{
+								Operator: oper.Operator,
+								A:        aOp.A,
+								B:        Const[V]{operator.Impl(ibc, bc)},
+							}
+						}
+					}
 				}
 			}
 		}
 	}
+
 	// evaluate const unary operations like -1
 	if oper, ok := ast.(*Unary); ok {
 		if operator, ok := o.g.uMap[oper.Operator]; ok {

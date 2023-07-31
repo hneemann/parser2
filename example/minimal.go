@@ -10,10 +10,11 @@ import (
 // see test cases for usage example
 var minimal = parser2.New[float64]().
 	AddConstant("pi", math.Pi).
-	AddOp("+", func(a, b float64) float64 { return a + b }).
-	AddOp("-", func(a, b float64) float64 { return a - b }).
-	AddOp("*", func(a, b float64) float64 { return a * b }).
-	AddOp("/", func(a, b float64) float64 { return a / b }).
+	AddOp("+", true, func(a, b float64) float64 { return a + b }).
+	AddOp("-", false, func(a, b float64) float64 { return a - b }).
+	AddOp("*", true, func(a, b float64) float64 { return a * b }).
+	AddOp("/", false, func(a, b float64) float64 { return a / b }).
+	AddOp("^", false, func(a, b float64) float64 { return math.Pow(a, b) }).
 	AddUnary("-", func(a float64) float64 { return -a }).
 	AddSimpleFunction("sin", math.Sin).
 	AddSimpleFunction("sqrt", math.Sqrt).
