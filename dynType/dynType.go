@@ -254,7 +254,7 @@ var DynType = parser2.New[Value]().
 	AddOp(">", false, swap(vLess)).
 	AddOp("<=", false, vLessEqual).
 	AddOp(">=", false, swap(vLessEqual)).
-	AddOp("+", true, vAdd).
+	AddOp("+", false, vAdd). // vAdd is not commutative, since strings can be added
 	AddOp("-", false, func(a, b Value) Value { return vFloat(a.Float() - b.Float()) }).
 	AddOp("*", true, func(a, b Value) Value { return vFloat(a.Float() * b.Float()) }).
 	AddOp("/", false, func(a, b Value) Value { return vFloat(a.Float() / b.Float()) }).
