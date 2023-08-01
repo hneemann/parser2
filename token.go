@@ -31,15 +31,20 @@ const (
 	EOF rune = 0
 )
 
-var TokenEof = Token{tEof, "EOF"}
+var TokenEof = Token{tEof, "EOF", -1}
 
 type Token struct {
 	typ   TokenType
 	image string
+	line  int
 }
 
 func (t Token) String() string {
-	return fmt.Sprintf("'%v' [%v]", t.image, t.typ)
+	if t.line > 0 {
+		return fmt.Sprintf("'%v' [%v]", t.image, t.line)
+	} else {
+		return fmt.Sprintf("'%v'", t.image)
+	}
 }
 
 type Tokenizer struct {
@@ -49,6 +54,7 @@ type Tokenizer struct {
 	tok           chan Token
 	isToken       bool
 	token         Token
+	line          int
 	number        Matcher
 	identifier    Matcher
 	operator      Matcher
@@ -70,6 +76,7 @@ func NewTokenizer(text string, number, identifier, operator Matcher, textOp map[
 		identifier:    identifier,
 		operator:      operator,
 		allowComments: allowComments,
+		line:          1,
 		tok:           t}
 	go tok.run(t)
 	return tok
@@ -99,57 +106,60 @@ func (t *Tokenizer) Next() Token {
 func (t *Tokenizer) run(tokens chan<- Token) {
 	for {
 		switch t.next(true) {
-		case ' ', '\n', '\r', '\t':
+		case '\n':
+			t.line++
+			continue
+		case ' ', '\r', '\t':
 			continue
 		case EOF:
 			close(tokens)
 			return
 		case '(':
-			tokens <- Token{tOpen, "("}
+			tokens <- Token{tOpen, "(", t.line}
 		case ')':
-			tokens <- Token{tClose, ")"}
+			tokens <- Token{tClose, ")", t.line}
 		case '[':
-			tokens <- Token{tOpenBracket, "["}
+			tokens <- Token{tOpenBracket, "[", t.line}
 		case ']':
-			tokens <- Token{tCloseBracket, "]"}
+			tokens <- Token{tCloseBracket, "]", t.line}
 		case '{':
-			tokens <- Token{tOpenCurly, "{"}
+			tokens <- Token{tOpenCurly, "{", t.line}
 		case '}':
-			tokens <- Token{tCloseCurly, "}"}
+			tokens <- Token{tCloseCurly, "}", t.line}
 		case '.':
-			tokens <- Token{tDot, "."}
+			tokens <- Token{tDot, ".", t.line}
 		case ':':
-			tokens <- Token{tColon, ":"}
+			tokens <- Token{tColon, ":", t.line}
 		case ',':
-			tokens <- Token{tComma, ","}
+			tokens <- Token{tComma, ",", t.line}
 		case ';':
-			tokens <- Token{tSemicolon, ";"}
+			tokens <- Token{tSemicolon, ";", t.line}
 		case '"':
 			image := t.readSkip(func(c rune) bool { return c != '"' }, false)
 			t.next(false)
-			tokens <- Token{tString, image}
+			tokens <- Token{tString, image, t.line}
 		case '\'':
 			image := t.readSkip(func(c rune) bool { return c != '\'' }, false)
 			t.next(false)
-			tokens <- Token{tIdent, image}
+			tokens <- Token{tIdent, image, t.line}
 		default:
 			t.unread()
 			switch c := t.peek(true); {
 			case t.number.MatchesFirst(c):
 				image := t.read(t.number.Matches)
-				tokens <- Token{tNumber, image}
+				tokens <- Token{tNumber, image, t.line}
 			case t.identifier.MatchesFirst(c):
 				image := t.read(t.identifier.Matches)
-				if t, ok := t.textOperators[image]; ok {
-					tokens <- Token{tOperate, t}
+				if to, ok := t.textOperators[image]; ok {
+					tokens <- Token{tOperate, to, t.line}
 				} else {
-					tokens <- Token{tIdent, image}
+					tokens <- Token{tIdent, image, t.line}
 				}
 			case t.operator.MatchesFirst(c):
 				image := t.read(t.operator.Matches)
-				tokens <- Token{tOperate, image}
+				tokens <- Token{tOperate, image, t.line}
 			default:
-				tokens <- Token{tInvalid, string(t.peek(true))}
+				tokens <- Token{tInvalid, string(t.peek(true)), t.line}
 			}
 		}
 	}
@@ -179,6 +189,7 @@ func (t *Tokenizer) peek(skipComment bool) rune {
 							return EOF
 						}
 					} else {
+						t.line++
 						break
 					}
 				}

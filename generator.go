@@ -528,6 +528,12 @@ func (g *FunctionGenerator[V]) extractFunction(fu V) (Function[V], bool) {
 }
 
 func callMethod[V any](value V, name string, args []reflect.Value, typeOfValue reflect.Type) V {
+	defer func() {
+		rec := recover()
+		if rec != nil {
+			panic(fmt.Errorf("error calling %s: %v", name, rec))
+		}
+	}()
 	name = firstRuneUpper(name)
 	typeOf := reflect.TypeOf(value)
 	if m, ok := typeOf.MethodByName(name); ok {
@@ -536,10 +542,10 @@ func callMethod[V any](value V, name string, args []reflect.Value, typeOfValue r
 			if v, ok := res[0].Interface().(V); ok {
 				return v
 			} else {
-				panic(fmt.Errorf("result of method %v is not a value. It is: %v", name, res[0]))
+				panic(fmt.Errorf("result of method is not a value. It is: %v", res[0]))
 			}
 		} else {
-			panic(fmt.Errorf("method %v does not return a single value: %v", name, len(res)))
+			panic(fmt.Errorf("method does not return a single value: %v", len(res)))
 		}
 	} else {
 		var buf bytes.Buffer
@@ -569,7 +575,7 @@ func callMethod[V any](value V, name string, args []reflect.Value, typeOfValue r
 				}
 			}
 		}
-		panic(fmt.Errorf("method %v not found, available are: "+buf.String(), name))
+		panic(fmt.Errorf("method not found, available are: " + buf.String()))
 	}
 }
 
