@@ -400,7 +400,7 @@ func (g *FunctionGenerator[V]) GenerateFunc(ast AST) Func[V] {
 				return g.listHandler.FromList(it)
 			}
 		}
-	case *ArrayAccess:
+	case *ListAccess:
 		if g.listHandler != nil {
 			indexFunc := g.GenerateFunc(a.Index)
 			listFunc := g.GenerateFunc(a.List)

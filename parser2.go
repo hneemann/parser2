@@ -208,18 +208,18 @@ func stringsToString(items []string) string {
 	return b.String()
 }
 
-type ArrayAccess struct {
+type ListAccess struct {
 	Index AST
 	List  AST
 }
 
-func (a *ArrayAccess) Traverse(visitor Visitor) {
+func (a *ListAccess) Traverse(visitor Visitor) {
 	visitor.Visit(a)
 	a.Index.Traverse(visitor)
 	a.List.Traverse(visitor)
 }
 
-func (a *ArrayAccess) Optimize(optimizer Optimizer) {
+func (a *ListAccess) Optimize(optimizer Optimizer) {
 	a.Index.Optimize(optimizer)
 	if o := optimizer.Optimize(a.Index); o != nil {
 		a.Index = o
@@ -230,7 +230,7 @@ func (a *ArrayAccess) Optimize(optimizer Optimizer) {
 	}
 }
 
-func (a *ArrayAccess) String() string {
+func (a *ListAccess) String() string {
 	return braceStr(a.List) + "[" + a.Index.String() + "]"
 }
 
@@ -655,7 +655,7 @@ func (p *Parser[V]) parseNonOperator(tokenizer *Tokenizer) AST {
 			if t.typ != tCloseBracket {
 				panic(unexpected("}", t))
 			}
-			expression = &ArrayAccess{
+			expression = &ListAccess{
 				Index: indexExpr,
 				List:  expression,
 			}
