@@ -284,7 +284,7 @@ func (g *FunctionGenerator[V]) Generate(exp string) (c func(Variables[V]) (V, er
 		defer func() {
 			rec := recover()
 			if rec != nil {
-				e = fmt.Errorf("error evaluating expression '%v': %v", exp, rec)
+				e = fmt.Errorf("error evaluating expression: %v", rec)
 			}
 		}()
 		return expFunc(v), nil
