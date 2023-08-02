@@ -45,7 +45,7 @@ func (v vBool) Bool() bool {
 	return bool(v)
 }
 
-type vClosure parser2.Closure[Value]
+type vClosure parser2.Function[Value]
 
 func (v vClosure) Float() float64 {
 	return 0
@@ -70,13 +70,12 @@ func (v vList) Size() Value {
 }
 
 func (v vList) Map(c vClosure) Value {
-	f := c.Impl
-	if f.Args != 1 {
+	if c.Args != 1 {
 		panic("map requires closure with one argument")
 	}
 	var m = make([]Value, len(v))
 	for i, e := range v {
-		m[i] = f.Func([]Value{e})
+		m[i] = c.Func([]Value{e})
 	}
 	return vList(m)
 }
@@ -145,13 +144,13 @@ func (th typeHandler) ParseNumber(s string) (Value, error) {
 	return vFloat(f), err
 }
 
-func (th typeHandler) FromClosure(closure parser2.Closure[Value]) Value {
+func (th typeHandler) FromClosure(closure parser2.Function[Value]) Value {
 	return vClosure(closure)
 }
 
-func (th typeHandler) ToClosure(fu Value) (parser2.Closure[Value], bool) {
+func (th typeHandler) ToClosure(fu Value) (parser2.Function[Value], bool) {
 	cl, ok := fu.(vClosure)
-	return parser2.Closure[Value](cl), ok
+	return parser2.Function[Value](cl), ok
 }
 
 func (th typeHandler) FromList(items []Value) Value {
@@ -200,8 +199,8 @@ func (th typeHandler) FromString(s string) Value {
 func (th typeHandler) Generate(ast parser2.AST, g *parser2.FunctionGenerator[Value]) parser2.Func[Value] {
 	// ite without evaluation of not required expression
 	if fc, ok := ast.(*parser2.FunctionCall); ok && len(fc.Args) == 3 {
-		if id, ok := fc.Func.(parser2.Ident); ok {
-			if id == "ite" {
+		if id, ok := fc.Func.(*parser2.Ident); ok {
+			if id.Name == "ite" {
 				condFunc := g.GenerateFunc(fc.Args[0])
 				thenFunc := g.GenerateFunc(fc.Args[1])
 				elseFunc := g.GenerateFunc(fc.Args[2])
@@ -313,25 +312,23 @@ func lowPass(a []Value) Value {
 	init := false
 	lt := 0.0
 	lx := 0.0
-	return vClosure{
-		Impl: parser2.Function[Value]{
-			Func: func(args []Value) Value {
-				t := args[0].Float()
-				x := args[1].Float()
-				if !init {
-					lt = t
-					lx = x
-					init = true
-				} else {
-					dt := t - lt
-					a := math.Exp(-dt / tau)
-					lx = lx*a + x*(1-a)
-					lt = t
-				}
-				return vFloat(lx)
-			},
-			Args:   2,
-			IsPure: false,
+	return vClosure(parser2.Function[Value]{
+		Func: func(args []Value) Value {
+			t := args[0].Float()
+			x := args[1].Float()
+			if !init {
+				lt = t
+				lx = x
+				init = true
+			} else {
+				dt := t - lt
+				a := math.Exp(-dt / tau)
+				lx = lx*a + x*(1-a)
+				lt = t
+			}
+			return vFloat(lx)
 		},
-	}
+		Args:   2,
+		IsPure: false,
+	})
 }

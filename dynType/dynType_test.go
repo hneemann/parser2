@@ -92,7 +92,7 @@ func TestOptimizer(t *testing.T) {
 		t.Run(test.exp, func(t *testing.T) {
 			ast, err := DynType.CreateAst(test.exp)
 			assert.NoError(t, err, test.exp)
-			if c, ok := ast.(parser2.Const[Value]); ok {
+			if c, ok := ast.(*parser2.Const[Value]); ok {
 				assert.EqualValues(t, test.res, c.Value)
 			} else {
 				t.Errorf("not a constant: %v -> %v", test.exp, ast)

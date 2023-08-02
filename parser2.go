@@ -57,6 +57,7 @@ type Let struct {
 	Name  string
 	Value AST
 	Inner AST
+	Line  int
 }
 
 func (l *Let) Traverse(visitor Visitor) {
@@ -83,6 +84,7 @@ func (l *Let) Optimize(optimizer Optimizer) {
 type Operate struct {
 	Operator string
 	A, B     AST
+	Line     int
 }
 
 func (o *Operate) Traverse(visitor Visitor) {
@@ -116,6 +118,7 @@ func braceStr(a AST) string {
 type Unary struct {
 	Operator string
 	Value    AST
+	Line     int
 }
 
 func (u *Unary) Traverse(visitor Visitor) {
@@ -137,6 +140,7 @@ func (u *Unary) String() string {
 type MapAccess struct {
 	Key      string
 	MapValue AST
+	Line     int
 }
 
 func (m *MapAccess) Traverse(visitor Visitor) {
@@ -159,6 +163,7 @@ type MethodCall struct {
 	Name  string
 	Args  []AST
 	Value AST
+	Line  int
 }
 
 func (m *MethodCall) Traverse(visitor Visitor) {
@@ -211,6 +216,7 @@ func stringsToString(items []string) string {
 type ListAccess struct {
 	Index AST
 	List  AST
+	Line  int
 }
 
 func (a *ListAccess) Traverse(visitor Visitor) {
@@ -237,6 +243,7 @@ func (a *ListAccess) String() string {
 type ClosureLiteral struct {
 	Names []string
 	Func  AST
+	Line  int
 }
 
 func (c *ClosureLiteral) Traverse(visitor Visitor) {
@@ -255,31 +262,34 @@ func (c *ClosureLiteral) String() string {
 	return "(" + stringsToString(c.Names) + ")->" + c.Func.String()
 }
 
-type MapLiteral map[string]AST
+type MapLiteral struct {
+	Map  map[string]AST
+	Line int
+}
 
-func (ml MapLiteral) Traverse(visitor Visitor) {
+func (ml *MapLiteral) Traverse(visitor Visitor) {
 	visitor.Visit(ml)
-	for _, v := range ml {
+	for _, v := range ml.Map {
 		v.Traverse(visitor)
 	}
 }
 
-func (ml MapLiteral) Optimize(optimizer Optimizer) {
-	for _, v := range ml {
+func (ml *MapLiteral) Optimize(optimizer Optimizer) {
+	for _, v := range ml.Map {
 		v.Optimize(optimizer)
 	}
-	for k, v := range ml {
+	for k, v := range ml.Map {
 		if o := optimizer.Optimize(v); o != nil {
-			ml[k] = o
+			ml.Map[k] = o
 		}
 	}
 }
 
-func (ml MapLiteral) String() string {
+func (ml *MapLiteral) String() string {
 	b := bytes.Buffer{}
 	b.WriteString("{")
 	first := true
-	for k, v := range ml {
+	for k, v := range ml.Map {
 		if first {
 			first = false
 		} else {
@@ -293,60 +303,68 @@ func (ml MapLiteral) String() string {
 	return b.String()
 }
 
-type ListLiteral []AST
+type ListLiteral struct {
+	List []AST
+	Line int
+}
 
-func (al ListLiteral) Traverse(visitor Visitor) {
+func (al *ListLiteral) Traverse(visitor Visitor) {
 	visitor.Visit(al)
-	for _, v := range al {
+	for _, v := range al.List {
 		v.Traverse(visitor)
 	}
 }
 
-func (al ListLiteral) Optimize(optimizer Optimizer) {
-	for i := range al {
-		al[i].Optimize(optimizer)
-		if o := optimizer.Optimize(al[i]); o != nil {
-			al[i] = o
+func (al *ListLiteral) Optimize(optimizer Optimizer) {
+	for i := range al.List {
+		al.List[i].Optimize(optimizer)
+		if o := optimizer.Optimize(al.List[i]); o != nil {
+			al.List[i] = o
 		}
 	}
 }
 
-func (al ListLiteral) String() string {
-	return "[" + sliceToString(al) + "]"
+func (al *ListLiteral) String() string {
+	return "[" + sliceToString(al.List) + "]"
 }
 
-type Ident string
+type Ident struct {
+	Name string
+	Line int
+}
 
-func (i Ident) Traverse(visitor Visitor) {
+func (i *Ident) Traverse(visitor Visitor) {
 	visitor.Visit(i)
 }
 
-func (i Ident) Optimize(Optimizer) {
+func (i *Ident) Optimize(Optimizer) {
 
 }
 
-func (i Ident) String() string {
-	return string(i)
+func (i *Ident) String() string {
+	return i.Name
 }
 
 type Const[V any] struct {
 	Value V
+	Line  int
 }
 
-func (n Const[V]) Traverse(visitor Visitor) {
+func (n *Const[V]) Traverse(visitor Visitor) {
 	visitor.Visit(n)
 }
 
-func (n Const[V]) Optimize(Optimizer) {
+func (n *Const[V]) Optimize(Optimizer) {
 }
 
-func (n Const[V]) String() string {
+func (n *Const[V]) String() string {
 	return fmt.Sprint(n.Value)
 }
 
 type FunctionCall struct {
 	Func AST
 	Args []AST
+	Line int
 }
 
 func (f *FunctionCall) Traverse(visitor Visitor) {
@@ -551,6 +569,7 @@ func (p *Parser[V]) parseExpression(tokenizer *Tokenizer) AST {
 			panic("no identifier followed by let")
 		}
 		name := t.image
+		line := t.line
 		if t := tokenizer.Next(); t.typ != tOperate || t.image != "=" {
 			panic(unexpected("=", t))
 		}
@@ -563,6 +582,7 @@ func (p *Parser[V]) parseExpression(tokenizer *Tokenizer) AST {
 			Name:  name,
 			Value: exp,
 			Inner: inner,
+			Line:  line,
 		}
 	} else {
 		return p.parse(tokenizer, 0)
@@ -583,6 +603,7 @@ func (p *Parser[V]) parse(tokenizer *Tokenizer, op int) AST {
 				Operator: operator,
 				A:        aa,
 				B:        bb,
+				Line:     t.line,
 			}
 		} else {
 			return a
@@ -608,6 +629,7 @@ func (p *Parser[V]) parseUnary(tokenizer *Tokenizer) AST {
 			return &Unary{
 				Operator: t.image,
 				Value:    e,
+				Line:     t.line,
 			}
 		}
 	}
@@ -629,6 +651,7 @@ func (p *Parser[V]) parseNonOperator(tokenizer *Tokenizer) AST {
 				expression = &MapAccess{
 					Key:      name,
 					MapValue: expression,
+					Line:     t.line,
 				}
 			} else {
 				//Method call
@@ -638,14 +661,16 @@ func (p *Parser[V]) parseNonOperator(tokenizer *Tokenizer) AST {
 					Name:  name,
 					Args:  args,
 					Value: expression,
+					Line:  t.line,
 				}
 			}
 		case tOpen:
-			tokenizer.Next()
+			t := tokenizer.Next()
 			args := p.parseArgs(tokenizer, tClose)
 			expression = &FunctionCall{
 				Func: expression,
 				Args: args,
+				Line: t.line,
 			}
 
 		case tOpenBracket:
@@ -658,6 +683,7 @@ func (p *Parser[V]) parseNonOperator(tokenizer *Tokenizer) AST {
 			expression = &ListAccess{
 				Index: indexExpr,
 				List:  expression,
+				Line:  t.line,
 			}
 		default:
 			return expression
@@ -677,6 +703,7 @@ func (p *Parser[V]) parseLiteral(tokenizer *Tokenizer) AST {
 			return &ClosureLiteral{
 				Names: []string{name},
 				Func:  e,
+				Line:  t.line,
 			}
 		} else {
 			if name == "closure" {
@@ -694,27 +721,28 @@ func (p *Parser[V]) parseLiteral(tokenizer *Tokenizer) AST {
 				return &ClosureLiteral{
 					Names: names,
 					Func:  e,
+					Line:  t.line,
 				}
 			} else {
-				return Ident(name)
+				return &Ident{Name: name, Line: t.line}
 			}
 		}
 	case tOpenCurly:
 		return p.parseMap(tokenizer)
 	case tOpenBracket:
 		args := p.parseArgs(tokenizer, tCloseBracket)
-		return ListLiteral(args)
+		return &ListLiteral{args, t.line}
 	case tNumber:
 		if p.numberParser != nil {
 			if number, err := p.numberParser.ParseNumber(t.image); err == nil {
-				return Const[V]{number}
+				return &Const[V]{number, t.line}
 			} else {
 				panic(fmt.Sprintf("not a number: %v", err))
 			}
 		}
 	case tString:
 		if p.stringHandler != nil {
-			return Const[V]{p.stringHandler.FromString(t.image)}
+			return &Const[V]{p.stringHandler.FromString(t.image), t.line}
 		}
 	case tOpen:
 		e := p.parseExpression(tokenizer)
@@ -746,18 +774,19 @@ func (p *Parser[V]) parseArgs(tokenizer *Tokenizer, closeList TokenType) []AST {
 	}
 }
 
-func (p *Parser[V]) parseMap(tokenizer *Tokenizer) MapLiteral {
-	m := MapLiteral{}
+func (p *Parser[V]) parseMap(tokenizer *Tokenizer) *MapLiteral {
+	m := MapLiteral{Map: map[string]AST{}}
 	for {
 		switch t := tokenizer.Next(); t.typ {
 		case tCloseCurly:
-			return m
+			m.Line = t.line
+			return &m
 		case tIdent:
 			if c := tokenizer.Next(); c.typ != tColon {
 				panic(unexpected(":", c))
 			}
 			entry := p.parseExpression(tokenizer)
-			m[t.image] = entry
+			m.Map[t.image] = entry
 			if tokenizer.Peek().typ == tComma {
 				tokenizer.Next()
 			}

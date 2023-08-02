@@ -189,7 +189,6 @@ func (t *Tokenizer) peek(skipComment bool) rune {
 							return EOF
 						}
 					} else {
-						t.line++
 						break
 					}
 				}

@@ -33,10 +33,10 @@ type UnaryOperator[V any] struct {
 // ClosureHandler is used to convert closures
 type ClosureHandler[V any] interface {
 	// FromClosure is used to convert a closure to a value
-	FromClosure(c Closure[V]) V
+	FromClosure(c Function[V]) V
 	// ToClosure is used to convert a value to a closure
 	// It returns the closure and a bool which is true if the value was a closure
-	ToClosure(c V) (Closure[V], bool)
+	ToClosure(c V) (Function[V], bool)
 }
 
 // ListHandler is used to create and access lists or arrays
@@ -323,11 +323,6 @@ func (f *Function[V]) Eval(a ...V) V {
 	return f.Func(a)
 }
 
-// Closure represents a closure
-type Closure[V any] struct {
-	Impl Function[V]
-}
-
 // GenerateFunc creates a Func[V] function.
 // This method is public to allow its usage in the custom code generator.
 func (g *FunctionGenerator[V]) GenerateFunc(ast AST) Func[V] {
@@ -338,15 +333,15 @@ func (g *FunctionGenerator[V]) GenerateFunc(ast AST) Func[V] {
 		}
 	}
 	switch a := ast.(type) {
-	case Ident:
+	case *Ident:
 		return func(v Variables[V]) V {
-			if va, ok := v.Get(string(a)); ok {
+			if va, ok := v.Get(a.Name); ok {
 				return va
 			} else {
-				panic(fmt.Sprintf("variable '%v' not found", a))
+				panic(fmt.Sprintf("variable '%v' not found in line %d", a.Name, a.Line))
 			}
 		}
-	case Const[V]:
+	case *Const[V]:
 		n := a.Value
 		return func(v Variables[V]) V {
 			return n
@@ -374,24 +369,23 @@ func (g *FunctionGenerator[V]) GenerateFunc(ast AST) Func[V] {
 	case *ClosureLiteral:
 		closureFunc := g.GenerateFunc(a.Func)
 		return func(v Variables[V]) V {
-			return g.closureHandler.FromClosure(Closure[V]{
-				Impl: Function[V]{
-					Func: func(args []V) V {
-						vm := map[string]V{}
-						for i, n := range a.Names {
-							vm[n] = args[i]
-						}
-						return closureFunc(AddVars[V]{
-							Vars:   vm,
-							Parent: v,
-						})
-					},
-					Args: len(a.Names),
-				}})
+			return g.closureHandler.FromClosure(Function[V]{
+				Func: func(args []V) V {
+					vm := map[string]V{}
+					for i, n := range a.Names {
+						vm[n] = args[i]
+					}
+					return closureFunc(AddVars[V]{
+						Vars:   vm,
+						Parent: v,
+					})
+				},
+				Args: len(a.Names),
+			})
 		}
-	case ListLiteral:
+	case *ListLiteral:
 		if g.listHandler != nil {
-			items := g.genCodeList(a)
+			items := g.genCodeList(a.List)
 			return func(v Variables[V]) V {
 				it := make([]V, len(items))
 				for i, item := range items {
@@ -410,13 +404,13 @@ func (g *FunctionGenerator[V]) GenerateFunc(ast AST) Func[V] {
 				if v, err := g.listHandler.AccessList(l, i); err == nil {
 					return v
 				} else {
-					panic(fmt.Sprint(err))
+					panic(fmt.Sprintf("%v in line %d", err, a.Line))
 				}
 			}
 		}
-	case MapLiteral:
+	case *MapLiteral:
 		if g.mapHandler != nil {
-			itemsCode := g.genCodeMap(a)
+			itemsCode := g.genCodeMap(a.Map)
 			return func(v Variables[V]) V {
 				return g.mapHandler.FromMap(evalMap(itemsCode, v))
 			}
@@ -429,15 +423,15 @@ func (g *FunctionGenerator[V]) GenerateFunc(ast AST) Func[V] {
 				if v, err := g.mapHandler.AccessMap(l, a.Key); err == nil {
 					return v
 				} else {
-					panic(fmt.Sprint(err))
+					panic(fmt.Sprintf("%v in line %d", err, a.Line))
 				}
 			}
 		}
 	case *FunctionCall:
-		if id, ok := a.Func.(Ident); ok {
-			if fun, ok := g.staticFunctions[string(id)]; ok {
+		if id, ok := a.Func.(*Ident); ok {
+			if fun, ok := g.staticFunctions[id.Name]; ok {
 				if fun.Args >= 0 && fun.Args != len(a.Args) {
-					panic(fmt.Errorf("wrong number of arguments in call to %v", id))
+					panic(fmt.Errorf("wrong number of arguments in call to %v in line %d", id.Name, id.Line))
 				}
 				argsCode := g.genCodeList(a.Args)
 				return func(v Variables[V]) V {
@@ -450,10 +444,10 @@ func (g *FunctionGenerator[V]) GenerateFunc(ast AST) Func[V] {
 		return func(v Variables[V]) V {
 			theFunc, ok := g.extractFunction(funcFunc(v))
 			if !ok {
-				panic(fmt.Errorf("not a function: %v", a.Func))
+				panic(fmt.Errorf("not a function: %v in line %d", a.Func, a.Line))
 			}
 			if theFunc.Args >= 0 && theFunc.Args != len(a.Args) {
-				panic(fmt.Errorf("wrong number of arguments in call to %v", a.Func))
+				panic(fmt.Errorf("wrong number of arguments in call to %v in line %d", a.Func, a.Line))
 			}
 			return theFunc.Func(evalList(argsFuncList, v))
 		}
@@ -478,7 +472,7 @@ func (g *FunctionGenerator[V]) GenerateFunc(ast AST) Func[V] {
 			for i, arg := range argsFuncList {
 				argsValues[i+1] = reflect.ValueOf(arg(v))
 			}
-			return callMethod(value, name, argsValues, tov)
+			return callMethod(value, name, argsValues, tov, a.Line)
 		}
 	}
 	panic(fmt.Sprintf("not supported: %v", ast))
@@ -521,17 +515,17 @@ func evalMap[V any](argsCode map[string]Func[V], v Variables[V]) map[string]V {
 func (g *FunctionGenerator[V]) extractFunction(fu V) (Function[V], bool) {
 	if g.closureHandler != nil {
 		if c, ok := g.closureHandler.ToClosure(fu); ok {
-			return c.Impl, true
+			return c, true
 		}
 	}
 	return Function[V]{}, false
 }
 
-func callMethod[V any](value V, name string, args []reflect.Value, typeOfValue reflect.Type) V {
+func callMethod[V any](value V, name string, args []reflect.Value, typeOfValue reflect.Type, line int) V {
 	defer func() {
 		rec := recover()
 		if rec != nil {
-			panic(fmt.Errorf("error calling %s: %v", name, rec))
+			panic(fmt.Errorf("error calling %s: %v in line %d", name, rec, line))
 		}
 	}()
 	name = firstRuneUpper(name)
@@ -542,10 +536,10 @@ func callMethod[V any](value V, name string, args []reflect.Value, typeOfValue r
 			if v, ok := res[0].Interface().(V); ok {
 				return v
 			} else {
-				panic(fmt.Errorf("result of method is not a value. It is: %v", res[0]))
+				panic(fmt.Errorf("result of method is not a value. It is: %v in line %d", res[0], line))
 			}
 		} else {
-			panic(fmt.Errorf("method does not return a single value: %v", len(res)))
+			panic(fmt.Errorf("method does not return a single value: %v in line %d", len(res), line))
 		}
 	} else {
 		var buf bytes.Buffer
@@ -575,7 +569,7 @@ func callMethod[V any](value V, name string, args []reflect.Value, typeOfValue r
 				}
 			}
 		}
-		panic(fmt.Errorf("method not found, available are: " + buf.String()))
+		panic(fmt.Sprintf("method not found, available are: %v in line %d", buf.String(), line))
 	}
 }
 

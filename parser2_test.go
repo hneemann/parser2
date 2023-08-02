@@ -11,17 +11,17 @@ type simpleOptimizer struct{}
 
 func (so simpleOptimizer) Optimize(ast AST) AST {
 	if o, ok := ast.(*Operate); ok {
-		if an, aOk := o.A.(Const[int]); aOk {
-			if bn, bOk := o.B.(Const[int]); bOk {
+		if an, aOk := o.A.(*Const[int]); aOk {
+			if bn, bOk := o.B.(*Const[int]); bOk {
 				switch o.Operator {
 				case "+":
-					return Const[int]{an.Value + bn.Value}
+					return &Const[int]{an.Value + bn.Value, o.Line}
 				case "-":
-					return Const[int]{an.Value - bn.Value}
+					return &Const[int]{an.Value - bn.Value, o.Line}
 				case "*":
-					return Const[int]{an.Value * bn.Value}
+					return &Const[int]{an.Value * bn.Value, o.Line}
 				case "/":
-					return Const[int]{an.Value / bn.Value}
+					return &Const[int]{an.Value / bn.Value, o.Line}
 				}
 			}
 		}
@@ -80,13 +80,13 @@ type fu func(vars) int
 
 func codeGen(ast AST) fu {
 	switch a := ast.(type) {
-	case Const[int]:
+	case *Const[int]:
 		return func(vars) int {
 			return a.Value
 		}
-	case Ident:
+	case *Ident:
 		return func(v vars) int {
-			if i, ok := v[string(a)]; ok {
+			if i, ok := v[a.Name]; ok {
 				return i
 			}
 			panic(fmt.Sprintf("variable not found: %v", a))
