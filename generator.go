@@ -323,6 +323,32 @@ func (f *Function[V]) Eval(a ...V) V {
 	return f.Func(a)
 }
 
+// FuncArgs is a helper type to avoid gc load at function calls
+type FuncArgs[V any] []V
+
+// Set is used to set a value to the args array
+func (c FuncArgs[V]) Set(n int, val V) FuncArgs[V] {
+	c[n] = val
+	return c
+}
+
+// Get returns a pointer to an argument
+func (c FuncArgs[V]) Get(n int) *V {
+	return &c[n]
+}
+
+func (c FuncArgs[V]) EvalList(funcs []Func[V], v Variables[V]) FuncArgs[V] {
+	for i, f := range funcs {
+		c[i] = f(v)
+	}
+	return c
+}
+
+// CreateArgs creates a reusable args array
+func (f *Function[V]) CreateArgs() FuncArgs[V] {
+	return make([]V, f.Args)
+}
+
 // GenerateFunc creates a Func[V] function.
 // This method is public to allow its usage in the custom code generator.
 func (g *FunctionGenerator[V]) GenerateFunc(ast AST) Func[V] {
@@ -414,7 +440,7 @@ func (g *FunctionGenerator[V]) GenerateFunc(ast AST) Func[V] {
 		}
 	case *ListLiteral:
 		if g.listHandler != nil {
-			items := g.genCodeList(a.List)
+			items := g.genFuncList(a.List)
 			return func(v Variables[V]) V {
 				it := make([]V, len(items))
 				for i, item := range items {
@@ -441,7 +467,11 @@ func (g *FunctionGenerator[V]) GenerateFunc(ast AST) Func[V] {
 		if g.mapHandler != nil {
 			itemsCode := g.genCodeMap(a.Map)
 			return func(v Variables[V]) V {
-				return g.mapHandler.FromMap(evalMap(itemsCode, v))
+				argsMap := map[string]V{}
+				for i, arg := range itemsCode {
+					argsMap[i] = arg(v)
+				}
+				return g.mapHandler.FromMap(argsMap)
 			}
 		}
 	case *MapAccess:
@@ -462,14 +492,16 @@ func (g *FunctionGenerator[V]) GenerateFunc(ast AST) Func[V] {
 				if fun.Args >= 0 && fun.Args != len(a.Args) {
 					panic(fmt.Errorf("wrong number of arguments in call to %v in line %d", id.Name, id.Line))
 				}
-				argsCode := g.genCodeList(a.Args)
+				argsFuncList := g.genFuncList(a.Args)
+				argsValues := make(FuncArgs[V], len(argsFuncList))
 				return func(v Variables[V]) V {
-					return fun.Func(evalList(argsCode, v))
+					return fun.Func(argsValues.EvalList(argsFuncList, v))
 				}
 			}
 		}
 		funcFunc := g.GenerateFunc(a.Func)
-		argsFuncList := g.genCodeList(a.Args)
+		argsFuncList := g.genFuncList(a.Args)
+		argsValues := make(FuncArgs[V], len(argsFuncList))
 		return func(v Variables[V]) V {
 			theFunc, ok := g.extractFunction(funcFunc(v))
 			if !ok {
@@ -478,12 +510,14 @@ func (g *FunctionGenerator[V]) GenerateFunc(ast AST) Func[V] {
 			if theFunc.Args >= 0 && theFunc.Args != len(a.Args) {
 				panic(fmt.Errorf("wrong number of arguments in call to %v in line %d", a.Func, a.Line))
 			}
-			return theFunc.Func(evalList(argsFuncList, v))
+			return theFunc.Func(argsValues.EvalList(argsFuncList, v))
 		}
 	case *MethodCall:
 		valFunc := g.GenerateFunc(a.Value)
 		name := a.Name
-		argsFuncList := g.genCodeList(a.Args)
+		argsFuncList := g.genFuncList(a.Args)
+		argsValues := make(FuncArgs[V], len(argsFuncList))
+		argsValuesRef := make(FuncArgs[reflect.Value], len(argsFuncList)+1)
 		tov := g.typeOfValue
 		return func(v Variables[V]) V {
 			value := valFunc(v)
@@ -492,22 +526,21 @@ func (g *FunctionGenerator[V]) GenerateFunc(ast AST) Func[V] {
 			if g.mapHandler != nil && g.mapHandler.IsMap(value) {
 				if va, err := g.mapHandler.AccessMap(value, name); err == nil {
 					if theFunc, ok := g.extractFunction(va); ok {
-						return theFunc.Func(evalList(argsFuncList, v))
+						return theFunc.Func(argsValues.EvalList(argsFuncList, v))
 					}
 				}
 			}
-			argsValues := make([]reflect.Value, len(argsFuncList)+1)
-			argsValues[0] = reflect.ValueOf(value)
+			argsValuesRef[0] = reflect.ValueOf(value)
 			for i, arg := range argsFuncList {
-				argsValues[i+1] = reflect.ValueOf(arg(v))
+				argsValuesRef[i+1] = reflect.ValueOf(arg(v))
 			}
-			return callMethod(value, name, argsValues, tov, a.Line)
+			return callMethod(value, name, argsValuesRef, tov, a.Line)
 		}
 	}
 	panic(fmt.Sprintf("not supported: %v", ast))
 }
 
-func (g *FunctionGenerator[V]) genCodeList(a []AST) []Func[V] {
+func (g *FunctionGenerator[V]) genFuncList(a []AST) []Func[V] {
 	args := make([]Func[V], len(a))
 	for i, arg := range a {
 		args[i] = g.GenerateFunc(arg)
@@ -521,22 +554,6 @@ func (g *FunctionGenerator[V]) genCodeMap(a map[string]AST) map[string]Func[V] {
 		args[i] = g.GenerateFunc(arg)
 	}
 	return args
-}
-
-func evalList[V any](argsCode []Func[V], v Variables[V]) []V {
-	argsValues := make([]V, len(argsCode))
-	for i, arg := range argsCode {
-		argsValues[i] = arg(v)
-	}
-	return argsValues
-}
-
-func evalMap[V any](argsCode map[string]Func[V], v Variables[V]) map[string]V {
-	argsValues := map[string]V{}
-	for i, arg := range argsCode {
-		argsValues[i] = arg(v)
-	}
-	return argsValues
 }
 
 // extractFunction is used to extract a function from a value

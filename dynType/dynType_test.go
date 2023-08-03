@@ -102,9 +102,18 @@ func TestOptimizer(t *testing.T) {
 	}
 }
 
-func Benchmark(b *testing.B) {
+func BenchmarkCall(b *testing.B) {
 	f, _ := DynType.Generate("x+(2*y/x)")
 	v := parser2.VarMap[Value]{"x": vFloat(3), "y": vFloat(3)}
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		f(v)
+	}
+}
+
+func BenchmarkFunc(b *testing.B) {
+	f, _ := DynType.Generate("let f=x->x*x;f(a)+f(2*a)")
+	v := parser2.VarMap[Value]{"a": vFloat(3)}
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		f(v)
