@@ -42,6 +42,7 @@ func Test(t *testing.T) {
 		{exp: "let a=1;a", res: 1},
 		{exp: "let sqr=x->x*x;sqr(2)", res: 4},
 		{exp: "let s=3; let f=x->x*x*s;f(2)", res: 12},
+		{exp: "let fib=n->ite(n<=2,1,fib(n-1)+fib(n-2));[fib(10),fib(15)]", res: vList{vFloat(55), vFloat(610)}},
 		{exp: "ite(1<2,1,2)", res: vFloat(1)},
 		{exp: "ite(1>2,1,2)", res: vFloat(2)},
 		{exp: "ite(1<2,1,notAvail)", res: vFloat(1)},

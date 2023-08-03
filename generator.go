@@ -212,7 +212,7 @@ func (g *FunctionGenerator[V]) ModifyParser(modify func(a *Parser[V])) *Function
 	return g
 }
 
-// Variables is used to access variables
+// Variables interface is used to access named variables
 type Variables[V any] interface {
 	// Get returns the value of the given name
 	// False is returned if the value does not exist.
@@ -347,11 +347,40 @@ func (g *FunctionGenerator[V]) GenerateFunc(ast AST) Func[V] {
 			return n
 		}
 	case *Let:
-		valFunc := g.GenerateFunc(a.Value)
-		mainFunc := g.GenerateFunc(a.Inner)
-		return func(v Variables[V]) V {
-			va := valFunc(v)
-			return mainFunc(addVar[V]{name: a.Name, val: va, parent: v})
+		if c, ok := a.Value.(*ClosureLiteral); ok {
+			// if "let" is used to store a closure, allow recursion
+			closureFunc := g.GenerateFunc(c.Func)
+			valFunc := func(v Variables[V]) V {
+				funcAdded := addVar[V]{name: a.Name, parent: v}
+				theClosure := g.closureHandler.FromClosure(Function[V]{
+					Func: func(args []V) V {
+						vm := map[string]V{}
+						for i, n := range c.Names {
+							vm[n] = args[i]
+						}
+						return closureFunc(AddVars[V]{
+							Vars:   vm,
+							Parent: funcAdded,
+						})
+					},
+					Args: len(c.Names),
+				})
+				funcAdded.val = theClosure
+				return theClosure
+			}
+			mainFunc := g.GenerateFunc(a.Inner)
+			return func(v Variables[V]) V {
+				va := valFunc(v)
+				return mainFunc(addVar[V]{name: a.Name, val: va, parent: v})
+			}
+		} else {
+			// simple non closure let
+			valFunc := g.GenerateFunc(a.Value)
+			mainFunc := g.GenerateFunc(a.Inner)
+			return func(v Variables[V]) V {
+				va := valFunc(v)
+				return mainFunc(addVar[V]{name: a.Name, val: va, parent: v})
+			}
 		}
 	case *Unary:
 		valFunc := g.GenerateFunc(a.Value)
