@@ -41,7 +41,7 @@ type Token struct {
 
 func (t Token) String() string {
 	if t.line > 0 {
-		return fmt.Sprintf("'%v' [%v]", t.image, t.line)
+		return fmt.Sprintf("'%v' in line %d", t.image, t.line)
 	} else {
 		return fmt.Sprintf("'%v'", t.image)
 	}

@@ -267,6 +267,11 @@ var DynType = parser2.New[Value]().
 	AddConstant("pi", vFloat(math.Pi)).
 	AddConstant("true", vBool(true)).
 	AddConstant("false", vBool(false)).
+	AddStaticFunction("abs", parser2.Function[Value]{
+		Func:   func(v []Value) Value { return vFloat(math.Abs(v[0].Float())) },
+		Args:   1,
+		IsPure: true,
+	}).
 	AddStaticFunction("sqrt", parser2.Function[Value]{
 		Func:   func(v []Value) Value { return vFloat(math.Sqrt(v[0].Float())) },
 		Args:   1,
