@@ -62,10 +62,7 @@ type Tokenizer struct {
 	allowComments bool
 }
 
-type Matcher interface {
-	MatchesFirst(r rune) bool
-	Matches(r rune) bool
-}
+type Matcher func(r rune) (func(r rune) bool, bool)
 
 func NewTokenizer(text string, number, identifier, operator Matcher, textOp map[string]string, allowComments bool) *Tokenizer {
 	t := make(chan Token)
@@ -144,21 +141,21 @@ func (t *Tokenizer) run(tokens chan<- Token) {
 			tokens <- Token{tIdent, image, t.line}
 		default:
 			t.unread()
-			switch c := t.peek(true); {
-			case t.number.MatchesFirst(c):
-				image := t.read(t.number.Matches)
+			c := t.peek(true)
+			if f, ok := t.number(c); ok {
+				image := t.read(f)
 				tokens <- Token{tNumber, image, t.line}
-			case t.identifier.MatchesFirst(c):
-				image := t.read(t.identifier.Matches)
+			} else if f, ok := t.identifier(c); ok {
+				image := t.read(f)
 				if to, ok := t.textOperators[image]; ok {
 					tokens <- Token{tOperate, to, t.line}
 				} else {
 					tokens <- Token{tIdent, image, t.line}
 				}
-			case t.operator.MatchesFirst(c):
-				image := t.read(t.operator.Matches)
+			} else if f, ok := t.operator(c); ok {
+				image := t.read(f)
 				tokens <- Token{tOperate, image, t.line}
-			default:
+			} else {
 				tokens <- Token{tInvalid, string(t.peek(true)), t.line}
 			}
 		}

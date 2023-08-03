@@ -12,6 +12,9 @@ func Test(t *testing.T) {
 		exp string
 		res any
 	}{
+		{exp: "1e-7", res: float64(1e-7)},
+		{exp: "1e7", res: float64(1e7)},
+		{exp: "1e+7", res: float64(1e+7)},
 		{exp: "1+2", res: float64(3)},
 		{exp: "2-1", res: float64(1)},
 		{exp: "1<2", res: true},
@@ -103,7 +106,7 @@ func TestOptimizer(t *testing.T) {
 }
 
 // the power of closures and recursion
-// recursive implementation of the sqrt function using the regula falsi algorithm
+// recursive implementation of the sqrt function using the Regula Falsi algorithm
 const regulaFalsi = `
       let regulaFalsi = rf->
           let xn = (rf.x0*rf.f1 - rf.x1*rf.f0) / (rf.f1 - rf.f0);
@@ -113,7 +116,7 @@ const regulaFalsi = `
                          {x0:xn, f0:fn, x1:rf.x1, f1:rf.f1, f:rf.f},
                          {x0:rf.x0, f0:rf.f0, x1:xn, f1:fn, f:rf.f});
 
-          ite(abs(fn)<0.00000001, next, regulaFalsi(next));
+          ite(abs(fn)<1e-7, next, regulaFalsi(next));
 
       let solve = closure(x0, x1, f)->
           let r = regulaFalsi({x0:x0, f0:f(x0), x1:x1, f1:f(x1), f:f});
@@ -124,13 +127,34 @@ const regulaFalsi = `
       mySqrt(a)
     `
 
-func TestRegulaFalsi(t *testing.T) {
-	f, err := DynType.Generate(regulaFalsi)
-	assert.NoError(t, err)
-	// evaluate the function using the given variables
-	r, err := f(parser2.VarMap[Value]{"a": vFloat(2)})
-	assert.NoError(t, err)
-	assert.InDelta(t, math.Sqrt(2), r.Float(), 1e-6)
+// recursive implementation of the sqrt function using the Newton-Raphson algorithm
+const newtonRaphson = `
+      let newton = closure(x,a) -> ite(abs(x*x-a)<1e-7, x, newton(x+(a-x*x)/(2*x), a));
+      let mySqrt = a -> newton(2,a); 
+
+      mySqrt(a)
+    `
+
+func TestSolve(t *testing.T) {
+	tests := []struct {
+		name string
+		exp  string
+	}{
+		{name: "regulaFalsi", exp: regulaFalsi},
+		{name: "newtonRaphson", exp: newtonRaphson},
+	}
+
+	v := parser2.VarMap[Value]{"a": vFloat(2)}
+	for _, test := range tests {
+		test := test
+		t.Run(test.name, func(t *testing.T) {
+			f, err := DynType.Generate(test.exp)
+			assert.NoError(t, err, test.name)
+			r, err := f(v)
+			assert.NoError(t, err, test.name)
+			assert.InDelta(t, math.Sqrt(2), r.Float(), 1e-6, test.name)
+		})
+	}
 }
 
 func BenchmarkRegulaFalsi(b *testing.B) {

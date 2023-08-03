@@ -392,37 +392,39 @@ func (f *FunctionCall) String() string {
 	return braceStr(f.Func) + "(" + sliceToString(f.Args) + ")"
 }
 
-type simpleNumber struct {
+func simpleNumber(r rune) (func(r rune) bool, bool) {
+	if unicode.IsNumber(r) {
+		var last rune
+		return func(r rune) bool {
+			ok := unicode.IsNumber(r) || r == '.' || r == 'e' || (last == 'e' && r == '-') || (last == 'e' && r == '+')
+			last = r
+			return ok
+		}, true
+	} else {
+		return nil, false
+	}
 }
 
-func (s simpleNumber) MatchesFirst(r rune) bool {
-	return unicode.IsNumber(r)
+func simpleIdentifier(r rune) (func(r rune) bool, bool) {
+	if unicode.IsLetter(r) {
+		return func(r rune) bool {
+			return unicode.IsLetter(r) || unicode.IsNumber(r)
+		}, true
+	} else {
+		return nil, false
+	}
 }
 
-func (s simpleNumber) Matches(r rune) bool {
-	return s.MatchesFirst(r) || r == '.'
-}
+func simpleOperator(r rune) (func(r rune) bool, bool) {
+	const opStr = "+-*/&|!~<=>^"
 
-type simpleIdentifier struct {
-}
-
-func (s simpleIdentifier) MatchesFirst(r rune) bool {
-	return unicode.IsLetter(r)
-}
-
-func (s simpleIdentifier) Matches(r rune) bool {
-	return unicode.IsLetter(r) || unicode.IsNumber(r)
-}
-
-type simpleOperator struct {
-}
-
-func (s simpleOperator) MatchesFirst(r rune) bool {
-	return s.Matches(r)
-}
-
-func (s simpleOperator) Matches(r rune) bool {
-	return strings.ContainsRune("+-*/&|!~<=>^", r)
+	if strings.ContainsRune(opStr, r) {
+		return func(r rune) bool {
+			return strings.ContainsRune(opStr, r)
+		}, true
+	} else {
+		return nil, false
+	}
 }
 
 // NumberParser is used to convert a string to a number
@@ -463,9 +465,9 @@ type Parser[V any] struct {
 func NewParser[V any]() *Parser[V] {
 	return &Parser[V]{
 		unary:      map[string]struct{}{},
-		number:     simpleNumber{},
-		identifier: simpleIdentifier{},
-		operator:   simpleOperator{},
+		number:     simpleNumber,
+		identifier: simpleIdentifier,
+		operator:   simpleOperator,
 	}
 }
 
