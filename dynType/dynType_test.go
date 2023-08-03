@@ -102,6 +102,47 @@ func TestOptimizer(t *testing.T) {
 	}
 }
 
+// the power of closures and recursion
+// recursive implementation of the sqrt function using the regula falsi algorithm
+const regulaFalsi = `
+      let regulaFalsi = rf->
+          let xn = (rf.x0*rf.f1 - rf.x1*rf.f0) / (rf.f1 - rf.f0);
+          let fn = rf.f(xn);
+
+          let next = ite(abs(rf.f0) > abs(rf.f1),
+                         {x0:xn, f0:fn, x1:rf.x1, f1:rf.f1, f:rf.f},
+                         {x0:rf.x0, f0:rf.f0, x1:xn, f1:fn, f:rf.f});
+
+          ite(abs(fn)<0.00000001, next, regulaFalsi(next));
+
+      let solve = closure(x0, x1, f)->
+          let r = regulaFalsi({x0:x0, f0:f(x0), x1:x1, f1:f(x1), f:f});
+          ite(abs(r.f0)<abs(r.f1), r.x0, r.x1);
+
+      let mySqrt = a->solve(1, 2, x->x*x-a);
+
+      mySqrt(a)
+    `
+
+func TestRegulaFalsi(t *testing.T) {
+	f, err := DynType.Generate(regulaFalsi)
+	assert.NoError(t, err)
+	// evaluate the function using the given variables
+	r, err := f(parser2.VarMap[Value]{"a": vFloat(2)})
+	assert.NoError(t, err)
+	assert.InDelta(t, math.Sqrt(2), r.Float(), 1e-6)
+}
+
+func BenchmarkRegulaFalsi(b *testing.B) {
+	f, _ := DynType.Generate(regulaFalsi)
+	v := parser2.VarMap[Value]{"a": vFloat(2)}
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		f(v)
+	}
+}
+
 func BenchmarkCall(b *testing.B) {
 	f, _ := DynType.Generate("x+(2*y/x)")
 	v := parser2.VarMap[Value]{"x": vFloat(3), "y": vFloat(3)}
