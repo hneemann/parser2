@@ -845,7 +845,7 @@ func (p *Parser[V]) parseLiteral(tokenizer *Tokenizer) AST {
 		}
 		return e
 	}
-	panic(t.Errorf("unexpected token type: %v" + t.image))
+	panic(t.Errorf("unexpected token type: %v", t.image))
 }
 
 func (p *Parser[V]) parseArgs(tokenizer *Tokenizer, closeList TokenType) []AST {
