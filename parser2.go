@@ -901,10 +901,10 @@ func (p *Parser[V]) parseIdentList(tokenizer *Tokenizer) []string {
 				return names
 			case tComma:
 			default:
-				panic("expected ',' or ')'")
+				panic(t.Errorf("expected ',' or ')'"))
 			}
 		} else {
-			panic("expected identifier")
+			panic(t.Errorf("expected identifier"))
 		}
 	}
 }

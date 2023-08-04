@@ -1,7 +1,6 @@
 package parser2
 
 import (
-	"fmt"
 	"strings"
 	"unicode/utf8"
 )
@@ -40,7 +39,7 @@ type Token struct {
 }
 
 func (t Token) String() string {
-	return fmt.Sprintf("'%v'", t.image)
+	return "'" + t.image + "'"
 }
 
 type Tokenizer struct {
