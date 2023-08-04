@@ -617,7 +617,7 @@ func (p *Parser[V]) Parse(str string) (ast AST, err error) {
 			if thisErr, ok := rec.(error); ok {
 				err = thisErr
 			} else {
-				err = fmt.Errorf("%s", rec)
+				err = fmt.Errorf("%v", rec)
 			}
 			ast = nil
 		}
