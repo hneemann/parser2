@@ -197,23 +197,6 @@ func (th typeHandler) FromString(s string) Value {
 }
 
 func (th typeHandler) Generate(ast parser2.AST, g *parser2.FunctionGenerator[Value]) parser2.Func[Value] {
-	// ite without evaluation of not required expression
-	if fc, ok := ast.(*parser2.FunctionCall); ok && len(fc.Args) == 3 {
-		if id, ok := fc.Func.(*parser2.Ident); ok {
-			if id.Name == "ite" {
-				condFunc := g.GenerateFunc(fc.Args[0])
-				thenFunc := g.GenerateFunc(fc.Args[1])
-				elseFunc := g.GenerateFunc(fc.Args[2])
-				return func(v parser2.Variables[Value]) Value {
-					if condFunc(v).Bool() {
-						return thenFunc(v)
-					} else {
-						return elseFunc(v)
-					}
-				}
-			}
-		}
-	}
 	if op, ok := ast.(*parser2.Operate); ok {
 		// AND and OR with short evaluation
 		switch op.Operator {
@@ -264,6 +247,7 @@ var DynType = parser2.New[Value]().
 	SetClosureHandler(th).
 	SetNumberParser(th).
 	SetCustomGenerator(th).
+	SetToBool(func(c Value) bool { return c.Bool() }).
 	AddConstant("pi", vFloat(math.Pi)).
 	AddConstant("true", vBool(true)).
 	AddConstant("false", vBool(false)).

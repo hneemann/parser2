@@ -45,11 +45,11 @@ func Test(t *testing.T) {
 		{exp: "let a=1;a", res: 1},
 		{exp: "let sqr=x->x*x;sqr(2)", res: 4},
 		{exp: "let s=3; let f=x->x*x*s;f(2)", res: 12},
-		{exp: "let fib=n->ite(n<=2,1,fib(n-1)+fib(n-2));[fib(10),fib(15)]", res: vList{vFloat(55), vFloat(610)}},
-		{exp: "ite(1<2,1,2)", res: vFloat(1)},
-		{exp: "ite(1>2,1,2)", res: vFloat(2)},
-		{exp: "ite(1<2,1,notAvail)", res: vFloat(1)},
-		{exp: "ite(1>2,notAvail,2)", res: vFloat(2)},
+		{exp: "let fib=n->if n<=2 then 1 else fib(n-1)+fib(n-2);[fib(10),fib(15)]", res: vList{vFloat(55), vFloat(610)}},
+		{exp: "if 1<2 then 1 else 2", res: vFloat(1)},
+		{exp: "if 1>2 then 1 else 2", res: vFloat(2)},
+		{exp: "if 1<2 then 1 else notAvail", res: vFloat(1)},
+		{exp: "if 1>2 then notAvail else 2", res: vFloat(2)},
 		{exp: "true | (notAvail<1)", res: vBool(true)},
 		{exp: "false & (notAvail<1)", res: vBool(false)},
 		{exp: "[1,2,3].size()", res: vFloat(3)},
@@ -112,15 +112,19 @@ const regulaFalsi = `
           let xn = (rf.x0*rf.f1 - rf.x1*rf.f0) / (rf.f1 - rf.f0);
           let fn = rf.f(xn);
 
-          let next = ite(abs(rf.f0) > abs(rf.f1),
-                         {x0:xn, f0:fn, x1:rf.x1, f1:rf.f1, f:rf.f},
-                         {x0:rf.x0, f0:rf.f0, x1:xn, f1:fn, f:rf.f});
+          let next = if abs(rf.f0) > abs(rf.f1)
+                       then {x0:xn, f0:fn, x1:rf.x1, f1:rf.f1, f:rf.f}
+                       else {x0:rf.x0, f0:rf.f0, x1:xn, f1:fn, f:rf.f};
 
-          ite(abs(fn)<1e-7, next, regulaFalsi(next));
+          if abs(fn)<1e-7 
+            then next 
+            else regulaFalsi(next);
 
       let solve = closure(x0, x1, f)->
           let r = regulaFalsi({x0:x0, f0:f(x0), x1:x1, f1:f(x1), f:f});
-          ite(abs(r.f0)<abs(r.f1), r.x0, r.x1);
+          if abs(r.f0)<abs(r.f1) 
+            then r.x0 
+            else r.x1;
 
       let mySqrt = a->solve(1, 2, x->x*x-a);
 
@@ -129,7 +133,9 @@ const regulaFalsi = `
 
 // recursive implementation of the sqrt function using the Newton-Raphson algorithm
 const newtonRaphson = `
-      let newton = closure(x,a) -> ite(abs(x*x-a)<1e-7, x, newton(x+(a-x*x)/(2*x), a));
+      let newton = closure(x,a) -> if abs(x*x-a)<1e-7 
+                                     then x 
+                                     else newton(x+(a-x*x)/(2*x), a);
       let mySqrt = a -> newton(2,a); 
 
       mySqrt(a)
@@ -150,9 +156,11 @@ func TestSolve(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			f, err := DynType.Generate(test.exp)
 			assert.NoError(t, err, test.name)
-			r, err := f(v)
-			assert.NoError(t, err, test.name)
-			assert.InDelta(t, math.Sqrt(2), r.Float(), 1e-6, test.name)
+			if f != nil {
+				r, err := f(v)
+				assert.NoError(t, err, test.name)
+				assert.InDelta(t, math.Sqrt(2), r.Float(), 1e-6, test.name)
+			}
 		})
 	}
 }

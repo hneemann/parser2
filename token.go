@@ -36,15 +36,11 @@ var TokenEof = Token{tEof, "EOF", -1}
 type Token struct {
 	typ   TokenType
 	image string
-	line  int
+	Line
 }
 
 func (t Token) String() string {
-	if t.line > 0 {
-		return fmt.Sprintf("'%v' in line %d", t.image, t.line)
-	} else {
-		return fmt.Sprintf("'%v'", t.image)
-	}
+	return fmt.Sprintf("'%v'", t.image)
 }
 
 type Tokenizer struct {
@@ -54,7 +50,7 @@ type Tokenizer struct {
 	tok           chan Token
 	isToken       bool
 	token         Token
-	line          int
+	line          Line
 	number        Matcher
 	identifier    Matcher
 	operator      Matcher
@@ -100,6 +96,10 @@ func (t *Tokenizer) Next() Token {
 	return tok
 }
 
+func (t *Tokenizer) getLine() Line {
+	return t.line
+}
+
 func (t *Tokenizer) run(tokens chan<- Token) {
 	for {
 		switch t.next(true) {
@@ -112,51 +112,51 @@ func (t *Tokenizer) run(tokens chan<- Token) {
 			close(tokens)
 			return
 		case '(':
-			tokens <- Token{tOpen, "(", t.line}
+			tokens <- Token{tOpen, "(", t.getLine()}
 		case ')':
-			tokens <- Token{tClose, ")", t.line}
+			tokens <- Token{tClose, ")", t.getLine()}
 		case '[':
-			tokens <- Token{tOpenBracket, "[", t.line}
+			tokens <- Token{tOpenBracket, "[", t.getLine()}
 		case ']':
-			tokens <- Token{tCloseBracket, "]", t.line}
+			tokens <- Token{tCloseBracket, "]", t.getLine()}
 		case '{':
-			tokens <- Token{tOpenCurly, "{", t.line}
+			tokens <- Token{tOpenCurly, "{", t.getLine()}
 		case '}':
-			tokens <- Token{tCloseCurly, "}", t.line}
+			tokens <- Token{tCloseCurly, "}", t.getLine()}
 		case '.':
-			tokens <- Token{tDot, ".", t.line}
+			tokens <- Token{tDot, ".", t.getLine()}
 		case ':':
-			tokens <- Token{tColon, ":", t.line}
+			tokens <- Token{tColon, ":", t.getLine()}
 		case ',':
-			tokens <- Token{tComma, ",", t.line}
+			tokens <- Token{tComma, ",", t.getLine()}
 		case ';':
-			tokens <- Token{tSemicolon, ";", t.line}
+			tokens <- Token{tSemicolon, ";", t.getLine()}
 		case '"':
 			image := t.readSkip(func(c rune) bool { return c != '"' }, false)
 			t.next(false)
-			tokens <- Token{tString, image, t.line}
+			tokens <- Token{tString, image, t.getLine()}
 		case '\'':
 			image := t.readSkip(func(c rune) bool { return c != '\'' }, false)
 			t.next(false)
-			tokens <- Token{tIdent, image, t.line}
+			tokens <- Token{tIdent, image, t.getLine()}
 		default:
 			t.unread()
 			c := t.peek(true)
 			if f, ok := t.number(c); ok {
 				image := t.read(f)
-				tokens <- Token{tNumber, image, t.line}
+				tokens <- Token{tNumber, image, t.getLine()}
 			} else if f, ok := t.identifier(c); ok {
 				image := t.read(f)
 				if to, ok := t.textOperators[image]; ok {
-					tokens <- Token{tOperate, to, t.line}
+					tokens <- Token{tOperate, to, t.getLine()}
 				} else {
-					tokens <- Token{tIdent, image, t.line}
+					tokens <- Token{tIdent, image, t.getLine()}
 				}
 			} else if f, ok := t.operator(c); ok {
 				image := t.read(f)
-				tokens <- Token{tOperate, image, t.line}
+				tokens <- Token{tOperate, image, t.getLine()}
 			} else {
-				tokens <- Token{tInvalid, string(t.peek(true)), t.line}
+				tokens <- Token{tInvalid, string(t.peek(true)), t.getLine()}
 			}
 		}
 	}
