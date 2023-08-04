@@ -482,7 +482,7 @@ func simpleNumber(r rune) (func(r rune) bool, bool) {
 func simpleIdentifier(r rune) (func(r rune) bool, bool) {
 	if unicode.IsLetter(r) {
 		return func(r rune) bool {
-			return unicode.IsLetter(r) || unicode.IsNumber(r)
+			return unicode.IsLetter(r) || unicode.IsNumber(r) || r == '_'
 		}, true
 	} else {
 		return nil, false
