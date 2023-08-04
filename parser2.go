@@ -807,7 +807,7 @@ func (p *Parser[V]) parseLiteral(tokenizer *Tokenizer) AST {
 			thenExp := p.parseExpression(tokenizer)
 			t = tokenizer.Next()
 			if !(t.typ == tIdent && t.image == "else") {
-				panic(unexpected("then", t))
+				panic(unexpected("else", t))
 			}
 			elseExp := p.parseExpression(tokenizer)
 			return &If{
@@ -901,10 +901,10 @@ func (p *Parser[V]) parseIdentList(tokenizer *Tokenizer) []string {
 				return names
 			case tComma:
 			default:
-				panic(t.Errorf("expected ',' or ')'"))
+				panic(t.Errorf("expected ',' or ')', found %v", t))
 			}
 		} else {
-			panic(t.Errorf("expected identifier"))
+			panic(t.Errorf("expected identifier, found %v", t))
 		}
 	}
 }
