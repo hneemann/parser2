@@ -56,6 +56,16 @@ func (o optimizer[V]) Optimize(ast AST) AST {
 			}
 		}
 	}
+	// evaluate const if operation
+	if ifNode, ok := ast.(*If); ok && o.g.toBool != nil {
+		if c, ok := o.isConst(ifNode.Cond); ok {
+			if o.g.toBool(c) {
+				return ifNode.Then
+			} else {
+				return ifNode.Else
+			}
+		}
+	}
 	// evaluate const list literals like [1,2,3]
 	if o.g.listHandler != nil {
 		if list, ok := ast.(*ListLiteral); ok {

@@ -9,6 +9,9 @@ import (
 var boolParser = parser2.New[bool]().
 	AddConstant("false", false).
 	AddConstant("true", true).
+	AddOp("^", true, func(a, b bool) bool { return a != b }).
+	AddOp("=", true, func(a, b bool) bool { return a == b }).
 	AddOp("|", true, func(a, b bool) bool { return a || b }).
 	AddOp("&", true, func(a, b bool) bool { return a && b }).
-	AddUnary("!", func(a bool) bool { return !a })
+	AddUnary("!", func(a bool) bool { return !a }).
+	SetToBool(func(c bool) bool { return c })

@@ -10,6 +10,9 @@ import (
 // see test cases for usage example
 var minimal = parser2.New[float64]().
 	AddConstant("pi", math.Pi).
+	AddOp("=", true, func(a, b float64) float64 { return fromBool(a == b) }).
+	AddOp("<", false, func(a, b float64) float64 { return fromBool(a < b) }).
+	AddOp(">", false, func(a, b float64) float64 { return fromBool(a > b) }).
 	AddOp("+", true, func(a, b float64) float64 { return a + b }).
 	AddOp("-", false, func(a, b float64) float64 { return a - b }).
 	AddOp("*", true, func(a, b float64) float64 { return a * b }).
@@ -18,6 +21,7 @@ var minimal = parser2.New[float64]().
 	AddUnary("-", func(a float64) float64 { return -a }).
 	AddSimpleFunction("sin", math.Sin).
 	AddSimpleFunction("sqrt", math.Sqrt).
+	SetToBool(func(c float64) bool { return c != 0 }).
 	SetNumberParser(
 		parser2.NumberParserFunc[float64](
 			func(n string) (float64, error) {
@@ -25,3 +29,11 @@ var minimal = parser2.New[float64]().
 			},
 		),
 	)
+
+func fromBool(b bool) float64 {
+	if b {
+		return 1
+	} else {
+		return 0
+	}
+}
