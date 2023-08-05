@@ -277,7 +277,7 @@ func (g *FunctionGenerator[V]) Generate(exp string) (c func(Variables[V]) (V, er
 	defer func() {
 		rec := recover()
 		if rec != nil {
-			errE = fmt.Errorf("error generating code: %v", rec)
+			errE = EnhanceErrorf(rec, "error generating code")
 			c = nil
 		}
 	}()
@@ -292,7 +292,7 @@ func (g *FunctionGenerator[V]) Generate(exp string) (c func(Variables[V]) (V, er
 		defer func() {
 			rec := recover()
 			if rec != nil {
-				e = fmt.Errorf("error evaluating expression: %v", rec)
+				e = EnhanceErrorf(rec, "error evaluating expression")
 			}
 		}()
 		return expFunc(v), nil
@@ -454,7 +454,7 @@ func (g *FunctionGenerator[V]) GenerateFunc(ast AST) Func[V] {
 				if v, err := g.listHandler.AccessList(l, i); err == nil {
 					return v
 				} else {
-					panic(a.AddLine(err))
+					panic(a.EnhanceErrorf(err, "List error"))
 				}
 			}
 		}
@@ -477,7 +477,7 @@ func (g *FunctionGenerator[V]) GenerateFunc(ast AST) Func[V] {
 				if v, err := g.mapHandler.AccessMap(l, a.Key); err == nil {
 					return v
 				} else {
-					panic(a.AddLine(err))
+					panic(a.EnhanceErrorf(err, "Map error"))
 				}
 			}
 		}
@@ -571,7 +571,7 @@ func callMethod[V any](value V, name string, args []reflect.Value, typeOfValue r
 	defer func() {
 		rec := recover()
 		if rec != nil {
-			panic(line.Errorf("error calling %s: %v", name, rec))
+			panic(line.EnhanceErrorf(rec, "error calling %s", name))
 		}
 	}()
 	name = firstRuneUpper(name)

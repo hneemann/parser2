@@ -3,7 +3,6 @@ package parser2
 
 import (
 	"bytes"
-	"errors"
 	"fmt"
 	"strconv"
 	"strings"
@@ -63,35 +62,48 @@ func (l Line) GetLine() Line {
 }
 
 type errorWithLine struct {
-	parent error
-	line   Line
-}
-
-func (e errorWithLine) Is(err error) bool {
-	_, ok := err.(errorWithLine)
-	return ok
+	message string
+	line    Line
+	cause   error
 }
 
 func (e errorWithLine) Error() string {
-	return e.parent.Error() + " in line " + strconv.Itoa(int(e.line))
+	m := e.message
+	if e.line > 0 {
+		m += " in line " + strconv.Itoa(int(e.line))
+	}
+	if e.cause != nil {
+		m += "\n caused by " + e.cause.Error()
+	}
+	return m
 }
 
 func (l Line) Errorf(m string, a ...any) error {
 	return errorWithLine{
-		parent: fmt.Errorf(m, a...),
-		line:   l,
+		message: fmt.Sprintf(m, a...),
+		line:    l,
 	}
 }
 
-func (l Line) AddLine(e error) error {
-	if errors.Is(e, errorWithLine{}) {
-		return e
-	} else {
-		return errorWithLine{
-			parent: e,
-			line:   l,
-		}
+func enhanceErrorfInternal(cause any, m string, a ...any) errorWithLine {
+	c, ok := cause.(error)
+	if !ok {
+		c = fmt.Errorf("%v", cause)
 	}
+	return errorWithLine{
+		message: fmt.Sprintf(m, a...),
+		cause:   c,
+	}
+}
+
+func EnhanceErrorf(cause any, m string, a ...any) error {
+	return enhanceErrorfInternal(cause, m, a...)
+}
+
+func (l Line) EnhanceErrorf(cause any, m string, a ...any) error {
+	e := enhanceErrorfInternal(cause, m, a...)
+	e.line = l
+	return e
 }
 
 type Let struct {
@@ -614,11 +626,7 @@ func (p *Parser[V]) Parse(str string) (ast AST, err error) {
 	defer func() {
 		rec := recover()
 		if rec != nil {
-			if thisErr, ok := rec.(error); ok {
-				err = thisErr
-			} else {
-				err = fmt.Errorf("%v", rec)
-			}
+			err = EnhanceErrorf(rec, "error parsing expression")
 			ast = nil
 		}
 	}()
@@ -830,7 +838,7 @@ func (p *Parser[V]) parseLiteral(tokenizer *Tokenizer) AST {
 			if number, err := p.numberParser.ParseNumber(t.image); err == nil {
 				return &Const[V]{number, t.Line}
 			} else {
-				panic(t.AddLine(fmt.Errorf("not a number: %w", err)))
+				panic(t.EnhanceErrorf(err, "not a number"))
 			}
 		}
 	case tString:
