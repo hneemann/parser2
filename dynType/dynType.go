@@ -80,6 +80,21 @@ func (v vList) Map(c vClosure) Value {
 	return vList(m)
 }
 
+func (v vList) Reduce(c vClosure) Value {
+	if c.Args != 2 {
+		panic("reduce requires closure with two arguments")
+	}
+	var red Value
+	for i, e := range v {
+		if i == 0 {
+			red = e
+		} else {
+			red = c.Func([]Value{red, e})
+		}
+	}
+	return red
+}
+
 type vMap map[string]Value
 
 func (v vMap) Float() float64 {
@@ -270,11 +285,6 @@ var DynType = parser2.New[Value]().
 		Func:   sprintf,
 		Args:   -1,
 		IsPure: true,
-	}).
-	AddStaticFunction("lowPass", parser2.Function[Value]{
-		Func:   lowPass,
-		Args:   1,
-		IsPure: false,
 	})
 
 func sprintf(a []Value) Value {
@@ -294,30 +304,4 @@ func sprintf(a []Value) Value {
 			panic("sprintf requires string as first argument")
 		}
 	}
-}
-
-func lowPass(a []Value) Value {
-	tau := a[0].Float()
-	init := false
-	lt := 0.0
-	lx := 0.0
-	return vClosure(parser2.Function[Value]{
-		Func: func(args []Value) Value {
-			t := args[0].Float()
-			x := args[1].Float()
-			if !init {
-				lt = t
-				lx = x
-				init = true
-			} else {
-				dt := t - lt
-				a := math.Exp(-dt / tau)
-				lx = lx*a + x*(1-a)
-				lt = t
-			}
-			return vFloat(lx)
-		},
-		Args:   2,
-		IsPure: false,
-	})
 }
