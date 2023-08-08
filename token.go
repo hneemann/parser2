@@ -47,8 +47,8 @@ type Tokenizer struct {
 	isLast        bool
 	last          rune
 	tok           chan Token
-	isToken       bool
-	token         Token
+	tokenAvail    int
+	token         [2]Token
 	line          Line
 	number        Matcher
 	identifier    Matcher
@@ -73,26 +73,45 @@ func NewTokenizer(text string, number, identifier, operator Matcher, textOp map[
 	go tok.run(t)
 	return tok
 }
-
 func (t *Tokenizer) Peek() Token {
-	if t.isToken {
-		return t.token
-	}
+	return t.forward(1)
+}
 
-	var ok bool
-	t.token, ok = <-t.tok
-	if ok {
-		t.isToken = true
-		return t.token
-	} else {
-		return TokenEof
+func (t *Tokenizer) PeekPeek() Token {
+	return t.forward(2)
+}
+
+func (t *Tokenizer) forward(i int) Token {
+	for t.tokenAvail < i {
+		var ok bool
+		t.token[t.tokenAvail], ok = <-t.tok
+		if ok {
+			t.tokenAvail++
+		} else {
+			return TokenEof
+		}
 	}
+	return t.token[i-1]
 }
 
 func (t *Tokenizer) Next() Token {
-	tok := t.Peek()
-	t.isToken = false
-	return tok
+	switch t.tokenAvail {
+	case 2:
+		to := t.token[0]
+		t.token[0] = t.token[1]
+		t.tokenAvail--
+		return to
+	case 1:
+		t.tokenAvail--
+		return t.token[0]
+	default:
+		to, ok := <-t.tok
+		if ok {
+			return to
+		} else {
+			return TokenEof
+		}
+	}
 }
 
 func (t *Tokenizer) getLine() Line {

@@ -181,3 +181,14 @@ func TestNewTokenizerNoComment(t *testing.T) {
 		})
 	}
 }
+
+func TestPeek(t *testing.T) {
+	tok := NewTokenizer("=(a,b)", simpleNumber, simpleIdentifier, simpleOperator, map[string]string{}, false)
+	assert.Equal(t, "=", tok.Next().image)
+	assert.Equal(t, "(", tok.Next().image)
+	assert.Equal(t, "a", tok.Peek().image)
+	assert.Equal(t, ",", tok.PeekPeek().image)
+	assert.Equal(t, "a", tok.Next().image)
+	assert.Equal(t, ",", tok.Next().image)
+	assert.Equal(t, "b", tok.Next().image)
+}

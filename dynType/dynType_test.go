@@ -58,7 +58,7 @@ func Test(t *testing.T) {
 		{exp: "false & (notAvail<1)", res: vBool(false)},
 		{exp: "[1,2,3].size()", res: vFloat(3)},
 		{exp: "[1,2,3].map(e->e*2)", res: vList{vFloat(2), vFloat(4), vFloat(6)}},
-		{exp: "[1,2,3,4,5].reduce(closure(a,b)->a+b)", res: vFloat(15)},
+		{exp: "[1,2,3,4,5].reduce((a,b)->a+b)", res: vFloat(15)},
 		{exp: "let a=1;sprintf(\"%v->%v\",a,2)", res: vString("1->2")},
 		{exp: "let a=1;sprintf(\"%v->\",a)", res: vString("1->")},
 		{exp: "{a:x->x*2,b:x->x*3}.b(4)", res: vFloat(12)},
@@ -124,7 +124,7 @@ const regulaFalsi = `
             then next 
             else regulaFalsi(next);
 
-      let solve = closure(x0, x1, f)->
+      let solve = (x0, x1, f)->
           let r = regulaFalsi({x0:x0, f0:f(x0), x1:x1, f1:f(x1), f:f});
           if abs(r.f0)<abs(r.f1) 
             then r.x0 
@@ -138,9 +138,9 @@ const regulaFalsi = `
 // Recursive implementation of the sqrt function using the Newton-Raphson algorithm.
 // Since the first derivative is required, no solver for arbitrary functions can be implemented.
 const newtonRaphson = `
-      let newton = closure(x,a) -> if abs(x*x-a)<1e-7 
-                                     then x 
-                                     else newton(x+(a-x*x)/(2*x), a);
+      let newton = (x,a) -> if abs(x*x-a)<1e-7 
+                              then x 
+                              else newton(x+(a-x*x)/(2*x), a);
       let mySqrt = a -> newton(2,a); 
 
       mySqrt(a)

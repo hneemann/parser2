@@ -48,7 +48,7 @@ func TestParser(t *testing.T) {
 		opt string
 	}{
 		{exp: "(1+1)(2+2)", ast: "(1+1)(2+2)", opt: "2(4)"},
-		{exp: "closure(a,b)->a*b*(1+1)", ast: "(a, b)->(a*b)*(1+1)", opt: "(a, b)->(a*b)*2"},
+		{exp: "(a,b)->a*b*(1+1)", ast: "(a, b)->(a*b)*(1+1)", opt: "(a, b)->(a*b)*2"},
 		{exp: "a->a*(1+1)", ast: "(a)->a*(1+1)", opt: "(a)->a*2"},
 		{exp: "f(1+1,2+2)", ast: "f(1+1, 2+2)", opt: "f(2, 4)"},
 		{exp: "a[1+1](2+2)", ast: "a[1+1](2+2)", opt: "a[2](4)"},

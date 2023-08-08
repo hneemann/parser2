@@ -789,23 +789,6 @@ func (p *Parser[V]) parseLiteral(tokenizer *Tokenizer) AST {
 				Func:  e,
 				Line:  t.Line,
 			}
-		} else if name == "closure" {
-			// multi arg closure definition: closure(a,b)->[exp]
-			t := tokenizer.Next()
-			if !(t.typ == tOpen) {
-				panic(unexpected("(", t))
-			}
-			names := p.parseIdentList(tokenizer)
-			t = tokenizer.Next()
-			if !(t.typ == tOperate && t.image == "->") {
-				panic(unexpected("->", t))
-			}
-			e := p.parseExpression(tokenizer)
-			return &ClosureLiteral{
-				Names: names,
-				Func:  e,
-				Line:  t.Line,
-			}
 		} else if name == "if" {
 			cond := p.parseExpression(tokenizer)
 			t := tokenizer.Next()
@@ -846,12 +829,26 @@ func (p *Parser[V]) parseLiteral(tokenizer *Tokenizer) AST {
 			return &Const[V]{p.stringHandler.FromString(t.image), t.Line}
 		}
 	case tOpen:
-		e := p.parseExpression(tokenizer)
-		t := tokenizer.Next()
-		if t.typ != tClose {
-			panic(unexpected(")", t))
+		if tokenizer.Peek().typ == tIdent && tokenizer.PeekPeek().typ == tComma {
+			names := p.parseIdentList(tokenizer)
+			t = tokenizer.Next()
+			if !(t.typ == tOperate && t.image == "->") {
+				panic(unexpected("->", t))
+			}
+			e := p.parseExpression(tokenizer)
+			return &ClosureLiteral{
+				Names: names,
+				Func:  e,
+				Line:  t.Line,
+			}
+		} else {
+			e := p.parseExpression(tokenizer)
+			t := tokenizer.Next()
+			if t.typ != tClose {
+				panic(unexpected(")", t))
+			}
+			return e
 		}
-		return e
 	}
 	panic(t.Errorf("unexpected token type: %v", t.image))
 }
