@@ -615,7 +615,7 @@ func callMethod[V any](value V, name string, args []reflect.Value, typeOfValue r
 				}
 			}
 		}
-		panic(line.Errorf("method not found, available are: %v", buf.String()))
+		panic(line.Errorf("method not found on %v, available are: %v", typeOf, buf.String()))
 	}
 }
 
