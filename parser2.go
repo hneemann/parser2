@@ -887,6 +887,11 @@ func (p *Parser[V]) parseMap(tokenizer *Tokenizer) *MapLiteral {
 			m.Map[t.image] = entry
 			if tokenizer.Peek().typ == tComma {
 				tokenizer.Next()
+			} else {
+				if tokenizer.Peek().typ != tCloseCurly {
+					found := tokenizer.Next()
+					panic(t.Errorf("unexpected token, expected ',' or '}', found %v", found))
+				}
 			}
 		default:
 			panic(unexpected(",", t))
