@@ -73,7 +73,7 @@ func (e errorWithLine) Error() string {
 		m += " in line " + strconv.Itoa(int(e.line))
 	}
 	if e.cause != nil {
-		m += "\n caused by " + e.cause.Error()
+		m += ";\n cause: " + e.cause.Error()
 	}
 	return m
 }
