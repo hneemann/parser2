@@ -691,7 +691,7 @@ func (p *Parser[V]) parseExpression(tokenizer *Tokenizer) AST {
 				Value: &ClosureLiteral{
 					Names: names,
 					Func:  exp,
-					Line:  t.Line,
+					Line:  line,
 				},
 				Inner: inner,
 				Line:  line,
