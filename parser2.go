@@ -646,31 +646,59 @@ type parserFunc func(tokenizer *Tokenizer) AST
 
 func (p *Parser[V]) parseExpression(tokenizer *Tokenizer) AST {
 	t := tokenizer.Peek()
-	if t.typ == tIdent && t.image == "let" {
-		tokenizer.Next()
-		t = tokenizer.Next()
-		if t.typ != tIdent {
-			panic(t.Errorf("no identifier followed by let"))
+	if t.typ == tIdent {
+		if t.image == "let" {
+			tokenizer.Next()
+			t = tokenizer.Next()
+			if t.typ != tIdent {
+				panic(t.Errorf("no identifier followed by let"))
+			}
+			name := t.image
+			line := t.GetLine()
+			if t := tokenizer.Next(); t.typ != tOperate || t.image != "=" {
+				panic(unexpected("=", t))
+			}
+			exp := p.parse(tokenizer, 0)
+			if t := tokenizer.Next(); t.typ != tSemicolon || t.image != ";" {
+				panic(unexpected(";", t))
+			}
+			inner := p.parseExpression(tokenizer)
+			return &Let{
+				Name:  name,
+				Value: exp,
+				Inner: inner,
+				Line:  line,
+			}
+		} else if t.image == "func" {
+			tokenizer.Next()
+			t = tokenizer.Next()
+			if t.typ != tIdent {
+				panic(t.Errorf("no identifier followed by func"))
+			}
+			name := t.image
+			line := t.GetLine()
+			if t := tokenizer.Next(); t.typ != tOpen {
+				panic(unexpected("(", t))
+			}
+			names := p.parseIdentList(tokenizer)
+			exp := p.parseExpression(tokenizer)
+			if t := tokenizer.Next(); t.typ != tSemicolon || t.image != ";" {
+				panic(unexpected(";", t))
+			}
+			inner := p.parseExpression(tokenizer)
+			return &Let{
+				Name: name,
+				Value: &ClosureLiteral{
+					Names: names,
+					Func:  exp,
+					Line:  t.Line,
+				},
+				Inner: inner,
+				Line:  line,
+			}
 		}
-		name := t.image
-		line := t.GetLine()
-		if t := tokenizer.Next(); t.typ != tOperate || t.image != "=" {
-			panic(unexpected("=", t))
-		}
-		exp := p.parse(tokenizer, 0)
-		if t := tokenizer.Next(); t.typ != tSemicolon || t.image != ";" {
-			panic(unexpected(";", t))
-		}
-		inner := p.parseExpression(tokenizer)
-		return &Let{
-			Name:  name,
-			Value: exp,
-			Inner: inner,
-			Line:  line,
-		}
-	} else {
-		return p.parse(tokenizer, 0)
 	}
+	return p.parse(tokenizer, 0)
 }
 
 func (p *Parser[V]) parse(tokenizer *Tokenizer, op int) AST {

@@ -45,7 +45,7 @@ func Test(t *testing.T) {
 		{exp: "let a=1;a", res: 1},
 		{exp: "let sqr=x->x*x;sqr(2)", res: 4},
 		{exp: "let s=3; let f=x->x*x*s;f(2)", res: 12},
-		{exp: "let fib=n->if n<=2 then 1 else fib(n-1)+fib(n-2);[fib(10),fib(15)]", res: vList{vFloat(55), vFloat(610)}},
+		{exp: "func fib(n) if n<=2 then 1 else fib(n-1)+fib(n-2);[fib(10),fib(15)]", res: vList{vFloat(55), vFloat(610)}},
 		{exp: "if 1<2 then 1 else 2", res: vFloat(1)},
 		{exp: "if 1>2 then 1 else 2", res: vFloat(2)},
 		{exp: "if 1<2 then 1 else notAvail", res: vFloat(1)},
@@ -112,7 +112,7 @@ func TestOptimizer(t *testing.T) {
 // The power of closures and recursion.
 // Recursive implementation of the sqrt function using the Regula-Falsi algorithm.
 const regulaFalsi = `
-      let regulaFalsi = rf->
+      func regulaFalsi(rf)
           let xn = (rf.x0*rf.f1 - rf.x1*rf.f0) / (rf.f1 - rf.f0);
           let fn = rf.f(xn);
 
@@ -124,7 +124,7 @@ const regulaFalsi = `
             then next 
             else regulaFalsi(next);
 
-      let solve = (x0, x1, f)->
+      func solve(x0, x1, f)
           let r = regulaFalsi({x0:x0, f0:f(x0), x1:x1, f1:f(x1), f:f});
           if abs(r.f0)<abs(r.f1) 
             then r.x0 
@@ -138,10 +138,12 @@ const regulaFalsi = `
 // Recursive implementation of the sqrt function using the Newton-Raphson algorithm.
 // Since the first derivative is required, no solver for arbitrary functions can be implemented.
 const newtonRaphson = `
-      let newton = (x,a) -> if abs(x*x-a)<1e-7 
-                              then x 
-                              else newton(x+(a-x*x)/(2*x), a);
-      let mySqrt = a -> newton(2,a); 
+      func newton(x,a) 
+         if abs(x*x-a)<1e-7 
+         then x 
+         else newton(x+(a-x*x)/(2*x), a);
+      func mySqrt(a) 
+         newton(2,a); 
 
       mySqrt(a)
     `
@@ -190,7 +192,7 @@ func BenchmarkCall(b *testing.B) {
 }
 
 func BenchmarkFunc(b *testing.B) {
-	f, _ := DynType.Generate("let f=x->x*x;f(a)+f(2*a)")
+	f, _ := DynType.Generate("func f(x) x*x;f(a)+f(2*a)")
 	v := parser2.VarMap[Value]{"a": vFloat(3)}
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {

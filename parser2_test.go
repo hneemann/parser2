@@ -57,6 +57,8 @@ func TestParser(t *testing.T) {
 		{exp: "(2+4)/(1+10/2)", ast: "(2+4)/(1+(10/2))", opt: "1"},
 		{exp: "[1+1,2+2,3+3]", ast: "[1+1, 2+2, 3+3]", opt: "[2, 4, 6]"},
 		{exp: "let v=1+2; 2+2", ast: "let v=1+2; 2+2", opt: "let v=3; 4"},
+		{exp: "func sqr(x) x*x; sqr(x)", ast: "let sqr=(x)->x*x; sqr(x)", opt: "let sqr=(x)->x*x; sqr(x)"},
+		{exp: "func mul(a,b) a*b; mul(1,2)", ast: "let mul=(a, b)->a*b; mul(1, 2)", opt: "let mul=(a, b)->a*b; mul(1, 2)"},
 		{exp: "-(2*2)", ast: "-(2*2)", opt: "-4"},
 		{exp: "{a:1+1}", ast: "{a:1+1}", opt: "{a:2}"},
 		{exp: "a.m(1+1,2+2)", ast: "a.m(1+1, 2+2)", opt: "a.m(2, 4)"},
