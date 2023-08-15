@@ -290,33 +290,13 @@ type Generator[V any] interface {
 
 // Generate takes a string and returns the function representing the expression given in
 // the string. This is the main entry point of the parser.
-func (g *FunctionGenerator[V]) Generate(exp string) (c Func[V], errE error) {
-	defer func() {
-		rec := recover()
-		if rec != nil {
-			errE = EnhanceErrorf(rec, "error generating code")
-			c = nil
-		}
-	}()
-
+func (g *FunctionGenerator[V]) Generate(exp string) (Func[V], error) {
 	ast, err := g.CreateAst(exp)
 	if err != nil {
 		return nil, err
 	}
 
-	expFunc, err := g.GenerateFunc(ast)
-	if err != nil {
-		return nil, EnhanceErrorf(err, "error generating code")
-	}
-	return func(v Variables[V]) (res V, e error) {
-		defer func() {
-			rec := recover()
-			if rec != nil {
-				e = EnhanceErrorf(rec, "error evaluating expression")
-			}
-		}()
-		return expFunc(v)
-	}, nil
+	return g.GenerateFunc(ast)
 }
 
 // CreateAst uses the parser to create the abstract syntax tree.

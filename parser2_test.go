@@ -79,46 +79,75 @@ func TestParser(t *testing.T) {
 
 type vars map[string]int
 
-type fu func(vars) int
+type fu func(vars) (int, error)
 
-func codeGen(ast AST) fu {
+func codeGen(ast AST) (fu, error) {
 	switch a := ast.(type) {
 	case *Const[int]:
-		return func(vars) int {
-			return a.Value
-		}
+		return func(vars) (int, error) {
+			return a.Value, nil
+		}, nil
 	case *Ident:
-		return func(v vars) int {
+		return func(v vars) (int, error) {
 			if i, ok := v[a.Name]; ok {
-				return i
+				return i, nil
 			}
-			panic(fmt.Sprintf("variable not found: %v", a))
-		}
+			return 0, fmt.Errorf("variable not found: %v", a)
+		}, nil
 	case *Unary:
-		inner := codeGen(a.Value)
+		inner, err := codeGen(a.Value)
+		if err != nil {
+			return nil, err
+		}
 		switch a.Operator {
 		case "-":
-			return func(v vars) int {
-				return -inner(v)
-			}
+			return func(v vars) (int, error) {
+				i, err := inner(v)
+				if err != nil {
+					return 0, err
+				}
+				return -i, err
+			}, nil
 		}
-		panic(fmt.Sprintf("unsupported unary operator %v", a.Operator))
+		return nil, fmt.Errorf("unsupported unary operator %v", a.Operator)
 	case *Operate:
-		fA := codeGen(a.A)
-		fB := codeGen(a.B)
+		fA, err := codeGen(a.A)
+		if err != nil {
+			return nil, err
+		}
+		fB, err := codeGen(a.B)
+		if err != nil {
+			return nil, err
+		}
 		switch a.Operator {
 		case "+":
-			return func(v vars) int {
-				return fA(v) + fB(v)
-			}
+			return func(v vars) (int, error) {
+				a, err := fA(v)
+				if err != nil {
+					return 0, err
+				}
+				b, err := fB(v)
+				if err != nil {
+					return 0, err
+				}
+				return a + b, nil
+			}, nil
 		case "*":
-			return func(v vars) int {
-				return fA(v) * fB(v)
-			}
+			return func(v vars) (int, error) {
+				av, err := fA(v)
+				if err != nil {
+					return 0, err
+				}
+				bv, err := fB(v)
+				if err != nil {
+					return 0, err
+				}
+				return av * bv, nil
+			}, nil
 		}
-		panic(fmt.Sprintf("unsupported operator %v", a.Operator))
+		return nil, fmt.Errorf("unsupported operator %v", a.Operator)
 	default:
-		panic(fmt.Sprintf("unsupported %v", a))
+		return nil, fmt.Errorf("unsupported %v", a)
 	}
 }
 
@@ -138,13 +167,19 @@ func TestCodeGen(t *testing.T) {
 		t.Run(test.exp, func(t *testing.T) {
 			ast, err := parser.Parse(test.exp)
 			assert.NoError(t, err, test.exp)
-			fu := codeGen(ast)
-			assert.EqualValues(t, test.res, fu(v))
+			fu, err := codeGen(ast)
+			assert.NoError(t, err)
+			got, err := fu(v)
+			assert.NoError(t, err)
+			assert.EqualValues(t, test.res, got)
 
 			ast, err = Optimize(ast, simpleOptimizer{})
 			assert.NoError(t, err, test.exp)
-			fu = codeGen(ast)
-			assert.EqualValues(t, test.res, fu(v))
+			fu, err = codeGen(ast)
+			assert.NoError(t, err)
+			got, err = fu(v)
+			assert.NoError(t, err)
+			assert.EqualValues(t, test.res, got)
 		})
 	}
 }

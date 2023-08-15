@@ -630,17 +630,13 @@ func (p *Parser[V]) AllowComments() *Parser[V] {
 
 // Parse parses the given string and returns an ast
 func (p *Parser[V]) Parse(str string) (ast AST, err error) {
-	defer func() {
-		rec := recover()
-		if rec != nil {
-			err = EnhanceErrorf(rec, "error parsing expression")
-			ast = nil
-		}
-	}()
 	tokenizer :=
 		NewTokenizer(str, p.number, p.identifier, p.operator, p.textOperators, p.allowComments)
 
-	ast = p.parseExpression(tokenizer)
+	ast, err = p.parseExpression(tokenizer)
+	if err != nil {
+		return nil, err
+	}
 	t := tokenizer.Next()
 	if t.typ != tEof {
 		return nil, unexpected("EOF", t)
@@ -649,50 +645,65 @@ func (p *Parser[V]) Parse(str string) (ast AST, err error) {
 	return ast, nil
 }
 
-type parserFunc func(tokenizer *Tokenizer) AST
+type parserFunc func(tokenizer *Tokenizer) (AST, error)
 
-func (p *Parser[V]) parseExpression(tokenizer *Tokenizer) AST {
+func (p *Parser[V]) parseExpression(tokenizer *Tokenizer) (AST, error) {
 	t := tokenizer.Peek()
 	if t.typ == tIdent {
 		if t.image == "let" {
 			tokenizer.Next()
 			t = tokenizer.Next()
 			if t.typ != tIdent {
-				panic(t.Errorf("no identifier followed by let"))
+				return nil, t.Errorf("no identifier followed by let")
 			}
 			name := t.image
 			line := t.GetLine()
 			if t := tokenizer.Next(); t.typ != tOperate || t.image != "=" {
-				panic(unexpected("=", t))
+				return nil, unexpected("=", t)
 			}
-			exp := p.parse(tokenizer, 0)
+			exp, err := p.parse(tokenizer, 0)
+			if err != nil {
+				return nil, err
+			}
 			if t := tokenizer.Next(); t.typ != tSemicolon || t.image != ";" {
-				panic(unexpected(";", t))
+				return nil, unexpected(";", t)
 			}
-			inner := p.parseExpression(tokenizer)
+			inner, err := p.parseExpression(tokenizer)
+			if err != nil {
+				return nil, err
+			}
 			return &Let{
 				Name:  name,
 				Value: exp,
 				Inner: inner,
 				Line:  line,
-			}
+			}, nil
 		} else if t.image == "func" {
 			tokenizer.Next()
 			t = tokenizer.Next()
 			if t.typ != tIdent {
-				panic(t.Errorf("no identifier followed by func"))
+				return nil, t.Errorf("no identifier followed by func")
 			}
 			name := t.image
 			line := t.GetLine()
 			if t := tokenizer.Next(); t.typ != tOpen {
-				panic(unexpected("(", t))
+				return nil, unexpected("(", t)
 			}
-			names := p.parseIdentList(tokenizer)
-			exp := p.parseExpression(tokenizer)
+			names, err := p.parseIdentList(tokenizer)
+			if err != nil {
+				return nil, err
+			}
+			exp, err := p.parseExpression(tokenizer)
+			if err != nil {
+				return nil, err
+			}
 			if t := tokenizer.Next(); t.typ != tSemicolon || t.image != ";" {
-				panic(unexpected(";", t))
+				return nil, unexpected(";", t)
 			}
-			inner := p.parseExpression(tokenizer)
+			inner, err := p.parseExpression(tokenizer)
+			if err != nil {
+				return nil, err
+			}
 			return &Let{
 				Name: name,
 				Value: &ClosureLiteral{
@@ -702,22 +713,28 @@ func (p *Parser[V]) parseExpression(tokenizer *Tokenizer) AST {
 				},
 				Inner: inner,
 				Line:  line,
-			}
+			}, nil
 		}
 	}
 	return p.parse(tokenizer, 0)
 }
 
-func (p *Parser[V]) parse(tokenizer *Tokenizer, op int) AST {
+func (p *Parser[V]) parse(tokenizer *Tokenizer, op int) (AST, error) {
 	next := p.nextParserCall(op)
 	operator := p.operators[op]
-	a := next(tokenizer)
+	a, err := next(tokenizer)
+	if err != nil {
+		return nil, err
+	}
 	for {
 		t := tokenizer.Peek()
 		if t.typ == tOperate && t.image == operator {
 			tokenizer.Next()
 			aa := a
-			bb := next(tokenizer)
+			bb, err := next(tokenizer)
+			if err != nil {
+				return nil, err
+			}
 			a = &Operate{
 				Operator: operator,
 				A:        aa,
@@ -725,14 +742,14 @@ func (p *Parser[V]) parse(tokenizer *Tokenizer, op int) AST {
 				Line:     t.Line,
 			}
 		} else {
-			return a
+			return a, nil
 		}
 	}
 }
 
 func (p *Parser[V]) nextParserCall(op int) parserFunc {
 	if op+1 < len(p.operators) {
-		return func(tokenizer *Tokenizer) AST {
+		return func(tokenizer *Tokenizer) (AST, error) {
 			return p.parse(tokenizer, op+1)
 		}
 	} else {
@@ -740,30 +757,36 @@ func (p *Parser[V]) nextParserCall(op int) parserFunc {
 	}
 }
 
-func (p *Parser[V]) parseUnary(tokenizer *Tokenizer) AST {
+func (p *Parser[V]) parseUnary(tokenizer *Tokenizer) (AST, error) {
 	if t := tokenizer.Peek(); t.typ == tOperate {
 		if _, ok := p.unary[t.image]; ok {
 			t = tokenizer.Next()
-			e := p.parseNonOperator(tokenizer)
+			e, err := p.parseNonOperator(tokenizer)
+			if err != nil {
+				return nil, err
+			}
 			return &Unary{
 				Operator: t.image,
 				Value:    e,
 				Line:     t.Line,
-			}
+			}, nil
 		}
 	}
 	return p.parseNonOperator(tokenizer)
 }
 
-func (p *Parser[V]) parseNonOperator(tokenizer *Tokenizer) AST {
-	expression := p.parseLiteral(tokenizer)
+func (p *Parser[V]) parseNonOperator(tokenizer *Tokenizer) (AST, error) {
+	expression, err := p.parseLiteral(tokenizer)
+	if err != nil {
+		return nil, err
+	}
 	for {
 		switch tokenizer.Peek().typ {
 		case tDot:
 			tokenizer.Next()
 			t := tokenizer.Next()
 			if t.typ != tIdent {
-				panic(unexpected("ident", t))
+				return nil, unexpected("ident", t)
 			}
 			name := t.image
 			if tokenizer.Peek().typ != tOpen {
@@ -775,7 +798,10 @@ func (p *Parser[V]) parseNonOperator(tokenizer *Tokenizer) AST {
 			} else {
 				//Method call
 				tokenizer.Next()
-				args := p.parseArgs(tokenizer, tClose)
+				args, err := p.parseArgs(tokenizer, tClose)
+				if err != nil {
+					return nil, err
+				}
 				expression = &MethodCall{
 					Name:  name,
 					Args:  args,
@@ -785,7 +811,10 @@ func (p *Parser[V]) parseNonOperator(tokenizer *Tokenizer) AST {
 			}
 		case tOpen:
 			t := tokenizer.Next()
-			args := p.parseArgs(tokenizer, tClose)
+			args, err := p.parseArgs(tokenizer, tClose)
+			if err != nil {
+				return nil, err
+			}
 			expression = &FunctionCall{
 				Func: expression,
 				Args: args,
@@ -794,10 +823,13 @@ func (p *Parser[V]) parseNonOperator(tokenizer *Tokenizer) AST {
 
 		case tOpenBracket:
 			tokenizer.Next()
-			indexExpr := p.parseExpression(tokenizer)
+			indexExpr, err := p.parseExpression(tokenizer)
+			if err != nil {
+				return nil, err
+			}
 			t := tokenizer.Next()
 			if t.typ != tCloseBracket {
-				panic(unexpected("}", t))
+				return nil, unexpected("}", t)
 			}
 			expression = &ListAccess{
 				Index: indexExpr,
@@ -805,12 +837,12 @@ func (p *Parser[V]) parseNonOperator(tokenizer *Tokenizer) AST {
 				Line:  t.Line,
 			}
 		default:
-			return expression
+			return expression, nil
 		}
 	}
 }
 
-func (p *Parser[V]) parseLiteral(tokenizer *Tokenizer) AST {
+func (p *Parser[V]) parseLiteral(tokenizer *Tokenizer) (AST, error) {
 	t := tokenizer.Next()
 	switch t.typ {
 	case tIdent:
@@ -818,123 +850,152 @@ func (p *Parser[V]) parseLiteral(tokenizer *Tokenizer) AST {
 		if cl := tokenizer.Peek(); cl.typ == tOperate && cl.image == "->" {
 			// closure, short definition x->[exp]
 			tokenizer.Next()
-			e := p.parseExpression(tokenizer)
+			e, err := p.parseExpression(tokenizer)
+			if err != nil {
+				return nil, err
+			}
 			return &ClosureLiteral{
 				Names: []string{name},
 				Func:  e,
 				Line:  t.Line,
-			}
+			}, nil
 		} else if name == "if" {
-			cond := p.parseExpression(tokenizer)
+			cond, err := p.parseExpression(tokenizer)
+			if err != nil {
+				return nil, err
+			}
 			t := tokenizer.Next()
 			if !(t.typ == tIdent && t.image == "then") {
-				panic(unexpected("then", t))
+				return nil, unexpected("then", t)
 			}
-			thenExp := p.parseExpression(tokenizer)
+			thenExp, err := p.parseExpression(tokenizer)
+			if err != nil {
+				return nil, err
+			}
 			t = tokenizer.Next()
 			if !(t.typ == tIdent && t.image == "else") {
-				panic(unexpected("else", t))
+				return nil, unexpected("else", t)
 			}
-			elseExp := p.parseExpression(tokenizer)
+			elseExp, err := p.parseExpression(tokenizer)
+			if err != nil {
+				return nil, err
+			}
 			return &If{
 				Cond: cond,
 				Then: thenExp,
 				Else: elseExp,
 				Line: t.Line,
-			}
-
+			}, nil
 		} else {
-			return &Ident{Name: name, Line: t.Line}
+			return &Ident{Name: name, Line: t.Line}, nil
 		}
 	case tOpenCurly:
 		return p.parseMap(tokenizer)
 	case tOpenBracket:
-		args := p.parseArgs(tokenizer, tCloseBracket)
-		return &ListLiteral{args, t.Line}
+		args, err := p.parseArgs(tokenizer, tCloseBracket)
+		if err != nil {
+			return nil, err
+		}
+		return &ListLiteral{args, t.Line}, nil
 	case tNumber:
 		if p.numberParser != nil {
 			if number, err := p.numberParser.ParseNumber(t.image); err == nil {
-				return &Const[V]{number, t.Line}
+				return &Const[V]{number, t.Line}, nil
 			} else {
-				panic(t.EnhanceErrorf(err, "not a number"))
+				return nil, t.EnhanceErrorf(err, "not a number")
 			}
 		}
 	case tString:
 		if p.stringHandler != nil {
-			return &Const[V]{p.stringHandler.FromString(t.image), t.Line}
+			return &Const[V]{p.stringHandler.FromString(t.image), t.Line}, nil
 		}
 	case tOpen:
 		if tokenizer.Peek().typ == tIdent && tokenizer.PeekPeek().typ == tComma {
-			names := p.parseIdentList(tokenizer)
+			names, err := p.parseIdentList(tokenizer)
+			if err != nil {
+				return nil, err
+			}
 			t = tokenizer.Next()
 			if !(t.typ == tOperate && t.image == "->") {
-				panic(unexpected("->", t))
+				return nil, unexpected("->", t)
 			}
-			e := p.parseExpression(tokenizer)
+			e, err := p.parseExpression(tokenizer)
+			if err != nil {
+				return nil, err
+			}
 			return &ClosureLiteral{
 				Names: names,
 				Func:  e,
 				Line:  t.Line,
-			}
+			}, nil
 		} else {
-			e := p.parseExpression(tokenizer)
+			e, err := p.parseExpression(tokenizer)
+			if err != nil {
+				return nil, err
+			}
 			t := tokenizer.Next()
 			if t.typ != tClose {
-				panic(unexpected(")", t))
+				return nil, unexpected(")", t)
 			}
-			return e
+			return e, nil
 		}
 	}
-	panic(t.Errorf("unexpected token type: %v", t.image))
+	return nil, t.Errorf("unexpected token type: %v", t.image)
 }
 
-func (p *Parser[V]) parseArgs(tokenizer *Tokenizer, closeList TokenType) []AST {
+func (p *Parser[V]) parseArgs(tokenizer *Tokenizer, closeList TokenType) ([]AST, error) {
 	var args []AST
 	if tokenizer.Peek().typ == closeList {
 		tokenizer.Next()
-		return args
+		return args, nil
 	}
 	for {
-		element := p.parseExpression(tokenizer)
+		element, err := p.parseExpression(tokenizer)
+		if err != nil {
+			return nil, err
+		}
 		args = append(args, element)
 		t := tokenizer.Next()
 		if t.typ == closeList {
-			return args
+			return args, nil
 		}
 		if t.typ != tComma {
-			panic(unexpected(",", t))
+			return nil, unexpected(",", t)
 		}
 	}
 }
 
-func (p *Parser[V]) parseMap(tokenizer *Tokenizer) *MapLiteral {
+func (p *Parser[V]) parseMap(tokenizer *Tokenizer) (*MapLiteral, error) {
 	m := MapLiteral{Map: map[string]AST{}}
 	for {
 		switch t := tokenizer.Next(); t.typ {
 		case tCloseCurly:
 			m.Line = t.Line
-			return &m
+			return &m, nil
 		case tIdent:
 			if c := tokenizer.Next(); c.typ != tColon {
-				panic(unexpected(":", c))
+				return nil, unexpected(":", c)
 			}
-			entry := p.parseExpression(tokenizer)
+			entry, err := p.parseExpression(tokenizer)
+			if err != nil {
+				return nil, err
+			}
 			m.Map[t.image] = entry
 			if tokenizer.Peek().typ == tComma {
 				tokenizer.Next()
 			} else {
 				if tokenizer.Peek().typ != tCloseCurly {
 					found := tokenizer.Next()
-					panic(t.Errorf("unexpected token, expected ',' or '}', found %v", found))
+					return nil, t.Errorf("unexpected token, expected ',' or '}', found %v", found)
 				}
 			}
 		default:
-			panic(unexpected(",", t))
+			return nil, unexpected(",", t)
 		}
 	}
 }
 
-func (p *Parser[V]) parseIdentList(tokenizer *Tokenizer) []string {
+func (p *Parser[V]) parseIdentList(tokenizer *Tokenizer) ([]string, error) {
 	var names []string
 	for {
 		t := tokenizer.Next()
@@ -943,13 +1004,13 @@ func (p *Parser[V]) parseIdentList(tokenizer *Tokenizer) []string {
 			t = tokenizer.Next()
 			switch t.typ {
 			case tClose:
-				return names
+				return names, nil
 			case tComma:
 			default:
-				panic(t.Errorf("expected ',' or ')', found %v", t))
+				return nil, t.Errorf("expected ',' or ')', found %v", t)
 			}
 		} else {
-			panic(t.Errorf("expected identifier, found %v", t))
+			return nil, t.Errorf("expected identifier, found %v", t)
 		}
 	}
 }
