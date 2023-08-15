@@ -32,6 +32,19 @@ type UnaryOperator[V any] struct {
 	Impl func(a V) V
 }
 
+// MethodHandler is used to give access to methods.
+type MethodHandler[V any] interface {
+	// GetMethod is used to get a method on a value.
+	// The value is the first argument at calling the function.
+	GetMethod(value V, methodName string) (Function[V], bool)
+}
+
+type MethodHandlerFunc[V any] func(value V, methodName string) (Function[V], bool)
+
+func (mh MethodHandlerFunc[V]) GetMethod(value V, methodName string) (Function[V], bool) {
+	return mh(value, methodName)
+}
+
 // ClosureHandler is used to convert closures
 type ClosureHandler[V any] interface {
 	// FromClosure is used to convert a closure to a value
@@ -67,6 +80,7 @@ type FunctionGenerator[V any] struct {
 	unary           []UnaryOperator[V]
 	numberParser    NumberParser[V]
 	stringHandler   StringConverter[V]
+	methodHandler   MethodHandler[V]
 	closureHandler  ClosureHandler[V]
 	listHandler     ListHandler[V]
 	mapHandler      MapHandler[V]
@@ -77,16 +91,14 @@ type FunctionGenerator[V any] struct {
 	opMap           map[string]Operator[V]
 	uMap            map[string]UnaryOperator[V]
 	customGenerator Generator[V]
-	typeOfValue     reflect.Type
 }
 
 // New creates a new FunctionGenerator
 func New[V any]() *FunctionGenerator[V] {
-	var v *V
 	g := &FunctionGenerator[V]{
 		staticFunctions: map[string]Function[V]{},
 		constants:       map[string]V{},
-		typeOfValue:     reflect.TypeOf(v).Elem(),
+		methodHandler:   MethodHandlerFunc[V](methodByReflection[V]),
 	}
 	g.optimizer = NewOptimizer(g)
 	return g
@@ -121,6 +133,11 @@ func (g *FunctionGenerator[V]) SetNumberParser(numberParser NumberParser[V]) *Fu
 		panic("parser already created")
 	}
 	g.numberParser = numberParser
+	return g
+}
+
+func (g *FunctionGenerator[V]) SetMethodHandler(methodHandler MethodHandler[V]) *FunctionGenerator[V] {
+	g.methodHandler = methodHandler
 	return g
 }
 
@@ -485,7 +502,7 @@ func (g *FunctionGenerator[V]) GenerateFunc(ast AST) Func[V] {
 		if id, ok := a.Func.(*Ident); ok {
 			if fun, ok := g.staticFunctions[id.Name]; ok {
 				if fun.Args >= 0 && fun.Args != len(a.Args) {
-					panic(id.Errorf("wrong number of arguments in call to %v", id.Name))
+					panic(id.Errorf("wrong number of arguments at call of %s, required %d, found %d", id.Name, fun.Args, len(a.Args)))
 				}
 				argsFuncList := g.genFuncList(a.Args)
 				return func(v Variables[V]) V {
@@ -501,7 +518,7 @@ func (g *FunctionGenerator[V]) GenerateFunc(ast AST) Func[V] {
 				panic(a.Errorf("not a function: %v", a.Func))
 			}
 			if theFunc.Args >= 0 && theFunc.Args != len(a.Args) {
-				panic(a.Errorf("wrong number of arguments in call to %v", a.Func))
+				panic(a.Errorf("wrong number of arguments at call of %v, required %d, found %d", a.Func, theFunc.Args, len(a.Args)))
 			}
 			return theFunc.Func(evalList(argsFuncList, v))
 		}
@@ -509,7 +526,6 @@ func (g *FunctionGenerator[V]) GenerateFunc(ast AST) Func[V] {
 		valFunc := g.GenerateFunc(a.Value)
 		name := a.Name
 		argsFuncList := g.genFuncList(a.Args)
-		tov := g.typeOfValue
 		return func(v Variables[V]) V {
 			value := valFunc(v)
 			// name could be a method, but it could also be the name of a field which stores a closure
@@ -521,12 +537,21 @@ func (g *FunctionGenerator[V]) GenerateFunc(ast AST) Func[V] {
 					}
 				}
 			}
-			argsValues := make([]reflect.Value, len(argsFuncList)+1)
-			argsValues[0] = reflect.ValueOf(value)
-			for i, arg := range argsFuncList {
-				argsValues[i+1] = reflect.ValueOf(arg(v))
+
+			if g.methodHandler != nil {
+				if me, ok := g.methodHandler.GetMethod(value, name); ok {
+					if me.Args != len(argsFuncList)+1 {
+						panic(a.Errorf("wrong number of arguments at call of %s, required %d, found %d", name, me.Args-1, len(argsFuncList)))
+					}
+					argsValues := make([]V, len(argsFuncList)+1)
+					argsValues[0] = value
+					for i, arg := range argsFuncList {
+						argsValues[i+1] = arg(v)
+					}
+					return me.Func(argsValues)
+				}
 			}
-			return callMethod(value, name, argsValues, tov, a.Line)
+			panic(a.Errorf("method %s not found", name))
 		}
 	}
 	panic(ast.GetLine().Errorf("not supported: %v", ast))
@@ -567,28 +592,36 @@ func (g *FunctionGenerator[V]) extractFunction(fu V) (Function[V], bool) {
 	return Function[V]{}, false
 }
 
-func callMethod[V any](value V, name string, args []reflect.Value, typeOfValue reflect.Type, line Line) V {
-	defer func() {
-		rec := recover()
-		if rec != nil {
-			panic(line.EnhanceErrorf(rec, "error calling %s", name))
-		}
-	}()
+func methodByReflection[V any](value V, name string) (Function[V], bool) {
 	name = firstRuneUpper(name)
 	typeOf := reflect.TypeOf(value)
 	if m, ok := typeOf.MethodByName(name); ok {
-		res := m.Func.Call(args)
-		if len(res) == 1 {
-			if v, ok := res[0].Interface().(V); ok {
-				return v
-			} else {
-				panic(line.Errorf("result of method is not a value. It is: %v", res[0]))
-			}
-		} else {
-			panic(line.Errorf("method does not return a single value but %v values", len(res)))
-		}
+		return Function[V]{
+			Func: func(args []V) V {
+				argsValues := make([]reflect.Value, len(args))
+				argsValues[0] = reflect.ValueOf(value)
+				for i, arg := range args {
+					argsValues[i] = reflect.ValueOf(arg)
+				}
+
+				res := m.Func.Call(argsValues)
+				if len(res) == 1 {
+					if v, ok := res[0].Interface().(V); ok {
+						return v
+					} else {
+						panic(fmt.Errorf("result of method %s is not a value. It is: %v", name, res[0]))
+					}
+				} else {
+					panic(fmt.Errorf("method %s does not return a single value but %v values", name, len(res)))
+				}
+			},
+			Args:   m.Type.NumIn(),
+			IsPure: false,
+		}, true
 	} else {
 		var buf bytes.Buffer
+		var v *V
+		typeOfValue := reflect.TypeOf(v).Elem()
 	outer:
 		for i := 0; i < typeOf.NumMethod(); i++ {
 			m := typeOf.Method(i)
@@ -615,7 +648,7 @@ func callMethod[V any](value V, name string, args []reflect.Value, typeOfValue r
 				}
 			}
 		}
-		panic(line.Errorf("method not found on %v, available are: %v", typeOf, buf.String()))
+		panic(fmt.Errorf("method %s not found on %v, available are: %v", name, typeOf, buf.String()))
 	}
 }
 
