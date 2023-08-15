@@ -24,7 +24,7 @@ type Optimizer interface {
 	// Optimize takes an AST and tries to optimize it.
 	// If an optimization is found, the optimizes AST is returned.
 	// If no optimization is found, nil is returned.
-	Optimize(AST) AST
+	Optimize(AST) (AST, error)
 }
 
 type OptimizerFunc func(AST) AST
@@ -40,19 +40,26 @@ type AST interface {
 	// Optimize is called to optimize the AST
 	// At first the children Optimize method is called and
 	// After that the own node is to be optimized.
-	Optimize(Optimizer)
+	Optimize(Optimizer) error
 	// String return a string representation of the AST
 	String() string
 	// GetLine returns the line in the source code
 	GetLine() Line
 }
 
-func Optimize(ast AST, optimizer Optimizer) AST {
-	ast.Optimize(optimizer)
-	if o := optimizer.Optimize(ast); o != nil {
-		return o
+func Optimize(ast AST, optimizer Optimizer) (AST, error) {
+	err := ast.Optimize(optimizer)
+	if err != nil {
+		return nil, err
 	}
-	return ast
+	o, err := optimizer.Optimize(ast)
+	if err != nil {
+		return nil, err
+	}
+	if o != nil {
+		return o, nil
+	}
+	return ast, nil
 }
 
 type Line int
@@ -123,15 +130,27 @@ func (l *Let) String() string {
 	return "let " + l.Name + "=" + l.Value.String() + "; " + l.Inner.String()
 }
 
-func (l *Let) Optimize(optimizer Optimizer) {
-	l.Value.Optimize(optimizer)
-	if o := optimizer.Optimize(l.Value); o != nil {
-		l.Value = o
+func opt(a *AST, optimizer Optimizer) error {
+	err := (*a).Optimize(optimizer)
+	if err != nil {
+		return err
 	}
-	l.Inner.Optimize(optimizer)
-	if o := optimizer.Optimize(l.Inner); o != nil {
-		l.Inner = o
+	o, err := optimizer.Optimize(*a)
+	if err != nil {
+		return err
 	}
+	if o != nil {
+		*a = o
+	}
+	return nil
+}
+
+func (l *Let) Optimize(optimizer Optimizer) error {
+	err := opt(&l.Value, optimizer)
+	if err != nil {
+		return err
+	}
+	return opt(&l.Inner, optimizer)
 }
 
 type If struct {
@@ -148,19 +167,16 @@ func (i *If) Traverse(visitor Visitor) {
 	i.Else.Traverse(visitor)
 }
 
-func (i *If) Optimize(optimizer Optimizer) {
-	i.Cond.Optimize(optimizer)
-	if o := optimizer.Optimize(i.Cond); o != nil {
-		i.Cond = o
+func (i *If) Optimize(optimizer Optimizer) error {
+	err := opt(&i.Cond, optimizer)
+	if err != nil {
+		return err
 	}
-	i.Then.Optimize(optimizer)
-	if o := optimizer.Optimize(i.Then); o != nil {
-		i.Then = o
+	err = opt(&i.Then, optimizer)
+	if err != nil {
+		return err
 	}
-	i.Else.Optimize(optimizer)
-	if o := optimizer.Optimize(i.Else); o != nil {
-		i.Else = o
-	}
+	return opt(&i.Else, optimizer)
 }
 
 func (i *If) String() string {
@@ -179,15 +195,12 @@ func (o *Operate) Traverse(visitor Visitor) {
 	o.B.Traverse(visitor)
 }
 
-func (o *Operate) Optimize(optimizer Optimizer) {
-	o.A.Optimize(optimizer)
-	if opt := optimizer.Optimize(o.A); opt != nil {
-		o.A = opt
+func (o *Operate) Optimize(optimizer Optimizer) error {
+	err := opt(&o.A, optimizer)
+	if err != nil {
+		return err
 	}
-	o.B.Optimize(optimizer)
-	if opt := optimizer.Optimize(o.B); opt != nil {
-		o.B = opt
-	}
+	return opt(&o.B, optimizer)
 }
 
 func (o *Operate) String() string {
@@ -212,11 +225,8 @@ func (u *Unary) Traverse(visitor Visitor) {
 	u.Value.Traverse(visitor)
 }
 
-func (u *Unary) Optimize(optimizer Optimizer) {
-	u.Value.Optimize(optimizer)
-	if o := optimizer.Optimize(u.Value); o != nil {
-		u.Value = o
-	}
+func (u *Unary) Optimize(optimizer Optimizer) error {
+	return opt(&u.Value, optimizer)
 }
 
 func (u *Unary) String() string {
@@ -234,11 +244,8 @@ func (m *MapAccess) Traverse(visitor Visitor) {
 	m.MapValue.Traverse(visitor)
 }
 
-func (m *MapAccess) Optimize(optimizer Optimizer) {
-	m.MapValue.Optimize(optimizer)
-	if o := optimizer.Optimize(m.MapValue); o != nil {
-		m.MapValue = o
-	}
+func (m *MapAccess) Optimize(optimizer Optimizer) error {
+	return opt(&m.MapValue, optimizer)
 }
 
 func (m *MapAccess) String() string {
@@ -260,17 +267,18 @@ func (m *MethodCall) Traverse(visitor Visitor) {
 	m.Value.Traverse(visitor)
 }
 
-func (m *MethodCall) Optimize(optimizer Optimizer) {
-	m.Value.Optimize(optimizer)
-	if o := optimizer.Optimize(m.Value); o != nil {
-		m.Value = o
+func (m *MethodCall) Optimize(optimizer Optimizer) error {
+	err := opt(&m.Value, optimizer)
+	if err != nil {
+		return err
 	}
 	for i := range m.Args {
-		m.Args[i].Optimize(optimizer)
-		if o := optimizer.Optimize(m.Args[i]); o != nil {
-			m.Args[i] = o
+		err := opt(&m.Args[i], optimizer)
+		if err != nil {
+			return err
 		}
 	}
+	return nil
 }
 
 func (m *MethodCall) String() string {
@@ -311,15 +319,12 @@ func (a *ListAccess) Traverse(visitor Visitor) {
 	a.List.Traverse(visitor)
 }
 
-func (a *ListAccess) Optimize(optimizer Optimizer) {
-	a.Index.Optimize(optimizer)
-	if o := optimizer.Optimize(a.Index); o != nil {
-		a.Index = o
+func (a *ListAccess) Optimize(optimizer Optimizer) error {
+	err := opt(&a.Index, optimizer)
+	if err != nil {
+		return err
 	}
-	a.List.Optimize(optimizer)
-	if o := optimizer.Optimize(a.List); o != nil {
-		a.List = o
-	}
+	return opt(&a.List, optimizer)
 }
 
 func (a *ListAccess) String() string {
@@ -337,11 +342,8 @@ func (c *ClosureLiteral) Traverse(visitor Visitor) {
 	c.Func.Traverse(visitor)
 }
 
-func (c *ClosureLiteral) Optimize(optimizer Optimizer) {
-	c.Func.Optimize(optimizer)
-	if o := optimizer.Optimize(c.Func); o != nil {
-		c.Func = o
-	}
+func (c *ClosureLiteral) Optimize(optimizer Optimizer) error {
+	return opt(&c.Func, optimizer)
 }
 
 func (c *ClosureLiteral) String() string {
@@ -360,15 +362,17 @@ func (ml *MapLiteral) Traverse(visitor Visitor) {
 	}
 }
 
-func (ml *MapLiteral) Optimize(optimizer Optimizer) {
-	for _, v := range ml.Map {
-		v.Optimize(optimizer)
-	}
+func (ml *MapLiteral) Optimize(optimizer Optimizer) error {
+	m := map[string]AST{}
 	for k, v := range ml.Map {
-		if o := optimizer.Optimize(v); o != nil {
-			ml.Map[k] = o
+		err := opt(&v, optimizer)
+		if err != nil {
+			return err
 		}
+		m[k] = v
 	}
+	ml.Map = m
+	return nil
 }
 
 func (ml *MapLiteral) String() string {
@@ -401,13 +405,14 @@ func (al *ListLiteral) Traverse(visitor Visitor) {
 	}
 }
 
-func (al *ListLiteral) Optimize(optimizer Optimizer) {
+func (al *ListLiteral) Optimize(optimizer Optimizer) error {
 	for i := range al.List {
-		al.List[i].Optimize(optimizer)
-		if o := optimizer.Optimize(al.List[i]); o != nil {
-			al.List[i] = o
+		err := opt(&al.List[i], optimizer)
+		if err != nil {
+			return err
 		}
 	}
+	return nil
 }
 
 func (al *ListLiteral) String() string {
@@ -423,8 +428,8 @@ func (i *Ident) Traverse(visitor Visitor) {
 	visitor.Visit(i)
 }
 
-func (i *Ident) Optimize(Optimizer) {
-
+func (i *Ident) Optimize(Optimizer) error {
+	return nil
 }
 
 func (i *Ident) String() string {
@@ -440,7 +445,8 @@ func (n *Const[V]) Traverse(visitor Visitor) {
 	visitor.Visit(n)
 }
 
-func (n *Const[V]) Optimize(Optimizer) {
+func (n *Const[V]) Optimize(Optimizer) error {
+	return nil
 }
 
 func (n *Const[V]) String() string {
@@ -461,17 +467,18 @@ func (f *FunctionCall) Traverse(visitor Visitor) {
 	}
 }
 
-func (f *FunctionCall) Optimize(optimizer Optimizer) {
-	f.Func.Optimize(optimizer)
-	if o := optimizer.Optimize(f.Func); o != nil {
-		f.Func = o
+func (f *FunctionCall) Optimize(optimizer Optimizer) error {
+	err := opt(&f.Func, optimizer)
+	if err != nil {
+		return err
 	}
 	for i := range f.Args {
-		f.Args[i].Optimize(optimizer)
-		if o := optimizer.Optimize(f.Args[i]); o != nil {
-			f.Args[i] = o
+		err := opt(&f.Args[i], optimizer)
+		if err != nil {
+			return err
 		}
 	}
+	return nil
 }
 
 func (f *FunctionCall) String() string {

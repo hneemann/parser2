@@ -211,33 +211,45 @@ func (th typeHandler) FromString(s string) Value {
 	return vString(s)
 }
 
-func (th typeHandler) Generate(ast parser2.AST, g *parser2.FunctionGenerator[Value]) parser2.Func[Value] {
+func (th typeHandler) Generate(ast parser2.AST, g *parser2.FunctionGenerator[Value]) (parser2.Func[Value], error) {
 	if op, ok := ast.(*parser2.Operate); ok {
 		// AND and OR with short evaluation
 		switch op.Operator {
 		case "&":
-			aFunc := g.GenerateFunc(op.A)
-			bFunc := g.GenerateFunc(op.B)
+			aFunc, err := g.GenerateFunc(op.A)
+			if err != nil {
+				return nil, err
+			}
+			bFunc, err := g.GenerateFunc(op.B)
+			if err != nil {
+				return nil, err
+			}
 			return func(v parser2.Variables[Value]) Value {
 				if !aFunc(v).Bool() {
 					return vBool(false)
 				} else {
 					return vBool(bFunc(v).Bool())
 				}
-			}
+			}, nil
 		case "|":
-			aFunc := g.GenerateFunc(op.A)
-			bFunc := g.GenerateFunc(op.B)
+			aFunc, err := g.GenerateFunc(op.A)
+			if err != nil {
+				return nil, err
+			}
+			bFunc, err := g.GenerateFunc(op.B)
+			if err != nil {
+				return nil, err
+			}
 			return func(v parser2.Variables[Value]) Value {
 				if aFunc(v).Bool() {
 					return vBool(true)
 				} else {
 					return vBool(bFunc(v).Bool())
 				}
-			}
+			}, nil
 		}
 	}
-	return nil
+	return nil, nil
 }
 
 var th typeHandler

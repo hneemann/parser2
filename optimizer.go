@@ -10,11 +10,11 @@ func NewOptimizer[V any](g *FunctionGenerator[V]) Optimizer {
 	return optimizer[V]{g}
 }
 
-func (o optimizer[V]) Optimize(ast AST) AST {
+func (o optimizer[V]) Optimize(ast AST) (AST, error) {
 	// evaluate constants
 	if i, ok := ast.(*Ident); ok {
 		if c, ok := o.g.constants[i.Name]; ok {
-			return &Const[V]{c, i.Line}
+			return &Const[V]{c, i.Line}, nil
 		}
 	}
 	// evaluate const operations like 1+2
@@ -23,7 +23,7 @@ func (o optimizer[V]) Optimize(ast AST) AST {
 			if bc, ok := o.isConst(oper.B); ok {
 				if operator.IsPure {
 					if ac, ok := o.isConst(oper.A); ok {
-						return &Const[V]{operator.Impl(ac, bc), oper.Line}
+						return &Const[V]{operator.Impl(ac, bc), oper.Line}, nil
 					}
 				}
 				if operator.IsCommutative {
@@ -33,14 +33,14 @@ func (o optimizer[V]) Optimize(ast AST) AST {
 								Operator: oper.Operator,
 								A:        &Const[V]{operator.Impl(iac, bc), oper.Line},
 								B:        aOp.B,
-							}
+							}, nil
 						}
 						if ibc, ok := o.isConst(aOp.B); ok {
 							return &Operate{
 								Operator: oper.Operator,
 								A:        aOp.A,
 								B:        &Const[V]{operator.Impl(ibc, bc), oper.Line},
-							}
+							}, nil
 						}
 					}
 				}
@@ -52,7 +52,7 @@ func (o optimizer[V]) Optimize(ast AST) AST {
 	if oper, ok := ast.(*Unary); ok {
 		if operator, ok := o.g.uMap[oper.Operator]; ok {
 			if c, ok := o.isConst(oper.Value); ok {
-				return &Const[V]{operator.Impl(c), oper.Line}
+				return &Const[V]{operator.Impl(c), oper.Line}, nil
 			}
 		}
 	}
@@ -60,9 +60,9 @@ func (o optimizer[V]) Optimize(ast AST) AST {
 	if ifNode, ok := ast.(*If); ok && o.g.toBool != nil {
 		if c, ok := o.isConst(ifNode.Cond); ok {
 			if o.g.toBool(c) {
-				return ifNode.Then
+				return ifNode.Then, nil
 			} else {
-				return ifNode.Else
+				return ifNode.Else, nil
 			}
 		}
 	}
@@ -70,7 +70,7 @@ func (o optimizer[V]) Optimize(ast AST) AST {
 	if o.g.listHandler != nil {
 		if list, ok := ast.(*ListLiteral); ok {
 			if l, ok := o.allConst(list.List); ok {
-				return &Const[V]{o.g.listHandler.FromList(l), list.Line}
+				return &Const[V]{o.g.listHandler.FromList(l), list.Line}, nil
 			}
 		}
 	}
@@ -87,7 +87,7 @@ func (o optimizer[V]) Optimize(ast AST) AST {
 				}
 			}
 			if cm != nil {
-				return &Const[V]{o.g.mapHandler.FromMap(cm), m.Line}
+				return &Const[V]{o.g.mapHandler.FromMap(cm), m.Line}, nil
 			}
 		}
 	}
@@ -99,12 +99,12 @@ func (o optimizer[V]) Optimize(ast AST) AST {
 					panic(fmt.Sprintf("number of args wrong in: %v", fc))
 				}
 				if c, ok := o.allConst(fc.Args); ok {
-					return &Const[V]{fu.Func(c), ident.Line}
+					return &Const[V]{fu.Func(c), ident.Line}, nil
 				}
 			}
 		}
 	}
-	return nil
+	return nil, nil
 }
 
 func (o optimizer[V]) allConst(asts []AST) ([]V, bool) {

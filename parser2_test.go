@@ -9,24 +9,24 @@ import (
 
 type simpleOptimizer struct{}
 
-func (so simpleOptimizer) Optimize(ast AST) AST {
+func (so simpleOptimizer) Optimize(ast AST) (AST, error) {
 	if o, ok := ast.(*Operate); ok {
 		if an, aOk := o.A.(*Const[int]); aOk {
 			if bn, bOk := o.B.(*Const[int]); bOk {
 				switch o.Operator {
 				case "+":
-					return &Const[int]{an.Value + bn.Value, o.Line}
+					return &Const[int]{an.Value + bn.Value, o.Line}, nil
 				case "-":
-					return &Const[int]{an.Value - bn.Value, o.Line}
+					return &Const[int]{an.Value - bn.Value, o.Line}, nil
 				case "*":
-					return &Const[int]{an.Value * bn.Value, o.Line}
+					return &Const[int]{an.Value * bn.Value, o.Line}, nil
 				case "/":
-					return &Const[int]{an.Value / bn.Value, o.Line}
+					return &Const[int]{an.Value / bn.Value, o.Line}, nil
 				}
 			}
 		}
 	}
-	return nil
+	return nil, nil
 }
 
 type numberParser struct{}
@@ -70,7 +70,8 @@ func TestParser(t *testing.T) {
 			ast, err := parser.Parse(test.exp)
 			assert.NoError(t, err, test.exp)
 			assert.EqualValues(t, test.ast, ast.String())
-			ast = Optimize(ast, simpleOptimizer{})
+			ast, err = Optimize(ast, simpleOptimizer{})
+			assert.NoError(t, err, test.exp)
 			assert.EqualValues(t, test.opt, ast.String())
 		})
 	}
@@ -140,7 +141,8 @@ func TestCodeGen(t *testing.T) {
 			fu := codeGen(ast)
 			assert.EqualValues(t, test.res, fu(v))
 
-			ast = Optimize(ast, simpleOptimizer{})
+			ast, err = Optimize(ast, simpleOptimizer{})
+			assert.NoError(t, err, test.exp)
 			fu = codeGen(ast)
 			assert.EqualValues(t, test.res, fu(v))
 		})

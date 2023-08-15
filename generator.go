@@ -285,7 +285,7 @@ type Func[V any] func(v Variables[V]) V
 
 // Generator is used to define a customized generation of functions
 type Generator[V any] interface {
-	Generate(AST, *FunctionGenerator[V]) Func[V]
+	Generate(AST, *FunctionGenerator[V]) (Func[V], error)
 }
 
 // Generate takes a string and returns the function representing the expression given in
@@ -304,7 +304,10 @@ func (g *FunctionGenerator[V]) Generate(exp string) (c func(Variables[V]) (V, er
 		return nil, err
 	}
 
-	expFunc := g.GenerateFunc(ast)
+	expFunc, err := g.GenerateFunc(ast)
+	if err != nil {
+		return nil, EnhanceErrorf(err, "error generating code")
+	}
 	return func(v Variables[V]) (res V, e error) {
 		defer func() {
 			rec := recover()
@@ -326,7 +329,10 @@ func (g *FunctionGenerator[V]) CreateAst(exp string) (AST, error) {
 	}
 
 	if g.optimizer != nil {
-		ast = Optimize(ast, g.optimizer)
+		ast, err = Optimize(ast, g.optimizer)
+		if err != nil {
+			return nil, err
+		}
 	}
 	return ast, nil
 }
@@ -350,11 +356,14 @@ func (f *Function[V]) Eval(a ...V) V {
 
 // GenerateFunc creates a Func[V] function.
 // This method is public to allow its usage in the custom code generator.
-func (g *FunctionGenerator[V]) GenerateFunc(ast AST) Func[V] {
+func (g *FunctionGenerator[V]) GenerateFunc(ast AST) (Func[V], error) {
 	if g.customGenerator != nil {
-		c := g.customGenerator.Generate(ast, g)
+		c, err := g.customGenerator.Generate(ast, g)
+		if err != nil {
+			return nil, err
+		}
 		if c != nil {
-			return c
+			return c, nil
 		}
 	}
 	switch a := ast.(type) {
@@ -365,16 +374,19 @@ func (g *FunctionGenerator[V]) GenerateFunc(ast AST) Func[V] {
 			} else {
 				panic(a.Errorf("variable '%v' not found", a.Name))
 			}
-		}
+		}, nil
 	case *Const[V]:
 		n := a.Value
 		return func(v Variables[V]) V {
 			return n
-		}
+		}, nil
 	case *Let:
 		if c, ok := a.Value.(*ClosureLiteral); ok {
 			// if "let" is used to store a closure, allow recursion
-			closureFunc := g.GenerateFunc(c.Func)
+			closureFunc, err := g.GenerateFunc(c.Func)
+			if err != nil {
+				return nil, err
+			}
 			valFunc := func(v Variables[V]) V {
 				funcAdded := addVar[V]{name: a.Name, parent: v}
 				theClosure := g.closureHandler.FromClosure(Function[V]{
@@ -393,24 +405,42 @@ func (g *FunctionGenerator[V]) GenerateFunc(ast AST) Func[V] {
 				funcAdded.val = theClosure
 				return theClosure
 			}
-			mainFunc := g.GenerateFunc(a.Inner)
+			mainFunc, err := g.GenerateFunc(a.Inner)
+			if err != nil {
+				return nil, err
+			}
 			return func(v Variables[V]) V {
 				va := valFunc(v)
 				return mainFunc(addVar[V]{name: a.Name, val: va, parent: v})
-			}
+			}, nil
 		} else {
 			// simple non closure let
-			valFunc := g.GenerateFunc(a.Value)
-			mainFunc := g.GenerateFunc(a.Inner)
+			valFunc, err := g.GenerateFunc(a.Value)
+			if err != nil {
+				return nil, err
+			}
+			mainFunc, err := g.GenerateFunc(a.Inner)
+			if err != nil {
+				return nil, err
+			}
 			return func(v Variables[V]) V {
 				va := valFunc(v)
 				return mainFunc(addVar[V]{name: a.Name, val: va, parent: v})
-			}
+			}, nil
 		}
 	case *If:
-		condFunc := g.GenerateFunc(a.Cond)
-		thenFunc := g.GenerateFunc(a.Then)
-		elseFunc := g.GenerateFunc(a.Else)
+		condFunc, err := g.GenerateFunc(a.Cond)
+		if err != nil {
+			return nil, err
+		}
+		thenFunc, err := g.GenerateFunc(a.Then)
+		if err != nil {
+			return nil, err
+		}
+		elseFunc, err := g.GenerateFunc(a.Else)
+		if err != nil {
+			return nil, err
+		}
 		if g.toBool != nil {
 			return func(v Variables[V]) V {
 				if g.toBool(condFunc(v)) {
@@ -418,23 +448,35 @@ func (g *FunctionGenerator[V]) GenerateFunc(ast AST) Func[V] {
 				} else {
 					return elseFunc(v)
 				}
-			}
+			}, nil
 		}
 	case *Unary:
-		valFunc := g.GenerateFunc(a.Value)
+		valFunc, err := g.GenerateFunc(a.Value)
+		if err != nil {
+			return nil, err
+		}
 		op := g.uMap[a.Operator].Impl
 		return func(v Variables[V]) V {
 			return op(valFunc(v))
-		}
+		}, nil
 	case *Operate:
-		aFunc := g.GenerateFunc(a.A)
-		bFunc := g.GenerateFunc(a.B)
+		aFunc, err := g.GenerateFunc(a.A)
+		if err != nil {
+			return nil, err
+		}
+		bFunc, err := g.GenerateFunc(a.B)
+		if err != nil {
+			return nil, err
+		}
 		op := g.opMap[a.Operator].Impl
 		return func(v Variables[V]) V {
 			return op(aFunc(v), bFunc(v))
-		}
+		}, nil
 	case *ClosureLiteral:
-		closureFunc := g.GenerateFunc(a.Func)
+		closureFunc, err := g.GenerateFunc(a.Func)
+		if err != nil {
+			return nil, err
+		}
 		return func(v Variables[V]) V {
 			return g.closureHandler.FromClosure(Function[V]{
 				Func: func(args []V) V {
@@ -449,22 +491,31 @@ func (g *FunctionGenerator[V]) GenerateFunc(ast AST) Func[V] {
 				},
 				Args: len(a.Names),
 			})
-		}
+		}, nil
 	case *ListLiteral:
 		if g.listHandler != nil {
-			itemFuncs := g.genFuncList(a.List)
+			itemFuncs, err := g.genFuncList(a.List)
+			if err != nil {
+				return nil, err
+			}
 			return func(v Variables[V]) V {
 				itemValues := make([]V, len(itemFuncs))
 				for i, itemFunc := range itemFuncs {
 					itemValues[i] = itemFunc(v)
 				}
 				return g.listHandler.FromList(itemValues)
-			}
+			}, nil
 		}
 	case *ListAccess:
 		if g.listHandler != nil {
-			indexFunc := g.GenerateFunc(a.Index)
-			listFunc := g.GenerateFunc(a.List)
+			indexFunc, err := g.GenerateFunc(a.Index)
+			if err != nil {
+				return nil, err
+			}
+			listFunc, err := g.GenerateFunc(a.List)
+			if err != nil {
+				return nil, err
+			}
 			return func(v Variables[V]) V {
 				i := indexFunc(v)
 				l := listFunc(v)
@@ -473,22 +524,28 @@ func (g *FunctionGenerator[V]) GenerateFunc(ast AST) Func[V] {
 				} else {
 					panic(a.EnhanceErrorf(err, "List error"))
 				}
-			}
+			}, nil
 		}
 	case *MapLiteral:
 		if g.mapHandler != nil {
-			itemsCode := g.genCodeMap(a.Map)
+			itemsCode, err := g.genCodeMap(a.Map)
+			if err != nil {
+				return nil, err
+			}
 			return func(v Variables[V]) V {
 				mapValues := map[string]V{}
 				for i, arg := range itemsCode {
 					mapValues[i] = arg(v)
 				}
 				return g.mapHandler.FromMap(mapValues)
-			}
+			}, nil
 		}
 	case *MapAccess:
 		if g.mapHandler != nil {
-			mapFunc := g.GenerateFunc(a.MapValue)
+			mapFunc, err := g.GenerateFunc(a.MapValue)
+			if err != nil {
+				return nil, err
+			}
 			return func(v Variables[V]) V {
 				l := mapFunc(v)
 				if v, err := g.mapHandler.AccessMap(l, a.Key); err == nil {
@@ -496,22 +553,31 @@ func (g *FunctionGenerator[V]) GenerateFunc(ast AST) Func[V] {
 				} else {
 					panic(a.EnhanceErrorf(err, "Map error"))
 				}
-			}
+			}, nil
 		}
 	case *FunctionCall:
 		if id, ok := a.Func.(*Ident); ok {
 			if fun, ok := g.staticFunctions[id.Name]; ok {
 				if fun.Args >= 0 && fun.Args != len(a.Args) {
-					panic(id.Errorf("wrong number of arguments at call of %s, required %d, found %d", id.Name, fun.Args, len(a.Args)))
+					return nil, id.Errorf("wrong number of arguments at call of %s, required %d, found %d", id.Name, fun.Args, len(a.Args))
 				}
-				argsFuncList := g.genFuncList(a.Args)
+				argsFuncList, err := g.genFuncList(a.Args)
+				if err != nil {
+					return nil, err
+				}
 				return func(v Variables[V]) V {
 					return fun.Func(evalList(argsFuncList, v))
-				}
+				}, nil
 			}
 		}
-		funcFunc := g.GenerateFunc(a.Func)
-		argsFuncList := g.genFuncList(a.Args)
+		funcFunc, err := g.GenerateFunc(a.Func)
+		if err != nil {
+			return nil, err
+		}
+		argsFuncList, err := g.genFuncList(a.Args)
+		if err != nil {
+			return nil, err
+		}
 		return func(v Variables[V]) V {
 			theFunc, ok := g.extractFunction(funcFunc(v))
 			if !ok {
@@ -521,11 +587,17 @@ func (g *FunctionGenerator[V]) GenerateFunc(ast AST) Func[V] {
 				panic(a.Errorf("wrong number of arguments at call of %v, required %d, found %d", a.Func, theFunc.Args, len(a.Args)))
 			}
 			return theFunc.Func(evalList(argsFuncList, v))
-		}
+		}, nil
 	case *MethodCall:
-		valFunc := g.GenerateFunc(a.Value)
+		valFunc, err := g.GenerateFunc(a.Value)
+		if err != nil {
+			return nil, err
+		}
 		name := a.Name
-		argsFuncList := g.genFuncList(a.Args)
+		argsFuncList, err := g.genFuncList(a.Args)
+		if err != nil {
+			return nil, err
+		}
 		return func(v Variables[V]) V {
 			value := valFunc(v)
 			// name could be a method, but it could also be the name of a field which stores a closure
@@ -552,25 +624,33 @@ func (g *FunctionGenerator[V]) GenerateFunc(ast AST) Func[V] {
 				}
 			}
 			panic(a.Errorf("method %s not found", name))
-		}
+		}, nil
 	}
-	panic(ast.GetLine().Errorf("not supported: %v", ast))
+	return nil, ast.GetLine().Errorf("not supported: %v", ast)
 }
 
-func (g *FunctionGenerator[V]) genFuncList(a []AST) []Func[V] {
+func (g *FunctionGenerator[V]) genFuncList(a []AST) ([]Func[V], error) {
 	args := make([]Func[V], len(a))
 	for i, arg := range a {
-		args[i] = g.GenerateFunc(arg)
+		var err error
+		args[i], err = g.GenerateFunc(arg)
+		if err != nil {
+			return nil, err
+		}
 	}
-	return args
+	return args, nil
 }
 
-func (g *FunctionGenerator[V]) genCodeMap(a map[string]AST) map[string]Func[V] {
+func (g *FunctionGenerator[V]) genCodeMap(a map[string]AST) (map[string]Func[V], error) {
 	args := map[string]Func[V]{}
 	for i, arg := range a {
-		args[i] = g.GenerateFunc(arg)
+		var err error
+		args[i], err = g.GenerateFunc(arg)
+		if err != nil {
+			return nil, err
+		}
 	}
-	return args
+	return args, nil
 }
 
 func evalList[V any](argsCode []Func[V], v Variables[V]) []V {
