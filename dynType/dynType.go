@@ -65,28 +65,36 @@ func (v vList) Bool() bool {
 	return len(v) > 0
 }
 
-func (v vList) Size() Value {
-	return vFloat(len(v))
+func (v vList) Size() (Value, error) {
+	return vFloat(len(v)), nil
 }
 
-func (v vList) Map(c vClosure) Value {
+func (v vList) Map(val Value) (Value, error) {
+	c, ok := val.(vClosure)
+	if !ok {
+		return nil, fmt.Errorf("argument of map needs to be a closure")
+	}
 	if c.Args != 1 {
-		panic("map requires closure with one argument")
+		return nil, fmt.Errorf("map requires closure with one argument")
 	}
 	var m = make([]Value, len(v))
 	for i, e := range v {
 		var err error
 		m[i], err = c.Func([]Value{e})
 		if err != nil {
-			panic(err)
+			return nil, err
 		}
 	}
-	return vList(m)
+	return vList(m), nil
 }
 
-func (v vList) Reduce(c vClosure) Value {
+func (v vList) Reduce(val Value) (Value, error) {
+	c, ok := val.(vClosure)
+	if !ok {
+		return nil, fmt.Errorf("argument of map needs to be a closure")
+	}
 	if c.Args != 2 {
-		panic("reduce requires closure with two arguments")
+		return nil, fmt.Errorf("reduce requires closure with two arguments")
 	}
 	var red Value
 	for i, e := range v {
@@ -96,11 +104,11 @@ func (v vList) Reduce(c vClosure) Value {
 			var err error
 			red, err = c.Func([]Value{red, e})
 			if err != nil {
-				panic(err)
+				return nil, err
 			}
 		}
 	}
-	return red
+	return red, nil
 }
 
 type vMap map[string]Value

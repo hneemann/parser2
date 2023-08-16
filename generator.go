@@ -649,7 +649,7 @@ func (g *FunctionGenerator[V]) GenerateFunc(ast AST) (Func[V], error) {
 			if g.methodHandler != nil {
 				me, err := g.methodHandler.GetMethod(value, name)
 				if err != nil {
-					return zero, err
+					return zero, a.EnhanceErrorf(err, "error accessing method %s on %v", name, value)
 				}
 				if me.Args != len(argsFuncList)+1 {
 					return zero, a.Errorf("wrong number of arguments at call of %s, required %d, found %d", name, me.Args-1, len(argsFuncList))
@@ -723,6 +723,11 @@ func methodByReflection[V any](value V, name string) (Function[V], error) {
 	name = firstRuneUpper(name)
 	typeOf := reflect.TypeOf(value)
 	if m, ok := typeOf.MethodByName(name); ok {
+		err := matches[V](m)
+		if err != nil {
+			return Function[V]{}, err
+		}
+
 		return Function[V]{
 			Func: func(args []V) (retVal V, retErr error) {
 				var zero V
@@ -734,20 +739,24 @@ func methodByReflection[V any](value V, name string) (Function[V], error) {
 					}
 				}()
 				argsValues := make([]reflect.Value, len(args))
-				argsValues[0] = reflect.ValueOf(value)
 				for i, arg := range args {
 					argsValues[i] = reflect.ValueOf(arg)
 				}
 
 				res := m.Func.Call(argsValues)
-				if len(res) == 1 {
-					if v, ok := res[0].Interface().(V); ok {
-						return v, nil
+
+				if !res[1].IsNil() {
+					if e, ok := res[1].Elem().Interface().(error); ok {
+						return zero, e
 					} else {
-						return zero, fmt.Errorf("result of method %s is not a value. It is: %v", name, res[0])
+						panic(fmt.Errorf("second return value is not an error"))
 					}
+				}
+
+				if v, ok := res[0].Interface().(V); ok {
+					return v, nil
 				} else {
-					return zero, fmt.Errorf("method %s does not return a single value but %v values", name, len(res))
+					panic(fmt.Errorf("result of method %s is not a value. It is: %v", name, res[0]))
 				}
 			},
 			Args:   m.Type.NumIn(),
@@ -755,32 +764,22 @@ func methodByReflection[V any](value V, name string) (Function[V], error) {
 		}, nil
 	} else {
 		var buf bytes.Buffer
-		var v *V
-		typeOfValue := reflect.TypeOf(v).Elem()
-	outer:
 		for i := 0; i < typeOf.NumMethod(); i++ {
 			m := typeOf.Method(i)
-			mt := m.Type
-			if mt.NumOut() == 1 {
-				if mt.Out(0).Implements(typeOfValue) {
-					for i := 0; i < mt.NumIn(); i++ {
-						if !mt.In(i).Implements(typeOfValue) {
-							continue outer
-						}
-					}
-					if buf.Len() > 0 {
+			if matches[V](m) == nil {
+				if buf.Len() > 0 {
+					buf.WriteString(", ")
+				}
+				buf.WriteString(m.Name)
+				buf.WriteString("(")
+				mt := m.Func.Type()
+				for i := 1; i < mt.NumIn(); i++ {
+					if i > 1 {
 						buf.WriteString(", ")
 					}
-					buf.WriteString(m.Name)
-					buf.WriteString("(")
-					for i := 1; i < mt.NumIn(); i++ {
-						if i > 1 {
-							buf.WriteString(", ")
-						}
-						buf.WriteString(mt.In(i).Name())
-					}
-					buf.WriteString(")")
+					buf.WriteString(mt.In(i).Name())
 				}
+				buf.WriteString(")")
 			}
 		}
 		return Function[V]{}, fmt.Errorf("method %s not found on %v, available are: %v", name, typeOf, buf.String())
@@ -793,4 +792,70 @@ func firstRuneUpper(name string) string {
 		return name
 	}
 	return string(unicode.ToUpper(r)) + name[l:]
+}
+
+func matches[V any](m reflect.Method) error {
+	typeOfV := reflect.TypeOf((*V)(nil)).Elem()
+	mt := m.Func.Type()
+	for i := 1; i < mt.NumIn(); i++ {
+		if !typeOfV.AssignableTo(mt.In(i)) {
+			return fmt.Errorf("type %v does not match %v", mt.In(i), typeOfV)
+		}
+	}
+	if mt.NumOut() != 2 {
+		return fmt.Errorf("wrong number of return values: found %d, want 2", mt.NumOut())
+	}
+	if !mt.Out(1).AssignableTo(reflect.TypeOf((*error)(nil)).Elem()) {
+		return fmt.Errorf("second return value needs to be an error")
+	}
+	if !mt.Out(0).AssignableTo(typeOfV) {
+		return fmt.Errorf("first return value needs to be assignable to %v", typeOfV)
+	}
+	return nil
+}
+
+func firstRuneLower(name string) string {
+	r, l := utf8.DecodeRune([]byte(name))
+	if unicode.IsLower(r) {
+		return name
+	}
+	return string(unicode.ToLower(r)) + name[l:]
+}
+
+func PrintMatchingCode[V any](v V) {
+	t := reflect.TypeOf((*V)(nil)).Elem()
+	typeName := t.Name()
+	typeOfV := reflect.TypeOf(v)
+
+	typeOfVName := typeOfV.Name()
+	mapName := typeOfVName + "MethodMap"
+	if typeOfV.Kind() == reflect.Pointer {
+		typeOfVName = "*" + typeOfV.Elem().Name()
+		mapName = typeOfV.Elem().Name() + "MethodMap"
+	}
+
+	fmt.Printf("\n\nvar %s=map[string]parser2.Function[%s]{\n", mapName, typeName)
+	for i := 0; i < typeOfV.NumMethod(); i++ {
+		m := typeOfV.Method(i)
+		if matches[V](m) == nil {
+			methodName := firstRuneLower(m.Name)
+			mt := m.Func.Type()
+
+			fmt.Printf("\"%s\": {\n", methodName)
+			fmt.Printf("Func:func (a []%v) (%v, error) {\n", typeName, typeName)
+			fmt.Printf("  return (a[0].(%v)).%s(", typeOfVName, m.Name)
+			for j := 1; j < mt.NumIn(); j++ {
+				if j > 1 {
+					fmt.Print(", ")
+				}
+				fmt.Printf("a[%d]", j)
+			}
+			fmt.Println(")")
+			fmt.Println("},")
+			fmt.Printf("Args: %d,\n", mt.NumIn())
+			fmt.Println("IsPure:true,")
+			fmt.Println("},")
+		}
+	}
+	fmt.Print("}\n\n\n")
 }
