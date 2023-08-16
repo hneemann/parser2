@@ -13,7 +13,7 @@ type Operator[V any] struct {
 	// Operator is the operator as a string like "+"
 	Operator string
 	// Impl is the implementation of the operation
-	Impl func(a, b V) (V, error)
+	Impl func(a, b V) V
 	// IsPure is true if the result of the operation depends only on the operands.
 	// This is usually the case, there are only special corner cases where it is not.
 	// So IsPure is usually true.
@@ -29,7 +29,7 @@ type UnaryOperator[V any] struct {
 	// Operator is the operator as a string like "+"
 	Operator string
 	// Impl is the implementation of the operation
-	Impl func(a V) (V, error)
+	Impl func(a V) V
 }
 
 // MethodHandler is used to give access to methods.
@@ -181,7 +181,7 @@ func (g *FunctionGenerator[V]) SetToBool(toBool ToBool[V]) *FunctionGenerator[V]
 
 func (g *FunctionGenerator[V]) AddSimpleFunction(name string, f func(V) V) *FunctionGenerator[V] {
 	return g.AddStaticFunction(name, Function[V]{
-		Func:   func(a []V) (V, error) { return f(a[0]), nil },
+		Func:   func(a []V) V { return f(a[0]) },
 		Args:   1,
 		IsPure: true,
 	})
@@ -201,14 +201,14 @@ func (g *FunctionGenerator[V]) AddConstant(n string, c V) *FunctionGenerator[V] 
 // The Operation needs to be pure.
 // The operation with the lowest priority needs to be added first.
 // The operation with the highest priority needs to be added last.
-func (g *FunctionGenerator[V]) AddOp(operator string, isCommutative bool, impl func(a V, b V) (V, error)) *FunctionGenerator[V] {
+func (g *FunctionGenerator[V]) AddOp(operator string, isCommutative bool, impl func(a V, b V) V) *FunctionGenerator[V] {
 	return g.AddOpPure(operator, isCommutative, impl, true)
 }
 
 // AddOpPure adds an operation to the generator.
 // The operation with the lowest priority needs to be added first.
 // The operation with the highest priority needs to be added last.
-func (g *FunctionGenerator[V]) AddOpPure(operator string, isCommutative bool, impl func(a V, b V) (V, error), isPure bool) *FunctionGenerator[V] {
+func (g *FunctionGenerator[V]) AddOpPure(operator string, isCommutative bool, impl func(a V, b V) V, isPure bool) *FunctionGenerator[V] {
 	if g.parser != nil {
 		panic("parser already created")
 	}
@@ -221,7 +221,7 @@ func (g *FunctionGenerator[V]) AddOpPure(operator string, isCommutative bool, im
 	return g
 }
 
-func (g *FunctionGenerator[V]) AddUnary(operator string, impl func(a V) (V, error)) *FunctionGenerator[V] {
+func (g *FunctionGenerator[V]) AddUnary(operator string, impl func(a V) V) *FunctionGenerator[V] {
 	if g.parser != nil {
 		panic("parser already created")
 	}
@@ -281,7 +281,7 @@ func (a AddVars[V]) Get(s string) (V, bool) {
 }
 
 // Func is a function which represents a node of the AST
-type Func[V any] func(v Variables[V]) (V, error)
+type Func[V any] func(v Variables[V]) V
 
 // Generator is used to define a customized generation of functions
 type Generator[V any] interface {
@@ -290,13 +290,33 @@ type Generator[V any] interface {
 
 // Generate takes a string and returns the function representing the expression given in
 // the string. This is the main entry point of the parser.
-func (g *FunctionGenerator[V]) Generate(exp string) (Func[V], error) {
+func (g *FunctionGenerator[V]) Generate(exp string) (func(v Variables[V]) (V, error), error) {
 	ast, err := g.CreateAst(exp)
 	if err != nil {
 		return nil, err
 	}
 
-	return g.GenerateFunc(ast)
+	f, err := g.GenerateFunc(ast)
+	if err != nil {
+		return nil, err
+	}
+
+	return func(v Variables[V]) (val V, err error) {
+		defer func() {
+			rec := recover()
+			if rec != nil {
+				var zero V
+				val = zero
+				if e, ok := rec.(error); ok {
+					err = e
+				} else {
+					err = fmt.Errorf("%v", rec)
+				}
+			}
+		}()
+		return f(v), nil
+	}, nil
+
 }
 
 // CreateAst uses the parser to create the abstract syntax tree.
@@ -320,7 +340,7 @@ func (g *FunctionGenerator[V]) CreateAst(exp string) (AST, error) {
 // Function represents a function
 type Function[V any] struct {
 	// Func is the function itself
-	Func func(a []V) (V, error)
+	Func func(a []V) V
 	// Args gives the number of arguments required. It is used for checking
 	// the number of arguments in the call. The value -1 means any number of
 	// arguments is allowed
@@ -330,7 +350,7 @@ type Function[V any] struct {
 }
 
 // Eval makes calling of functions a bit easier.
-func (f *Function[V]) Eval(a ...V) (V, error) {
+func (f *Function[V]) Eval(a ...V) V {
 	return f.Func(a)
 }
 
@@ -346,20 +366,19 @@ func (g *FunctionGenerator[V]) GenerateFunc(ast AST) (Func[V], error) {
 			return c, nil
 		}
 	}
-	var zero V
 	switch a := ast.(type) {
 	case *Ident:
-		return func(v Variables[V]) (V, error) {
+		return func(v Variables[V]) V {
 			if va, ok := v.Get(a.Name); ok {
-				return va, nil
+				return va
 			} else {
-				return zero, a.Errorf("variable '%v' not found", a.Name)
+				panic(a.Errorf("variable '%v' not found", a.Name))
 			}
 		}, nil
 	case *Const[V]:
 		n := a.Value
-		return func(v Variables[V]) (V, error) {
-			return n, nil
+		return func(v Variables[V]) V {
+			return n
 		}, nil
 	case *Let:
 		if c, ok := a.Value.(*ClosureLiteral); ok {
@@ -371,7 +390,7 @@ func (g *FunctionGenerator[V]) GenerateFunc(ast AST) (Func[V], error) {
 			valFunc := func(v Variables[V]) V {
 				funcAdded := addVar[V]{name: a.Name, parent: v}
 				theClosure := g.closureHandler.FromClosure(Function[V]{
-					Func: func(args []V) (V, error) {
+					Func: func(args []V) V {
 						vm := map[string]V{}
 						for i, n := range c.Names {
 							vm[n] = args[i]
@@ -390,7 +409,7 @@ func (g *FunctionGenerator[V]) GenerateFunc(ast AST) (Func[V], error) {
 			if err != nil {
 				return nil, err
 			}
-			return func(v Variables[V]) (V, error) {
+			return func(v Variables[V]) V {
 				va := valFunc(v)
 				return mainFunc(addVar[V]{name: a.Name, val: va, parent: v})
 			}, nil
@@ -404,11 +423,8 @@ func (g *FunctionGenerator[V]) GenerateFunc(ast AST) (Func[V], error) {
 			if err != nil {
 				return nil, err
 			}
-			return func(v Variables[V]) (V, error) {
-				va, err := valFunc(v)
-				if err != nil {
-					return zero, err
-				}
+			return func(v Variables[V]) V {
+				va := valFunc(v)
 				return mainFunc(addVar[V]{name: a.Name, val: va, parent: v})
 			}, nil
 		}
@@ -426,12 +442,8 @@ func (g *FunctionGenerator[V]) GenerateFunc(ast AST) (Func[V], error) {
 			return nil, err
 		}
 		if g.toBool != nil {
-			return func(v Variables[V]) (V, error) {
-				cond, err := condFunc(v)
-				if err != nil {
-					return zero, err
-				}
-				if g.toBool(cond) {
+			return func(v Variables[V]) V {
+				if g.toBool(condFunc(v)) {
 					return thenFunc(v)
 				} else {
 					return elseFunc(v)
@@ -444,12 +456,8 @@ func (g *FunctionGenerator[V]) GenerateFunc(ast AST) (Func[V], error) {
 			return nil, err
 		}
 		op := g.uMap[a.Operator].Impl
-		return func(v Variables[V]) (V, error) {
-			va, err := valFunc(v)
-			if err != nil {
-				return zero, err
-			}
-			return op(va)
+		return func(v Variables[V]) V {
+			return op(valFunc(v))
 		}, nil
 	case *Operate:
 		aFunc, err := g.GenerateFunc(a.A)
@@ -461,25 +469,17 @@ func (g *FunctionGenerator[V]) GenerateFunc(ast AST) (Func[V], error) {
 			return nil, err
 		}
 		op := g.opMap[a.Operator].Impl
-		return func(v Variables[V]) (V, error) {
-			va, err := aFunc(v)
-			if err != nil {
-				return zero, err
-			}
-			vb, err := bFunc(v)
-			if err != nil {
-				return zero, err
-			}
-			return op(va, vb)
+		return func(v Variables[V]) V {
+			return op(aFunc(v), bFunc(v))
 		}, nil
 	case *ClosureLiteral:
 		closureFunc, err := g.GenerateFunc(a.Func)
 		if err != nil {
 			return nil, err
 		}
-		return func(v Variables[V]) (V, error) {
+		return func(v Variables[V]) V {
 			return g.closureHandler.FromClosure(Function[V]{
-				Func: func(args []V) (V, error) {
+				Func: func(args []V) V {
 					vm := map[string]V{}
 					for i, n := range a.Names {
 						vm[n] = args[i]
@@ -490,7 +490,7 @@ func (g *FunctionGenerator[V]) GenerateFunc(ast AST) (Func[V], error) {
 					})
 				},
 				Args: len(a.Names),
-			}), nil
+			})
 		}, nil
 	case *ListLiteral:
 		if g.listHandler != nil {
@@ -498,16 +498,12 @@ func (g *FunctionGenerator[V]) GenerateFunc(ast AST) (Func[V], error) {
 			if err != nil {
 				return nil, err
 			}
-			return func(v Variables[V]) (V, error) {
+			return func(v Variables[V]) V {
 				itemValues := make([]V, len(itemFuncs))
 				for i, itemFunc := range itemFuncs {
-					var err error
-					itemValues[i], err = itemFunc(v)
-					if err != nil {
-						return zero, err
-					}
+					itemValues[i] = itemFunc(v)
 				}
-				return g.listHandler.FromList(itemValues), nil
+				return g.listHandler.FromList(itemValues)
 			}, nil
 		}
 	case *ListAccess:
@@ -520,19 +516,13 @@ func (g *FunctionGenerator[V]) GenerateFunc(ast AST) (Func[V], error) {
 			if err != nil {
 				return nil, err
 			}
-			return func(v Variables[V]) (V, error) {
-				i, err := indexFunc(v)
-				if err != nil {
-					return zero, err
-				}
-				l, err := listFunc(v)
-				if err != nil {
-					return zero, err
-				}
+			return func(v Variables[V]) V {
+				i := indexFunc(v)
+				l := listFunc(v)
 				if v, err := g.listHandler.AccessList(l, i); err == nil {
-					return v, nil
+					return v
 				} else {
-					return zero, a.EnhanceErrorf(err, "List error")
+					panic(a.EnhanceErrorf(err, "List error"))
 				}
 			}, nil
 		}
@@ -542,16 +532,12 @@ func (g *FunctionGenerator[V]) GenerateFunc(ast AST) (Func[V], error) {
 			if err != nil {
 				return nil, err
 			}
-			return func(v Variables[V]) (V, error) {
+			return func(v Variables[V]) V {
 				mapValues := map[string]V{}
 				for i, arg := range itemsCode {
-					var err error
-					mapValues[i], err = arg(v)
-					if err != nil {
-						return zero, err
-					}
+					mapValues[i] = arg(v)
 				}
-				return g.mapHandler.FromMap(mapValues), nil
+				return g.mapHandler.FromMap(mapValues)
 			}, nil
 		}
 	case *MapAccess:
@@ -560,15 +546,12 @@ func (g *FunctionGenerator[V]) GenerateFunc(ast AST) (Func[V], error) {
 			if err != nil {
 				return nil, err
 			}
-			return func(v Variables[V]) (V, error) {
-				l, err := mapFunc(v)
-				if err != nil {
-					return zero, err
-				}
+			return func(v Variables[V]) V {
+				l := mapFunc(v)
 				if v, err := g.mapHandler.AccessMap(l, a.Key); err == nil {
-					return v, nil
+					return v
 				} else {
-					return zero, a.EnhanceErrorf(err, "Map error")
+					panic(a.EnhanceErrorf(err, "Map error"))
 				}
 			}, nil
 		}
@@ -582,12 +565,8 @@ func (g *FunctionGenerator[V]) GenerateFunc(ast AST) (Func[V], error) {
 				if err != nil {
 					return nil, err
 				}
-				return func(v Variables[V]) (V, error) {
-					list, err := evalList(argsFuncList, v)
-					if err != nil {
-						return zero, err
-					}
-					return fun.Func(list)
+				return func(v Variables[V]) V {
+					return fun.Func(evalList(argsFuncList, v))
 				}, nil
 			}
 		}
@@ -599,22 +578,16 @@ func (g *FunctionGenerator[V]) GenerateFunc(ast AST) (Func[V], error) {
 		if err != nil {
 			return nil, err
 		}
-		return func(v Variables[V]) (V, error) {
-			funcVal, err := funcFunc(v)
-			if err != nil {
-				return zero, err
-			}
+		return func(v Variables[V]) V {
+			funcVal := funcFunc(v)
 			theFunc, ok := g.extractFunction(funcVal)
 			if !ok {
-				return zero, a.Errorf("not a function: %v", a.Func)
+				panic(a.Errorf("not a function: %v", a.Func))
 			}
 			if theFunc.Args >= 0 && theFunc.Args != len(a.Args) {
-				return zero, a.Errorf("wrong number of arguments at call of %v, required %d, found %d", a.Func, theFunc.Args, len(a.Args))
+				panic(a.Errorf("wrong number of arguments at call of %v, required %d, found %d", a.Func, theFunc.Args, len(a.Args)))
 			}
-			list, err := evalList(argsFuncList, v)
-			if err != nil {
-				return zero, err
-			}
+			list := evalList(argsFuncList, v)
 			return theFunc.Func(list)
 		}, nil
 	case *MethodCall:
@@ -627,20 +600,14 @@ func (g *FunctionGenerator[V]) GenerateFunc(ast AST) (Func[V], error) {
 		if err != nil {
 			return nil, err
 		}
-		return func(v Variables[V]) (V, error) {
-			value, err := valFunc(v)
-			if err != nil {
-				return zero, err
-			}
+		return func(v Variables[V]) V {
+			value := valFunc(v)
 			// name could be a method, but it could also be the name of a field which stores a closure
 			// If it is a closure field, this should be a map access!
 			if g.mapHandler != nil && g.mapHandler.IsMap(value) {
 				if va, err := g.mapHandler.AccessMap(value, name); err == nil {
 					if theFunc, ok := g.extractFunction(va); ok {
-						list, err := evalList(argsFuncList, v)
-						if err != nil {
-							return zero, err
-						}
+						list := evalList(argsFuncList, v)
 						return theFunc.Func(list)
 					}
 				}
@@ -649,24 +616,19 @@ func (g *FunctionGenerator[V]) GenerateFunc(ast AST) (Func[V], error) {
 			if g.methodHandler != nil {
 				me, err := g.methodHandler.GetMethod(value, name)
 				if err != nil {
-					return zero, a.EnhanceErrorf(err, "error accessing method %s on %v", name, value)
+					panic(a.EnhanceErrorf(err, "error accessing method %s on %v", name, value))
 				}
 				if me.Args != len(argsFuncList)+1 {
-					return zero, a.Errorf("wrong number of arguments at call of %s, required %d, found %d", name, me.Args-1, len(argsFuncList))
+					panic(a.Errorf("wrong number of arguments at call of %s, required %d, found %d", name, me.Args-1, len(argsFuncList)))
 				}
 				argsValues := make([]V, len(argsFuncList)+1)
 				argsValues[0] = value
 				for i, arg := range argsFuncList {
-					var err error
-					argsValues[i+1], err = arg(v)
-					if err != nil {
-						return zero, err
-					}
+					argsValues[i+1] = arg(v)
 				}
-				v2, err := me.Func(argsValues)
-				return v2, err
+				return me.Func(argsValues)
 			}
-			return zero, a.Errorf("method %s not found", name)
+			panic(a.Errorf("method %s not found", name))
 		}, nil
 	}
 	return nil, ast.GetLine().Errorf("not supported: %v", ast)
@@ -696,16 +658,12 @@ func (g *FunctionGenerator[V]) genCodeMap(a map[string]AST) (map[string]Func[V],
 	return args, nil
 }
 
-func evalList[V any](argsCode []Func[V], v Variables[V]) ([]V, error) {
+func evalList[V any](argsCode []Func[V], v Variables[V]) []V {
 	argsValues := make([]V, len(argsCode))
 	for i, arg := range argsCode {
-		var err error
-		argsValues[i], err = arg(v)
-		if err != nil {
-			return nil, err
-		}
+		argsValues[i] = arg(v)
 	}
-	return argsValues, nil
+	return argsValues
 }
 
 // extractFunction is used to extract a function from a value
@@ -729,32 +687,15 @@ func methodByReflection[V any](value V, name string) (Function[V], error) {
 		}
 
 		return Function[V]{
-			Func: func(args []V) (retVal V, retErr error) {
-				var zero V
-				defer func() {
-					rec := recover()
-					if rec != nil {
-						retVal = zero
-						retErr = EnhanceErrorf(rec, "error calling method %s", name)
-					}
-				}()
+			Func: func(args []V) V {
 				argsValues := make([]reflect.Value, len(args))
 				for i, arg := range args {
 					argsValues[i] = reflect.ValueOf(arg)
 				}
 
 				res := m.Func.Call(argsValues)
-
-				if !res[1].IsNil() {
-					if e, ok := res[1].Elem().Interface().(error); ok {
-						return zero, e
-					} else {
-						panic(fmt.Errorf("second return value is not an error"))
-					}
-				}
-
 				if v, ok := res[0].Interface().(V); ok {
-					return v, nil
+					return v
 				} else {
 					panic(fmt.Errorf("result of method %s is not a value. It is: %v", name, res[0]))
 				}
@@ -802,11 +743,8 @@ func matches[V any](m reflect.Method) error {
 			return fmt.Errorf("type %v does not match %v", mt.In(i), typeOfV)
 		}
 	}
-	if mt.NumOut() != 2 {
-		return fmt.Errorf("wrong number of return values: found %d, want 2", mt.NumOut())
-	}
-	if !mt.Out(1).AssignableTo(reflect.TypeOf((*error)(nil)).Elem()) {
-		return fmt.Errorf("second return value needs to be an error")
+	if mt.NumOut() != 1 {
+		return fmt.Errorf("wrong number of return values: found %d, want 1", mt.NumOut())
 	}
 	if !mt.Out(0).AssignableTo(typeOfV) {
 		return fmt.Errorf("first return value needs to be assignable to %v", typeOfV)

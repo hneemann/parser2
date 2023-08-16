@@ -65,50 +65,42 @@ func (v vList) Bool() bool {
 	return len(v) > 0
 }
 
-func (v vList) Size() (Value, error) {
-	return vFloat(len(v)), nil
+func (v vList) Size() Value {
+	return vFloat(len(v))
 }
 
-func (v vList) Map(val Value) (Value, error) {
+func (v vList) Map(val Value) Value {
 	c, ok := val.(vClosure)
 	if !ok {
-		return nil, fmt.Errorf("argument of map needs to be a closure")
+		panic("argument of map needs to be a closure")
 	}
 	if c.Args != 1 {
-		return nil, fmt.Errorf("map requires closure with one argument")
+		panic("map requires closure with one argument")
 	}
 	var m = make([]Value, len(v))
 	for i, e := range v {
-		var err error
-		m[i], err = c.Func([]Value{e})
-		if err != nil {
-			return nil, err
-		}
+		m[i] = c.Func([]Value{e})
 	}
-	return vList(m), nil
+	return vList(m)
 }
 
-func (v vList) Reduce(val Value) (Value, error) {
+func (v vList) Reduce(val Value) Value {
 	c, ok := val.(vClosure)
 	if !ok {
-		return nil, fmt.Errorf("argument of map needs to be a closure")
+		panic("argument of map needs to be a closure")
 	}
 	if c.Args != 2 {
-		return nil, fmt.Errorf("reduce requires closure with two arguments")
+		panic("reduce requires closure with two arguments")
 	}
 	var red Value
 	for i, e := range v {
 		if i == 0 {
 			red = e
 		} else {
-			var err error
-			red, err = c.Func([]Value{red, e})
-			if err != nil {
-				return nil, err
-			}
+			red = c.Func([]Value{red, e})
 		}
 	}
-	return red, nil
+	return red
 }
 
 type vMap map[string]Value
@@ -121,51 +113,51 @@ func (v vMap) Bool() bool {
 	return len(v) > 0
 }
 
-func vEqual(a, b Value) (Value, error) {
+func vEqual(a, b Value) Value {
 	if as, oka := a.(vString); oka {
 		if bs, okb := b.(vString); okb {
-			return vBool(as == bs), nil
+			return vBool(as == bs)
 		}
 	}
 	if ab, oka := a.(vBool); oka {
 		if bb, okb := b.(vBool); okb {
-			return vBool(ab == bb), nil
+			return vBool(ab == bb)
 		}
 	}
-	return vBool(a.Float() == b.Float()), nil
+	return vBool(a.Float() == b.Float())
 }
 
-func vLess(a, b Value) (Value, error) {
+func vLess(a, b Value) Value {
 	if as, oka := a.(vString); oka {
 		if bs, okb := b.(vString); okb {
-			return vBool(as < bs), nil
+			return vBool(as < bs)
 		}
 	}
-	return vBool(a.Float() < b.Float()), nil
+	return vBool(a.Float() < b.Float())
 }
 
-func vLessEqual(a, b Value) (Value, error) {
+func vLessEqual(a, b Value) Value {
 	if as, oka := a.(vString); oka {
 		if bs, okb := b.(vString); okb {
-			return vBool(as <= bs), nil
+			return vBool(as <= bs)
 		}
 	}
-	return vBool(a.Float() <= b.Float()), nil
+	return vBool(a.Float() <= b.Float())
 }
 
-func swap(f func(a, b Value) (Value, error)) func(a, b Value) (Value, error) {
-	return func(a, b Value) (Value, error) {
+func swap(f func(a, b Value) Value) func(a, b Value) Value {
+	return func(a, b Value) Value {
 		return f(b, a)
 	}
 }
 
-func vAdd(a, b Value) (Value, error) {
+func vAdd(a, b Value) Value {
 	if af, oka := a.(vString); oka {
 		if bf, okb := b.(vString); okb {
-			return af + bf, nil
+			return af + bf
 		}
 	}
-	return vFloat(a.Float() + b.Float()), nil
+	return vFloat(a.Float() + b.Float())
 }
 
 type typeHandler struct{}
@@ -228,7 +220,6 @@ func (th typeHandler) FromString(s string) Value {
 }
 
 func (th typeHandler) Generate(ast parser2.AST, g *parser2.FunctionGenerator[Value]) (parser2.Func[Value], error) {
-	var zero Value
 	if op, ok := ast.(*parser2.Operate); ok {
 		// AND and OR with short evaluation
 		switch op.Operator {
@@ -241,19 +232,11 @@ func (th typeHandler) Generate(ast parser2.AST, g *parser2.FunctionGenerator[Val
 			if err != nil {
 				return nil, err
 			}
-			return func(v parser2.Variables[Value]) (Value, error) {
-				value, err := aFunc(v)
-				if err != nil {
-					return zero, err
-				}
-				if !value.Bool() {
-					return vBool(false), nil
+			return func(v parser2.Variables[Value]) Value {
+				if !aFunc(v).Bool() {
+					return vBool(false)
 				} else {
-					v2, err := bFunc(v)
-					if err != nil {
-						return zero, err
-					}
-					return vBool(v2.Bool()), nil
+					return vBool(bFunc(v).Bool())
 				}
 			}, nil
 		case "|":
@@ -265,19 +248,11 @@ func (th typeHandler) Generate(ast parser2.AST, g *parser2.FunctionGenerator[Val
 			if err != nil {
 				return nil, err
 			}
-			return func(v parser2.Variables[Value]) (Value, error) {
-				value, err2 := aFunc(v)
-				if err2 != nil {
-					return zero, err
-				}
-				if value.Bool() {
-					return vBool(true), nil
+			return func(v parser2.Variables[Value]) Value {
+				if aFunc(v).Bool() {
+					return vBool(true)
 				} else {
-					v2, err2 := bFunc(v)
-					if err2 != nil {
-						return zero, err
-					}
-					return vBool(v2.Bool()), nil
+					return vBool(bFunc(v).Bool())
 				}
 			}, nil
 		}
@@ -288,25 +263,19 @@ func (th typeHandler) Generate(ast parser2.AST, g *parser2.FunctionGenerator[Val
 var th typeHandler
 
 var DynType = parser2.New[Value]().
-	AddOp("|", true, func(a, b Value) (Value, error) { return vBool(a.Bool() || b.Bool()), nil }).
-	AddOp("&", true, func(a, b Value) (Value, error) { return vBool(a.Bool() && b.Bool()), nil }).
+	AddOp("|", true, func(a, b Value) Value { return vBool(a.Bool() || b.Bool()) }).
+	AddOp("&", true, func(a, b Value) Value { return vBool(a.Bool() && b.Bool()) }).
 	AddOp("=", true, vEqual).
-	AddOp("!=", true, func(a, b Value) (Value, error) {
-		equal, err := vEqual(a, b)
-		if err != nil {
-			return nil, err
-		}
-		return !equal.(vBool), nil
-	}).
+	AddOp("!=", true, func(a, b Value) Value { return !vEqual(a, b).(vBool) }).
 	AddOp("<", false, vLess).
 	AddOp(">", false, swap(vLess)).
 	AddOp("<=", false, vLessEqual).
 	AddOp(">=", false, swap(vLessEqual)).
 	AddOp("+", false, vAdd). // vAdd is not commutative, since strings can be added
-	AddOp("-", false, func(a, b Value) (Value, error) { return vFloat(a.Float() - b.Float()), nil }).
-	AddOp("*", true, func(a, b Value) (Value, error) { return vFloat(a.Float() * b.Float()), nil }).
-	AddOp("/", false, func(a, b Value) (Value, error) { return vFloat(a.Float() / b.Float()), nil }).
-	AddUnary("-", func(a Value) (Value, error) { return vFloat(-a.Float()), nil }).
+	AddOp("-", false, func(a, b Value) Value { return vFloat(a.Float() - b.Float()) }).
+	AddOp("*", true, func(a, b Value) Value { return vFloat(a.Float() * b.Float()) }).
+	AddOp("/", false, func(a, b Value) Value { return vFloat(a.Float() / b.Float()) }).
+	AddUnary("-", func(a Value) Value { return vFloat(-a.Float()) }).
 	SetListHandler(th).
 	SetMapHandler(th).
 	SetStringConverter(th).
@@ -318,17 +287,17 @@ var DynType = parser2.New[Value]().
 	AddConstant("true", vBool(true)).
 	AddConstant("false", vBool(false)).
 	AddStaticFunction("abs", parser2.Function[Value]{
-		Func:   func(v []Value) (Value, error) { return vFloat(math.Abs(v[0].Float())), nil },
+		Func:   func(v []Value) Value { return vFloat(math.Abs(v[0].Float())) },
 		Args:   1,
 		IsPure: true,
 	}).
 	AddStaticFunction("sqrt", parser2.Function[Value]{
-		Func:   func(v []Value) (Value, error) { return vFloat(math.Sqrt(v[0].Float())), nil },
+		Func:   func(v []Value) Value { return vFloat(math.Sqrt(v[0].Float())) },
 		Args:   1,
 		IsPure: true,
 	}).
 	AddStaticFunction("ln", parser2.Function[Value]{
-		Func:   func(v []Value) (Value, error) { return vFloat(math.Log(v[0].Float())), nil },
+		Func:   func(v []Value) Value { return vFloat(math.Log(v[0].Float())) },
 		Args:   1,
 		IsPure: true,
 	}).
@@ -338,21 +307,21 @@ var DynType = parser2.New[Value]().
 		IsPure: true,
 	})
 
-func sprintf(a []Value) (Value, error) {
+func sprintf(a []Value) Value {
 	switch len(a) {
 	case 0:
-		return vString(""), nil
+		return vString("")
 	case 1:
-		return vString(fmt.Sprint(a[0])), nil
+		return vString(fmt.Sprint(a[0]))
 	default:
 		if s, ok := a[0].(vString); ok {
 			values := make([]any, len(a)-1)
 			for i, v := range a[1:] {
 				values[i] = v
 			}
-			return vString(fmt.Sprintf(string(s), values...)), nil
+			return vString(fmt.Sprintf(string(s), values...))
 		} else {
-			return nil, fmt.Errorf("sprintf requires string as first argument")
+			panic("sprintf requires string as first argument")
 		}
 	}
 }

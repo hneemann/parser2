@@ -23,35 +23,23 @@ func (o optimizer[V]) Optimize(ast AST) (AST, error) {
 			if bc, ok := o.isConst(oper.B); ok {
 				if operator.IsPure {
 					if ac, ok := o.isConst(oper.A); ok {
-						impl, err := operator.Impl(ac, bc)
-						if err != nil {
-							return nil, err
-						}
-						return &Const[V]{impl, oper.Line}, nil
+						return &Const[V]{operator.Impl(ac, bc), oper.Line}, nil
 					}
 				}
 				if operator.IsCommutative {
 					if aOp, ok := oper.A.(*Operate); ok && aOp.Operator == oper.Operator {
 						if iac, ok := o.isConst(aOp.A); ok {
-							impl, err := operator.Impl(iac, bc)
-							if err != nil {
-								return nil, err
-							}
 							return &Operate{
 								Operator: oper.Operator,
-								A:        &Const[V]{impl, oper.Line},
+								A:        &Const[V]{operator.Impl(iac, bc), oper.Line},
 								B:        aOp.B,
 							}, nil
 						}
 						if ibc, ok := o.isConst(aOp.B); ok {
-							impl, err := operator.Impl(ibc, bc)
-							if err != nil {
-								return nil, err
-							}
 							return &Operate{
 								Operator: oper.Operator,
 								A:        aOp.A,
-								B:        &Const[V]{impl, oper.Line},
+								B:        &Const[V]{operator.Impl(ibc, bc), oper.Line},
 							}, nil
 						}
 					}
@@ -64,11 +52,7 @@ func (o optimizer[V]) Optimize(ast AST) (AST, error) {
 	if oper, ok := ast.(*Unary); ok {
 		if operator, ok := o.g.uMap[oper.Operator]; ok {
 			if c, ok := o.isConst(oper.Value); ok {
-				impl, err := operator.Impl(c)
-				if err != nil {
-					return nil, err
-				}
-				return &Const[V]{impl, oper.Line}, nil
+				return &Const[V]{operator.Impl(c), oper.Line}, nil
 			}
 		}
 	}
@@ -115,11 +99,7 @@ func (o optimizer[V]) Optimize(ast AST) (AST, error) {
 					return nil, fmt.Errorf("number of args wrong in: %v", fc)
 				}
 				if c, ok := o.allConst(fc.Args); ok {
-					v, err := fu.Func(c)
-					if err != nil {
-						return nil, err
-					}
-					return &Const[V]{v, ident.Line}, nil
+					return &Const[V]{fu.Func(c), ident.Line}, nil
 				}
 			}
 		}
