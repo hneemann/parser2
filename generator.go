@@ -616,7 +616,7 @@ func (g *FunctionGenerator[V]) GenerateFunc(ast AST) (Func[V], error) {
 			if g.methodHandler != nil {
 				me, err := g.methodHandler.GetMethod(value, name)
 				if err != nil {
-					panic(a.EnhanceErrorf(err, "error accessing method %s on %v", name, value))
+					panic(a.EnhanceErrorf(err, "error accessing method %s", name))
 				}
 				if me.Args != len(argsFuncList)+1 {
 					panic(a.Errorf("wrong number of arguments at call of %s, required %d, found %d", name, me.Args-1, len(argsFuncList)))
