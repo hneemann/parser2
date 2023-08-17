@@ -780,7 +780,7 @@ func PrintMatchingCode[V any](v V) {
 			mt := m.Func.Type()
 
 			fmt.Printf("\"%s\": {\n", methodName)
-			fmt.Printf("Func:func (a []%v) (%v, error) {\n", typeName, typeName)
+			fmt.Printf("Func:func (a []%v) %v {\n", typeName, typeName)
 			fmt.Printf("  return (a[0].(%v)).%s(", typeOfVName, m.Name)
 			for j := 1; j < mt.NumIn(); j++ {
 				if j > 1 {
