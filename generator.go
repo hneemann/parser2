@@ -772,16 +772,16 @@ func PrintMatchingCode[V any](v V) {
 		mapName = typeOfV.Elem().Name() + "MethodMap"
 	}
 
-	fmt.Printf("\n\nvar %s=map[string]parser2.Function[%s]{\n", mapName, typeName)
+	fmt.Printf("\n\nvar %s=map[string]parser2.Function[%s]{\n", firstRuneLower(mapName), typeName)
 	for i := 0; i < typeOfV.NumMethod(); i++ {
 		m := typeOfV.Method(i)
 		if matches[V](m) == nil {
 			methodName := firstRuneLower(m.Name)
 			mt := m.Func.Type()
 
-			fmt.Printf("\"%s\": {\n", methodName)
-			fmt.Printf("Func:func (a []%v) %v {\n", typeName, typeName)
-			fmt.Printf("  return (a[0].(%v)).%s(", typeOfVName, m.Name)
+			fmt.Printf("  \"%s\": {\n", methodName)
+			fmt.Printf("    Func:func (a []%v) %v {\n", typeName, typeName)
+			fmt.Printf("      return (a[0].(%v)).%s(", typeOfVName, m.Name)
 			for j := 1; j < mt.NumIn(); j++ {
 				if j > 1 {
 					fmt.Print(", ")
@@ -789,10 +789,10 @@ func PrintMatchingCode[V any](v V) {
 				fmt.Printf("a[%d]", j)
 			}
 			fmt.Println(")")
-			fmt.Println("},")
-			fmt.Printf("Args: %d,\n", mt.NumIn())
-			fmt.Println("IsPure:true,")
-			fmt.Println("},")
+			fmt.Println("    },")
+			fmt.Printf("    Args: %d,\n", mt.NumIn())
+			fmt.Println("    IsPure:true,")
+			fmt.Println("  },")
 		}
 	}
 	fmt.Print("}\n\n\n")
