@@ -24,6 +24,8 @@ type Operator[V any] struct {
 
 type ToBool[V any] func(c V) bool
 
+type IsEqual[V any] func(a, b V) bool
+
 // UnaryOperator defines a operator like - or !
 type UnaryOperator[V any] struct {
 	// Operator is the operator as a string like "+"
@@ -86,6 +88,7 @@ type FunctionGenerator[V any] struct {
 	mapHandler      MapHandler[V]
 	optimizer       Optimizer
 	toBool          ToBool[V]
+	isEqual         IsEqual[V]
 	staticFunctions map[string]Function[V]
 	constants       map[string]V
 	opMap           map[string]Operator[V]
@@ -176,6 +179,11 @@ func (g *FunctionGenerator[V]) SetCustomGenerator(generator Generator[V]) *Funct
 
 func (g *FunctionGenerator[V]) SetToBool(toBool ToBool[V]) *FunctionGenerator[V] {
 	g.toBool = toBool
+	return g
+}
+
+func (g *FunctionGenerator[V]) SetIsEqual(isEqual IsEqual[V]) *FunctionGenerator[V] {
+	g.isEqual = isEqual
 	return g
 }
 
@@ -429,25 +437,65 @@ func (g *FunctionGenerator[V]) GenerateFunc(ast AST) (Func[V], error) {
 			}, nil
 		}
 	case *If:
-		condFunc, err := g.GenerateFunc(a.Cond)
-		if err != nil {
-			return nil, err
-		}
-		thenFunc, err := g.GenerateFunc(a.Then)
-		if err != nil {
-			return nil, err
-		}
-		elseFunc, err := g.GenerateFunc(a.Else)
-		if err != nil {
-			return nil, err
-		}
 		if g.toBool != nil {
+			condFunc, err := g.GenerateFunc(a.Cond)
+			if err != nil {
+				return nil, err
+			}
+			thenFunc, err := g.GenerateFunc(a.Then)
+			if err != nil {
+				return nil, err
+			}
+			elseFunc, err := g.GenerateFunc(a.Else)
+			if err != nil {
+				return nil, err
+			}
 			return func(v Variables[V]) V {
 				if g.toBool(condFunc(v)) {
 					return thenFunc(v)
 				} else {
 					return elseFunc(v)
 				}
+			}, nil
+		}
+	case *Switch[V]:
+		if g.isEqual != nil {
+			switchValueFunc, err := g.GenerateFunc(a.SwitchValue)
+			if err != nil {
+				return nil, err
+			}
+			defaultFunc, err := g.GenerateFunc(a.Default)
+			if err != nil {
+				return nil, err
+			}
+
+			type caseFunc struct {
+				constFunc  Func[V]
+				resultFunc Func[V]
+			}
+			var cases []caseFunc
+			for _, c := range a.Cases {
+				constFunc, err := g.GenerateFunc(c.CaseConst)
+				if err != nil {
+					return nil, err
+				}
+				resultFunc, err := g.GenerateFunc(c.Value)
+				if err != nil {
+					return nil, err
+				}
+				cases = append(cases, caseFunc{
+					constFunc:  constFunc,
+					resultFunc: resultFunc,
+				})
+			}
+			return func(v Variables[V]) V {
+				val := switchValueFunc(v)
+				for _, c := range cases {
+					if g.isEqual(val, c.constFunc(v)) {
+						return c.resultFunc(v)
+					}
+				}
+				return defaultFunc(v)
 			}, nil
 		}
 	case *Unary:

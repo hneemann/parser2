@@ -62,6 +62,8 @@ func Test(t *testing.T) {
 		{exp: "let a=1;sprintf(\"%v->%v\",a,2)", res: vString("1->2")},
 		{exp: "let a=1;sprintf(\"%v->\",a)", res: vString("1->")},
 		{exp: "{a:x->x*2,b:x->x*3}.b(4)", res: vFloat(12)},
+		{exp: "func g(a) switch a case 0->\"Test\" case 1->\"Hello\" default \"World\"; [g(0),g(1),g(100)]", res: vList{vString("Test"), vString("Hello"), vString("World")}},
+		{exp: "func g(a) switch true case a=0->\"Test\" case a=1->\"Hello\" default \"World\"; [g(0),g(1),g(100)]", res: vList{vString("Test"), vString("Hello"), vString("World")}},
 	}
 
 	for _, test := range tests {

@@ -283,6 +283,7 @@ var DynType = parser2.New[Value]().
 	SetNumberParser(th).
 	SetCustomGenerator(th).
 	SetToBool(func(c Value) bool { return c.Bool() }).
+	SetIsEqual(func(a, b Value) bool { return vEqual(a, b).Bool() }).
 	AddConstant("pi", vFloat(math.Pi)).
 	AddConstant("true", vBool(true)).
 	AddConstant("false", vBool(false)).

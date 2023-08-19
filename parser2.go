@@ -183,6 +183,56 @@ func (i *If) String() string {
 	return "if " + i.Cond.String() + " then " + i.Then.String() + " else " + i.Else.String()
 }
 
+type Case[V any] struct {
+	CaseConst AST
+	Value     AST
+}
+
+type Switch[V any] struct {
+	SwitchValue AST
+	Cases       []Case[V]
+	Default     AST
+	Line
+}
+
+func (s *Switch[V]) Traverse(visitor Visitor) {
+	visitor.Visit(s)
+	s.SwitchValue.Traverse(visitor)
+	for _, c := range s.Cases {
+		c.Value.Traverse(visitor)
+	}
+	s.Default.Traverse(visitor)
+}
+
+func (s *Switch[V]) Optimize(o Optimizer) error {
+	err := opt(&s.SwitchValue, o)
+	if err != nil {
+		return err
+	}
+	for _, c := range s.Cases {
+		err := opt(&c.Value, o)
+		if err != nil {
+			return err
+		}
+	}
+	return opt(&s.Default, o)
+}
+
+func (s *Switch[V]) String() string {
+	var b bytes.Buffer
+	b.WriteString("switch ")
+	b.WriteString(s.SwitchValue.String())
+	for _, c := range s.Cases {
+		b.WriteString(" case ")
+		b.WriteString(fmt.Sprint(c.CaseConst))
+		b.WriteString(" -> ")
+		b.WriteString(c.Value.String())
+	}
+	b.WriteString(" default ")
+	b.WriteString(s.Default.String())
+	return b.String()
+}
+
 type Operate struct {
 	Operator string
 	A, B     AST
@@ -886,6 +936,50 @@ func (p *Parser[V]) parseLiteral(tokenizer *Tokenizer) (AST, error) {
 				Else: elseExp,
 				Line: t.Line,
 			}, nil
+		} else if name == "switch" {
+			switchValue, err := p.parseExpression(tokenizer)
+			if err != nil {
+				return nil, err
+			}
+			var cases []Case[V]
+			for {
+				t := tokenizer.Next()
+				if t.typ == tIdent {
+					if t.image == "case" {
+						constFunc, err := p.parseExpression(tokenizer)
+						if err != nil {
+							return nil, err
+						}
+						t = tokenizer.Next()
+						if !(t.typ == tOperate && t.image == "->") {
+							return nil, unexpected("->", t)
+						}
+						resultExp, err := p.parseExpression(tokenizer)
+						if err != nil {
+							return nil, err
+						}
+						cases = append(cases, Case[V]{
+							CaseConst: constFunc,
+							Value:     resultExp,
+						})
+					} else if t.image == "default" {
+						resultExp, err := p.parseExpression(tokenizer)
+						if err != nil {
+							return nil, err
+						}
+						return &Switch[V]{
+							SwitchValue: switchValue,
+							Cases:       cases,
+							Default:     resultExp,
+							Line:        t.Line,
+						}, nil
+					} else {
+						return nil, unexpected("case or default", t)
+					}
+				} else {
+					return nil, unexpected("case or default", t)
+				}
+			}
 		} else {
 			return &Ident{Name: name, Line: t.Line}, nil
 		}
