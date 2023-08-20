@@ -11,12 +11,6 @@ func NewOptimizer[V any](g *FunctionGenerator[V]) Optimizer {
 }
 
 func (o optimizer[V]) Optimize(ast AST) (AST, error) {
-	// evaluate constants
-	if i, ok := ast.(*Ident); ok {
-		if c, ok := o.g.constants[i.Name]; ok {
-			return &Const[V]{c, i.Line}, nil
-		}
-	}
 	// evaluate const operations like 1+2
 	if oper, ok := ast.(*Operate); ok {
 		if operator, ok := o.g.opMap[oper.Operator]; ok {

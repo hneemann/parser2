@@ -74,6 +74,13 @@ type MapHandler[V any] interface {
 	IsMap(value V) bool
 }
 
+type constantMap[V any] map[string]V
+
+func (c constantMap[V]) GetConst(name string) (V, bool) {
+	v, ok := c[name]
+	return v, ok
+}
+
 // FunctionGenerator is used to create a closure based implementation of
 // the given expression. The type parameter gives the type the parser works on.
 type FunctionGenerator[V any] struct {
@@ -90,7 +97,7 @@ type FunctionGenerator[V any] struct {
 	toBool          ToBool[V]
 	isEqual         IsEqual[V]
 	staticFunctions map[string]Function[V]
-	constants       map[string]V
+	constants       constantMap[V]
 	opMap           map[string]Operator[V]
 	uMap            map[string]UnaryOperator[V]
 	customGenerator Generator[V]
@@ -111,7 +118,9 @@ func (g *FunctionGenerator[V]) getParser() *Parser[V] {
 	if g.parser == nil {
 		parser := NewParser[V]().
 			SetNumberParser(g.numberParser).
-			SetStringConverter(g.stringHandler)
+			SetStringConverter(g.stringHandler).
+			SetConstants(g.constants).
+			SetOptimizer(g.optimizer)
 
 		opMap := map[string]Operator[V]{}
 		for _, o := range g.operators {

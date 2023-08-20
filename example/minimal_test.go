@@ -41,6 +41,8 @@ func Test(t *testing.T) {
 		{"sin(pi/a)", 1, "sin(3.141592653589793/a)"},
 		{"if 1<2 then 3 else 4", 3, "3"},
 		{"if 1<a then 3 else 4", 3, "if 1<a then 3 else 4"},
+		{"const a=2;const b=3;a*b", 6, "6"},
+		{"const a=1+1;const b=3;a*b", 6, "6"},
 	}
 
 	vars := parser2.VarMap[float64]{"a": 2}
