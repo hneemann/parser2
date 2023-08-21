@@ -96,6 +96,7 @@ func TestOptimizer(t *testing.T) {
 		{exp: "-2/(-1)", res: vFloat(2)},
 		{exp: "sprintf(\"%v->%v\",1,2)", res: vString("1->2")},
 		{exp: "sprintf(\"%v->\",1)", res: vString("1->")},
+		{exp: "const a=sqrt(2);const b=a*a; b", res: vFloat(2)},
 	}
 
 	for _, test := range tests {
@@ -104,7 +105,11 @@ func TestOptimizer(t *testing.T) {
 			ast, err := DynType.CreateAst(test.exp)
 			assert.NoError(t, err, test.exp)
 			if c, ok := ast.(*parser2.Const[Value]); ok {
-				assert.EqualValues(t, test.res, c.Value)
+				if f, ok := test.res.(vFloat); ok {
+					assert.InDelta(t, float64(f), c.Value.Float(), 1e-7)
+				} else {
+					assert.EqualValues(t, test.res, c.Value)
+				}
 			} else {
 				t.Errorf("not a constant: %v -> %v", test.exp, ast)
 			}

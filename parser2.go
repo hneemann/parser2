@@ -766,7 +766,11 @@ func (p *Parser[V]) parseExpression(tokenizer *Tokenizer, constants Constants[V]
 				return nil, unexpected(";", t)
 			}
 			if p.optimizer != nil {
-				if opt, err := Optimize(exp, p.optimizer); opt != nil && err == nil {
+				opt, err := Optimize(exp, p.optimizer)
+				if err != nil {
+					return nil, t.EnhanceErrorf(err, "error optimizing a constant")
+				}
+				if opt != nil {
 					exp = opt
 				}
 			}
