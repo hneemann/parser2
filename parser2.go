@@ -47,6 +47,8 @@ type AST interface {
 	GetLine() Line
 }
 
+// Optimize uses the given optimizer to optimize the given AST.
+// If no optimization is possible, the given AST is returned unchanged.
 func Optimize(ast AST, optimizer Optimizer) (AST, error) {
 	err := ast.Optimize(optimizer)
 	if err != nil {
@@ -766,12 +768,9 @@ func (p *Parser[V]) parseExpression(tokenizer *Tokenizer, constants Constants[V]
 				return nil, unexpected(";", t)
 			}
 			if p.optimizer != nil {
-				opt, err := Optimize(exp, p.optimizer)
+				exp, err = Optimize(exp, p.optimizer)
 				if err != nil {
 					return nil, t.EnhanceErrorf(err, "error optimizing a constant")
-				}
-				if opt != nil {
-					exp = opt
 				}
 			}
 			if c, ok := exp.(*Const[V]); ok {
