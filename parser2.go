@@ -49,7 +49,18 @@ type AST interface {
 
 // Optimize uses the given optimizer to optimize the given AST.
 // If no optimization is possible, the given AST is returned unchanged.
-func Optimize(ast AST, optimizer Optimizer) (AST, error) {
+func Optimize(ast AST, optimizer Optimizer) (astRet AST, errRet error) {
+	defer func() {
+		rec := recover()
+		if rec != nil {
+			if err, ok := rec.(error); ok {
+				errRet = err
+			} else {
+				errRet = fmt.Errorf("%v", rec)
+			}
+			astRet = nil
+		}
+	}()
 	err := ast.Optimize(optimizer)
 	if err != nil {
 		return nil, err
