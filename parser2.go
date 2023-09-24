@@ -10,7 +10,7 @@ import (
 )
 
 type Visitor interface {
-	Visit(AST)
+	Visit(AST) bool
 }
 
 type VisitorFunc func(AST)
@@ -134,9 +134,10 @@ type Let struct {
 }
 
 func (l *Let) Traverse(visitor Visitor) {
-	visitor.Visit(l)
-	l.Value.Traverse(visitor)
-	l.Inner.Traverse(visitor)
+	if visitor.Visit(l) {
+		l.Value.Traverse(visitor)
+		l.Inner.Traverse(visitor)
+	}
 }
 
 func (l *Let) String() string {
@@ -174,10 +175,11 @@ type If struct {
 }
 
 func (i *If) Traverse(visitor Visitor) {
-	visitor.Visit(i)
-	i.Cond.Traverse(visitor)
-	i.Then.Traverse(visitor)
-	i.Else.Traverse(visitor)
+	if visitor.Visit(i) {
+		i.Cond.Traverse(visitor)
+		i.Then.Traverse(visitor)
+		i.Else.Traverse(visitor)
+	}
 }
 
 func (i *If) Optimize(optimizer Optimizer) error {
@@ -209,12 +211,13 @@ type Switch[V any] struct {
 }
 
 func (s *Switch[V]) Traverse(visitor Visitor) {
-	visitor.Visit(s)
-	s.SwitchValue.Traverse(visitor)
-	for _, c := range s.Cases {
-		c.Value.Traverse(visitor)
+	if visitor.Visit(s) {
+		s.SwitchValue.Traverse(visitor)
+		for _, c := range s.Cases {
+			c.Value.Traverse(visitor)
+		}
+		s.Default.Traverse(visitor)
 	}
-	s.Default.Traverse(visitor)
 }
 
 func (s *Switch[V]) Optimize(o Optimizer) error {
@@ -253,9 +256,10 @@ type Operate struct {
 }
 
 func (o *Operate) Traverse(visitor Visitor) {
-	visitor.Visit(o)
-	o.A.Traverse(visitor)
-	o.B.Traverse(visitor)
+	if visitor.Visit(o) {
+		o.A.Traverse(visitor)
+		o.B.Traverse(visitor)
+	}
 }
 
 func (o *Operate) Optimize(optimizer Optimizer) error {
@@ -284,8 +288,9 @@ type Unary struct {
 }
 
 func (u *Unary) Traverse(visitor Visitor) {
-	visitor.Visit(u)
-	u.Value.Traverse(visitor)
+	if visitor.Visit(u) {
+		u.Value.Traverse(visitor)
+	}
 }
 
 func (u *Unary) Optimize(optimizer Optimizer) error {
@@ -303,8 +308,9 @@ type MapAccess struct {
 }
 
 func (m *MapAccess) Traverse(visitor Visitor) {
-	visitor.Visit(m)
-	m.MapValue.Traverse(visitor)
+	if visitor.Visit(m) {
+		m.MapValue.Traverse(visitor)
+	}
 }
 
 func (m *MapAccess) Optimize(optimizer Optimizer) error {
@@ -323,11 +329,12 @@ type MethodCall struct {
 }
 
 func (m *MethodCall) Traverse(visitor Visitor) {
-	visitor.Visit(m)
-	for _, a := range m.Args {
-		a.Traverse(visitor)
+	if visitor.Visit(m) {
+		for _, a := range m.Args {
+			a.Traverse(visitor)
+		}
+		m.Value.Traverse(visitor)
 	}
-	m.Value.Traverse(visitor)
 }
 
 func (m *MethodCall) Optimize(optimizer Optimizer) error {
@@ -377,9 +384,10 @@ type ListAccess struct {
 }
 
 func (a *ListAccess) Traverse(visitor Visitor) {
-	visitor.Visit(a)
-	a.Index.Traverse(visitor)
-	a.List.Traverse(visitor)
+	if visitor.Visit(a) {
+		a.Index.Traverse(visitor)
+		a.List.Traverse(visitor)
+	}
 }
 
 func (a *ListAccess) Optimize(optimizer Optimizer) error {
@@ -401,8 +409,9 @@ type ClosureLiteral struct {
 }
 
 func (c *ClosureLiteral) Traverse(visitor Visitor) {
-	visitor.Visit(c)
-	c.Func.Traverse(visitor)
+	if visitor.Visit(c) {
+		c.Func.Traverse(visitor)
+	}
 }
 
 func (c *ClosureLiteral) Optimize(optimizer Optimizer) error {
@@ -419,9 +428,10 @@ type MapLiteral struct {
 }
 
 func (ml *MapLiteral) Traverse(visitor Visitor) {
-	visitor.Visit(ml)
-	for _, v := range ml.Map {
-		v.Traverse(visitor)
+	if visitor.Visit(ml) {
+		for _, v := range ml.Map {
+			v.Traverse(visitor)
+		}
 	}
 }
 
@@ -462,9 +472,10 @@ type ListLiteral struct {
 }
 
 func (al *ListLiteral) Traverse(visitor Visitor) {
-	visitor.Visit(al)
-	for _, v := range al.List {
-		v.Traverse(visitor)
+	if visitor.Visit(al) {
+		for _, v := range al.List {
+			v.Traverse(visitor)
+		}
 	}
 }
 
@@ -523,10 +534,11 @@ type FunctionCall struct {
 }
 
 func (f *FunctionCall) Traverse(visitor Visitor) {
-	visitor.Visit(f)
-	f.Func.Traverse(visitor)
-	for _, a := range f.Args {
-		a.Traverse(visitor)
+	if visitor.Visit(f) {
+		f.Func.Traverse(visitor)
+		for _, a := range f.Args {
+			a.Traverse(visitor)
+		}
 	}
 }
 

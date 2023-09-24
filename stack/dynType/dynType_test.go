@@ -70,10 +70,10 @@ func Test(t *testing.T) {
 	for _, test := range tests {
 		test := test
 		t.Run(test.exp, func(t *testing.T) {
-			fu, err := DynType.Generate(test.exp)
+			fu, err := DynType.Generate([]string{}, test.exp)
 			assert.NoError(t, err, test.exp)
 			if fu != nil {
-				res, err := fu(parser2.VarMap[Value]{})
+				res, err := fu([]Value{})
 				assert.NoError(t, err, test.exp)
 				assert.EqualValues(t, test.res, res, test.exp)
 			}
@@ -165,14 +165,13 @@ func TestSolve(t *testing.T) {
 		{name: "newtonRaphson", exp: newtonRaphson},
 	}
 
-	v := parser2.VarMap[Value]{"a": vFloat(2)}
 	for _, test := range tests {
 		test := test
 		t.Run(test.name, func(t *testing.T) {
-			f, err := DynType.Generate(test.exp)
+			f, err := DynType.Generate([]string{"a"}, test.exp)
 			assert.NoError(t, err, test.name)
 			if f != nil {
-				r, err := f(v)
+				r, err := f([]Value{vFloat(2)})
 				assert.NoError(t, err, test.name)
 				assert.InDelta(t, math.Sqrt(2), r.Float(), 1e-6, test.name)
 			}
@@ -181,38 +180,39 @@ func TestSolve(t *testing.T) {
 }
 
 func BenchmarkRegulaFalsi(b *testing.B) {
-	f, _ := DynType.Generate(regulaFalsi)
-	v := parser2.VarMap[Value]{"a": vFloat(2)}
+	f, _ := DynType.Generate([]string{"a"}, regulaFalsi)
+	args := []Value{vFloat(2)}
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		f(v)
+		f(args)
 	}
 }
 
 func BenchmarkCall(b *testing.B) {
-	f, _ := DynType.Generate("x+(2*y/x)")
-	v := parser2.VarMap[Value]{"x": vFloat(3), "y": vFloat(3)}
+	f, _ := DynType.Generate([]string{"x", "y"}, "x+(2*y/x)")
+	args := []Value{vFloat(3), vFloat(3)}
+
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		f(v)
+		f(args)
 	}
 }
 
 func BenchmarkFunc(b *testing.B) {
-	f, _ := DynType.Generate("func f(x) x*x;f(a)+f(2*a)")
-	v := parser2.VarMap[Value]{"a": vFloat(3)}
+	f, _ := DynType.Generate([]string{"a"}, "func f(x) x*x;f(a)+f(2*a)")
+	args := []Value{vFloat(3)}
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		f(v)
+		f(args)
 	}
 }
 
 func BenchmarkFunc2(b *testing.B) {
-	f, _ := DynType.Generate("let c=1.5;func mul(x) y->y*x*c;mul(b)(a)")
-	v := parser2.VarMap[Value]{"a": vFloat(3), "b": vFloat(2)}
+	f, _ := DynType.Generate([]string{"a", "b"}, "let c=1.5;func mul(x) y->y*x*c;mul(b)(a)")
+	args := []Value{vFloat(3), vFloat(2)}
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		f(v)
+		f(args)
 	}
 }
