@@ -47,10 +47,6 @@ func (s Stack[V]) Get(n int) V {
 	return s.storage.get(s.offs + n)
 }
 
-func (s Stack[V]) Set(n int, v V) {
-	s.storage.set(s.offs+n, v)
-}
-
 func (s Stack[V]) Size() int {
 	return s.size
 }
@@ -485,35 +481,21 @@ func (g *FunctionGenerator[V]) GenerateFunc(ast parser2.AST, am, cm ArgsMap) (Fu
 				return nil, err
 			}
 		}
-		if i, ok := am[a.Name]; ok {
-			// redeclared variable
-			mainFunc, err := g.GenerateFunc(a.Inner, am, cm)
-			if err != nil {
-				return nil, err
-			}
-			return func(st Stack[V], cs []V) V {
-				va := valFunc(st, cs)
-				st.Set(i, va)
-				return mainFunc(st, cs)
-			}, nil
-		} else {
-			// new Variable
-			amNew, err := am.copyAndAdd(a.Name)
-			if err != nil {
-				return nil, err
-			}
-			mainFunc, err := g.GenerateFunc(a.Inner, amNew, cm)
-			if err != nil {
-				return nil, err
-			}
-			return func(st Stack[V], cs []V) V {
-				va := valFunc(st, cs)
-				st.Push(va)
-				v := mainFunc(st, cs)
-				st.Remove(1)
-				return v
-			}, nil
+		amNew, err := am.copyAndAdd(a.Name)
+		if err != nil {
+			return nil, a.EnhanceErrorf(err, "error in let")
 		}
+		mainFunc, err := g.GenerateFunc(a.Inner, amNew, cm)
+		if err != nil {
+			return nil, err
+		}
+		return func(st Stack[V], cs []V) V {
+			va := valFunc(st, cs)
+			st.Push(va)
+			v := mainFunc(st, cs)
+			st.Remove(1)
+			return v
+		}, nil
 	case *parser2.If:
 		if g.toBool != nil {
 			condFunc, err := g.GenerateFunc(a.Cond, am, cm)
