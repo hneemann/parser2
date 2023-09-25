@@ -1,7 +1,6 @@
 package example
 
 import (
-	"github.com/hneemann/parser2"
 	"github.com/stretchr/testify/assert"
 	"testing"
 )
@@ -21,13 +20,13 @@ func TestBool(t *testing.T) {
 		{"let c=true; if c then a&b else a|b", false, "let c=true; if c then a&b else a|b"},
 	}
 
-	vars := parser2.VarMap[bool]{"a": true, "b": false}
+	vars := []bool{true, false}
 	for _, test := range tests {
 		test := test
 		t.Run(test.exp, func(t *testing.T) {
 			//check result
 			// create the function which evaluates the given expression
-			f, err := boolParser.Generate(test.exp)
+			f, err := boolParser.Generate([]string{"a", "b"}, test.exp)
 			assert.NoError(t, err)
 			// evaluate the function using the given variables
 			r, err := f(vars)

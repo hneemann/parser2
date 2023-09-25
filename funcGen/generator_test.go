@@ -1,4 +1,4 @@
-package stack
+package funcGen
 
 import (
 	"fmt"
@@ -114,8 +114,11 @@ func TestFunctionGenerator_Generate(t *testing.T) {
 			assert.NoError(t, err)
 			assert.NotNil(t, f)
 			if f != nil {
-				res, _ := f(test.argsVals)
-				assert.InDelta(t, test.result, res.Float(), 1e-6)
+				res, err := f(test.argsVals)
+				assert.NoError(t, err)
+				if res != nil {
+					assert.InDelta(t, test.result, res.Float(), 1e-6)
+				}
 			}
 		})
 	}

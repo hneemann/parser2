@@ -2,13 +2,14 @@ package example
 
 import (
 	"github.com/hneemann/parser2"
+	"github.com/hneemann/parser2/funcGen"
 	"math"
 	"strconv"
 )
 
 // minimal is a minimal float64 parser example
 // see test cases for usage example
-var minimal = parser2.New[float64]().
+var minimal = funcGen.New[float64]().
 	AddConstant("pi", math.Pi).
 	AddOp("=", true, func(a, b float64) float64 { return fromBool(a == b) }).
 	AddOp("<", false, func(a, b float64) float64 { return fromBool(a < b) }).

@@ -1,4 +1,4 @@
-package dynType
+package example
 
 import (
 	"github.com/hneemann/parser2"
@@ -7,7 +7,7 @@ import (
 	"testing"
 )
 
-func Test(t *testing.T) {
+func TestDynType(t *testing.T) {
 	tests := []struct {
 		exp string
 		res any
@@ -48,14 +48,8 @@ func Test(t *testing.T) {
 		{exp: "func fib(n) if n<=2 then 1 else fib(n-1)+fib(n-2);[fib(10),fib(15)]", res: vList{vFloat(55), vFloat(610)}},
 		{exp: "if 1<2 then 1 else 2", res: vFloat(1)},
 		{exp: "if 1>2 then 1 else 2", res: vFloat(2)},
-		{exp: "if 1<2 then 1 else notAvail", res: vFloat(1)},
-		{exp: "if 1>2 then notAvail else 2", res: vFloat(2)},
 		{exp: "let a=2; if 1<a then 1 else 2", res: vFloat(1)},
 		{exp: "let a=2; if 1>a then 1 else 2", res: vFloat(2)},
-		{exp: "let a=2; if 1<a then 1 else notAvail", res: vFloat(1)},
-		{exp: "let a=2; if 1>a then notAvail else 2", res: vFloat(2)},
-		{exp: "true | (notAvail<1)", res: vBool(true)},
-		{exp: "false & (notAvail<1)", res: vBool(false)},
 		{exp: "[1,2,3].size()", res: vFloat(3)},
 		{exp: "[1,2,3].map(e->e*2)", res: vList{vFloat(2), vFloat(4), vFloat(6)}},
 		{exp: "[1,2,3,4,5].reduce((a,b)->a+b)", res: vFloat(15)},

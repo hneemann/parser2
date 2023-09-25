@@ -1,12 +1,11 @@
 package example
 
 import (
-	"github.com/hneemann/parser2"
 	"github.com/stretchr/testify/assert"
 	"testing"
 )
 
-func Test(t *testing.T) {
+func TestMinimal(t *testing.T) {
 	tests := []struct {
 		exp       string
 		result    float64
@@ -45,13 +44,13 @@ func Test(t *testing.T) {
 		{"const a=1+1;const b=3;a*b", 6, "6"},
 	}
 
-	vars := parser2.VarMap[float64]{"a": 2}
+	vars := []float64{2}
 	for _, test := range tests {
 		test := test
 		t.Run(test.exp, func(t *testing.T) {
 			// check result
 			// create the function which evaluates the given expression
-			f, err := minimal.Generate(test.exp)
+			f, err := minimal.Generate([]string{"a"}, test.exp)
 			assert.NoError(t, err)
 			// evaluate the function using the given variables
 			r, err := f(vars)

@@ -1,76 +1,67 @@
-package stack
+package funcGen
 
 import (
+	"bytes"
 	"fmt"
 	"github.com/hneemann/parser2"
+	"reflect"
+	"unicode"
+	"unicode/utf8"
 )
 
-type Stack[V any] interface {
-	Get(n int) V
-	Push(V)
-	Pop() V
-	Size() int
-	CreateFrame() Stack[V]
+type stackStorage[V any] struct {
+	data []V
 }
 
-type SimpleStack[V any] []V
-
-func (s SimpleStack[V]) Get(n int) V {
-	return s[n]
-}
-
-func (s SimpleStack[V]) Size() int {
-	return len(s)
-}
-
-func (s *SimpleStack[V]) Push(v V) {
-	*s = append(*s, v)
-}
-
-func (s *SimpleStack[V]) Pop() V {
-	last := len(*s) - 1
-	v := (*s)[last]
-	*s = (*s)[0:last]
-	return v
-}
-
-func (s SimpleStack[V]) CreateFrame() Stack[V] {
-	return &StackFrame[V]{
-		offset: len(s),
-		size:   0,
-		parent: &s,
+func (s *stackStorage[V]) set(n int, v V) {
+	if n == len(s.data) {
+		s.data = append(s.data, v)
+	} else {
+		s.data[n] = v
 	}
 }
 
-type StackFrame[V any] struct {
-	offset int
-	size   int
-	parent Stack[V]
+func (s *stackStorage[V]) get(n int) V {
+	return s.data[n]
 }
 
-func (s *StackFrame[V]) Get(n int) V {
-	return s.parent.Get(s.offset + n)
+type Stack[V any] struct {
+	storage *stackStorage[V]
+	offs    int
+	size    int
 }
 
-func (s *StackFrame[V]) Size() int {
+func newStack[V any](v []V) Stack[V] {
+	return Stack[V]{
+		storage: &stackStorage[V]{data: v},
+		offs:    0,
+		size:    len(v),
+	}
+}
+
+func (s Stack[V]) Get(n int) V {
+	return s.storage.get(s.offs + n)
+}
+
+func (s Stack[V]) Size() int {
 	return s.size
 }
 
-func (s *StackFrame[V]) Push(v V) {
+func (s *Stack[V]) Push(v V) {
+	s.storage.set(s.offs+s.size, v)
 	s.size++
-	s.parent.Push(v)
 }
 
-func (s *StackFrame[V]) Pop() V {
+func (s *Stack[V]) Pop() V {
 	s.size--
-	return s.parent.Pop()
+	return s.storage.get(s.offs + s.size)
 }
 
-func (s *StackFrame[V]) CreateFrame() Stack[V] {
-	return &StackFrame[V]{
-		offset: s.offset + s.size,
-		size:   0,
-		parent: s.parent,
+func (s *Stack[V]) CreateFrame() Stack[V] {
+	return Stack[V]{
+		storage: s.storage,
+		offs:    s.offs + s.size,
+		size:    0,
 	}
 }
 
@@ -87,8 +78,7 @@ type Function[V any] struct {
 }
 
 func (f Function[V]) Eval(a ...V) V {
-	st := SimpleStack[V](a)
-	return f.Func(&st, nil)
+	return f.Func(newStack(a), nil)
 }
 
 // ListHandler is used to create and access lists or arrays
@@ -118,6 +108,19 @@ type ClosureHandler[V any] interface {
 	ToClosure(c V) (Function[V], bool)
 }
 
+// MethodHandler is used to give access to methods.
+type MethodHandler[V any] interface {
+	// GetMethod is used to get a method on a value.
+	// The value is the first argument at calling the function.
+	GetMethod(value V, methodName string) (Function[V], error)
+}
+
+type MethodHandlerFunc[V any] func(value V, methodName string) (Function[V], error)
+
+func (mh MethodHandlerFunc[V]) GetMethod(value V, methodName string) (Function[V], error) {
+	return mh(value, methodName)
+}
+
 // Generator is used to define a customized generation of functions
 type Generator[V any] interface {
 	Generate(parser2.AST, ArgsMap, ArgsMap, *FunctionGenerator[V]) (Func[V], error)
@@ -143,6 +146,7 @@ type FunctionGenerator[V any] struct {
 	listHandler     ListHandler[V]
 	mapHandler      MapHandler[V]
 	closureHandler  ClosureHandler[V]
+	methodHandler   MethodHandler[V]
 	optimizer       parser2.Optimizer
 	constants       constMap[V]
 	toBool          ToBool[V]
@@ -158,8 +162,9 @@ func New[V any]() *FunctionGenerator[V] {
 	g := &FunctionGenerator[V]{
 		constants:       constMap[V]{},
 		staticFunctions: make(map[string]Function[V]),
+		methodHandler:   MethodHandlerFunc[V](methodByReflection[V]),
 	}
-	//g.optimizer = parser2.NewOptimizer(g)
+	g.optimizer = NewOptimizer(g)
 	return g
 }
 
@@ -330,8 +335,7 @@ func (g *FunctionGenerator[V]) Generate(args []string, exp string) (func([]V) (V
 				}
 			}
 		}()
-		stack := SimpleStack[V](v)
-		return f(&stack, nil), nil
+		return f(newStack(v), nil), nil
 	}, nil
 }
 
@@ -383,9 +387,27 @@ func (g *FunctionGenerator[V]) GenerateFunc(ast parser2.AST, am, cm ArgsMap) (Fu
 			}
 		}
 	case *parser2.Let:
-		valFunc, err := g.GenerateFunc(a.Value, am, cm)
-		if err != nil {
-			return nil, err
+		var err error
+		var valFunc Func[V]
+		if c, ok := a.Value.(*parser2.ClosureLiteral); ok {
+			uses := g.checkIfClosure(a, ArgsMap{})
+			if _, ok := uses[a.Name]; ok {
+				funcArgs := ArgsMap{}
+				for _, arg := range c.Names {
+					funcArgs.add(arg)
+				}
+				usedVars := g.checkIfClosure(c.Func, funcArgs)
+				valFunc, err = g.createClosureLiteralFunc(c, funcArgs, usedVars, am, cm, a.Name)
+				if err != nil {
+					return nil, err
+				}
+			}
+		}
+		if valFunc == nil {
+			valFunc, err = g.GenerateFunc(a.Value, am, cm)
+			if err != nil {
+				return nil, err
+			}
 		}
 		mainFunc, err := g.GenerateFunc(a.Inner, am.add(a.Name), cm)
 		if err != nil {
@@ -488,7 +510,7 @@ func (g *FunctionGenerator[V]) GenerateFunc(ast parser2.AST, am, cm ArgsMap) (Fu
 		}
 		usedVars := g.checkIfClosure(a.Func, funcArgs)
 		if len(usedVars) == 0 {
-			// not a closure, just a lambda
+			// not a closure, just a function
 			closureFunc, err := g.GenerateFunc(a.Func, funcArgs, nil)
 			if err != nil {
 				return nil, err
@@ -501,49 +523,7 @@ func (g *FunctionGenerator[V]) GenerateFunc(ast parser2.AST, am, cm ArgsMap) (Fu
 			}, nil
 		} else {
 			// is a real closure
-			closureFunc, err := g.GenerateFunc(a.Func, funcArgs, usedVars)
-			if err != nil {
-				return nil, err
-			}
-
-			type copyAction struct {
-				index     int
-				fromStack bool
-			}
-			copyActions := make([]copyAction, len(usedVars))
-			for n, ci := range usedVars {
-				if i, ok := am[n]; ok {
-					copyActions[ci] = copyAction{
-						index:     i,
-						fromStack: true,
-					}
-				} else {
-					if i, ok := cm[n]; ok {
-						copyActions[ci] = copyAction{
-							index:     i,
-							fromStack: false,
-						}
-					} else {
-						return nil, a.Errorf("not found: %s", n)
-					}
-				}
-			}
-			return func(st Stack[V], cs []V) V {
-				closureStore := make([]V, len(copyActions))
-				for i, ca := range copyActions {
-					if ca.fromStack {
-						closureStore[i] = st.Get(ca.index)
-					} else {
-						closureStore[i] = cs[ca.index]
-					}
-				}
-				return g.closureHandler.FromClosure(Function[V]{
-					Func: func(st Stack[V], cs []V) V {
-						return closureFunc(st, closureStore)
-					},
-					Args: len(a.Names),
-				})
-			}, nil
+			return g.createClosureLiteralFunc(a, funcArgs, usedVars, am, cm, "")
 		}
 	case *parser2.ListLiteral:
 		if g.listHandler != nil {
@@ -650,8 +630,113 @@ func (g *FunctionGenerator[V]) GenerateFunc(ast parser2.AST, am, cm ArgsMap) (Fu
 			}
 			return theFunc.Func(sf, cs)
 		}, nil
+	case *parser2.MethodCall:
+		valFunc, err := g.GenerateFunc(a.Value, am, cm)
+		if err != nil {
+			return nil, err
+		}
+		name := a.Name
+		argsFuncList, err := g.genFuncList(a.Args, am, cm)
+		if err != nil {
+			return nil, err
+		}
+		return func(st Stack[V], cs []V) V {
+			value := valFunc(st, cs)
+			// name could be a method, but it could also be the name of a field which stores a closure
+			// If it is a closure field, this should be a map access!
+			if g.mapHandler != nil && g.mapHandler.IsMap(value) {
+				if va, err := g.mapHandler.AccessMap(value, name); err == nil {
+					if theFunc, ok := g.extractFunction(va); ok {
+						sf := st.CreateFrame()
+						for _, argFunc := range argsFuncList {
+							sf.Push(argFunc(st, cs))
+						}
+						return theFunc.Func(sf, cs)
+					}
+				}
+			}
+			if g.methodHandler != nil {
+				me, err := g.methodHandler.GetMethod(value, name)
+				if err != nil {
+					panic(a.EnhanceErrorf(err, "error accessing method %s", name))
+				}
+				if me.Args != len(argsFuncList)+1 {
+					panic(a.Errorf("wrong number of arguments at call of %s, required %d, found %d", name, me.Args-1, len(argsFuncList)))
+				}
+				argsValues := make([]V, len(argsFuncList)+1)
+				argsValues[0] = value
+				for i, arg := range argsFuncList {
+					argsValues[i+1] = arg(st, cs)
+				}
+				return me.Func(newStack(argsValues), nil)
+			}
+			panic(a.Errorf("method %s not found", name))
+		}, nil
 	}
 	return nil, ast.GetLine().Errorf("not supported: %v", ast)
+}
+
+func (g *FunctionGenerator[V]) createClosureLiteralFunc(a *parser2.ClosureLiteral, funcArgs ArgsMap, usedVars ArgsMap, am, cm ArgsMap, recursiveName string) (Func[V], error) {
+	closureFunc, err := g.GenerateFunc(a.Func, funcArgs, usedVars)
+	if err != nil {
+		return nil, err
+	}
+
+	type copyMode int
+	const (
+		stack copyMode = iota
+		closure
+		this
+	)
+
+	type copyAction struct {
+		index int
+		mode  copyMode
+	}
+	copyActions := make([]copyAction, len(usedVars))
+	for n, ci := range usedVars {
+		if i, ok := am[n]; ok {
+			copyActions[ci] = copyAction{
+				index: i,
+				mode:  stack,
+			}
+		} else {
+			if i, ok := cm[n]; ok {
+				copyActions[ci] = copyAction{
+					index: i,
+					mode:  closure,
+				}
+			} else {
+				if n == recursiveName {
+					copyActions[ci] = copyAction{
+						mode: this,
+					}
+				} else {
+					return nil, a.Errorf("not found: %s", n)
+				}
+			}
+		}
+	}
+	return func(st Stack[V], cs []V) V {
+		closureStore := make([]V, len(copyActions))
+		cl := g.closureHandler.FromClosure(Function[V]{
+			Func: func(st Stack[V], cs []V) V {
+				return closureFunc(st, closureStore)
+			},
+			Args: len(a.Names),
+		})
+		for i, ca := range copyActions {
+			switch ca.mode {
+			case stack:
+				closureStore[i] = st.Get(ca.index)
+			case closure:
+				closureStore[i] = cs[ca.index]
+			case this:
+				closureStore[i] = cl
+			}
+		}
+		return cl
+	}, nil
 }
 
 func (g *FunctionGenerator[V]) genFuncList(a []parser2.AST, am, cm ArgsMap) ([]Func[V], error) {
@@ -679,41 +764,60 @@ func (g *FunctionGenerator[V]) extractFunction(fu V) (Function[V], bool) {
 
 func (g *FunctionGenerator[V]) checkIfClosure(ast parser2.AST, args ArgsMap) ArgsMap {
 	found := ArgsMap{}
-	fna := findNonArgAccess{args: args, found: &found}
+	fna := findNonArgAccess[V]{args: args, found: &found, staticFunc: g.staticFunctions}
 	ast.Traverse(&fna)
 	return found
 }
 
-type findNonArgAccess struct {
-	args  ArgsMap
-	found *ArgsMap
+type findNonArgAccess[V any] struct {
+	args       ArgsMap
+	found      *ArgsMap
+	staticFunc map[string]Function[V]
 }
 
-func (f *findNonArgAccess) Visit(ast parser2.AST) bool {
+func (f *findNonArgAccess[V]) inner(args ArgsMap) *findNonArgAccess[V] {
+	return &findNonArgAccess[V]{args: args, found: f.found, staticFunc: f.staticFunc}
+}
+
+func (f *findNonArgAccess[V]) Visit(ast parser2.AST) bool {
 	switch a := ast.(type) {
 	case *parser2.Ident:
 		if _, ok := f.args[a.Name]; !ok {
-			(*f.found)[a.Name] = len(*f.found)
+			if _, ok := (*f.found)[a.Name]; !ok {
+				(*f.found)[a.Name] = len(*f.found)
+			}
 		}
 		return false
 	case *parser2.ClosureLiteral:
-		args := ArgsMap{}
+		innerArgs := ArgsMap{}
 		for k, v := range f.args {
-			args[k] = v
+			innerArgs[k] = v
 		}
 		for _, n := range a.Names {
-			args[n] = len(args)
+			innerArgs[n] = len(innerArgs)
 		}
-		a.Func.Traverse(&findNonArgAccess{args: args, found: f.found})
+		a.Func.Traverse(f.inner(innerArgs))
+		return false
+	case *parser2.FunctionCall:
+		if id, ok := a.Func.(*parser2.Ident); ok {
+			if _, ok := f.staticFunc[id.Name]; !ok {
+				a.Func.Traverse(f)
+			}
+		} else {
+			a.Func.Traverse(f)
+		}
+		for _, ar := range a.Args {
+			ar.Traverse(f)
+		}
 		return false
 	case *parser2.Let:
 		a.Value.Traverse(f)
-		inner := ArgsMap{}
+		innerArgs := ArgsMap{}
 		for k, v := range f.args {
-			inner[k] = v
+			innerArgs[k] = v
 		}
-		inner.add(a.Name)
-		a.Inner.Traverse(&findNonArgAccess{args: inner, found: f.found})
+		innerArgs.add(a.Name)
+		a.Inner.Traverse(f.inner(innerArgs))
 		return false
 	}
 	return true
@@ -729,4 +833,87 @@ func (g *FunctionGenerator[V]) genCodeMap(a map[string]parser2.AST, am, cm ArgsM
 		}
 	}
 	return args, nil
+}
+
+func methodByReflection[V any](value V, name string) (Function[V], error) {
+	name = firstRuneUpper(name)
+	typeOf := reflect.TypeOf(value)
+	if m, ok := typeOf.MethodByName(name); ok {
+		err := matches[V](m)
+		if err != nil {
+			return Function[V]{}, err
+		}
+
+		return Function[V]{
+			Func: func(st Stack[V], cs []V) V {
+				argsValues := make([]reflect.Value, st.Size())
+				for i := 0; i < st.Size(); i++ {
+					argsValues[i] = reflect.ValueOf(st.Get(i))
+				}
+
+				res := m.Func.Call(argsValues)
+				if v, ok := res[0].Interface().(V); ok {
+					return v
+				} else {
+					panic(fmt.Errorf("result of method %s is not a value. It is: %v", name, res[0]))
+				}
+			},
+			Args:   m.Type.NumIn(),
+			IsPure: false,
+		}, nil
+	} else {
+		var buf bytes.Buffer
+		for i := 0; i < typeOf.NumMethod(); i++ {
+			m := typeOf.Method(i)
+			if matches[V](m) == nil {
+				if buf.Len() > 0 {
+					buf.WriteString(", ")
+				}
+				buf.WriteString(m.Name)
+				buf.WriteString("(")
+				mt := m.Func.Type()
+				for i := 1; i < mt.NumIn(); i++ {
+					if i > 1 {
+						buf.WriteString(", ")
+					}
+					buf.WriteString(mt.In(i).Name())
+				}
+				buf.WriteString(")")
+			}
+		}
+		return Function[V]{}, fmt.Errorf("method %s not found on %v, available are: %v", name, typeOf, buf.String())
+	}
+}
+
+func firstRuneUpper(name string) string {
+	r, l := utf8.DecodeRune([]byte(name))
+	if unicode.IsUpper(r) {
+		return name
+	}
+	return string(unicode.ToUpper(r)) + name[l:]
+}
+
+func matches[V any](m reflect.Method) error {
+	typeOfV := reflect.TypeOf((*V)(nil)).Elem()
+	mt := m.Func.Type()
+	for i := 1; i < mt.NumIn(); i++ {
+		if !typeOfV.AssignableTo(mt.In(i)) {
+			return fmt.Errorf("type %v does not match %v", mt.In(i), typeOfV)
+		}
+	}
+	if mt.NumOut() != 1 {
+		return fmt.Errorf("wrong number of return values: found %d, want 1", mt.NumOut())
+	}
+	if !mt.Out(0).AssignableTo(typeOfV) {
+		return fmt.Errorf("first return value needs to be assignable to %v", typeOfV)
+	}
+	return nil
+}
+
+func firstRuneLower(name string) string {
+	r, l := utf8.DecodeRune([]byte(name))
+	if unicode.IsLower(r) {
+		return name
+	}
+	return string(unicode.ToLower(r)) + name[l:]
 }

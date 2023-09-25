@@ -1,9 +1,9 @@
-package dynType
+package example
 
 import (
 	"fmt"
 	"github.com/hneemann/parser2"
-	"github.com/hneemann/parser2/stack"
+	"github.com/hneemann/parser2/funcGen"
 	"math"
 	"strconv"
 )
@@ -46,7 +46,7 @@ func (v vBool) Bool() bool {
 	return bool(v)
 }
 
-type vClosure stack.Function[Value]
+type vClosure funcGen.Function[Value]
 
 func (v vClosure) Float() float64 {
 	return 0
@@ -57,7 +57,7 @@ func (v vClosure) Bool() bool {
 }
 
 func (v vClosure) Eval(a ...Value) Value {
-	return stack.Function[Value](v).Eval(a...)
+	return funcGen.Function[Value](v).Eval(a...)
 }
 
 type vList []Value
@@ -172,13 +172,13 @@ func (th typeHandler) ParseNumber(s string) (Value, error) {
 	return vFloat(f), err
 }
 
-func (th typeHandler) FromClosure(closure stack.Function[Value]) Value {
+func (th typeHandler) FromClosure(closure funcGen.Function[Value]) Value {
 	return vClosure(closure)
 }
 
-func (th typeHandler) ToClosure(fu Value) (stack.Function[Value], bool) {
+func (th typeHandler) ToClosure(fu Value) (funcGen.Function[Value], bool) {
 	cl, ok := fu.(vClosure)
-	return stack.Function[Value](cl), ok
+	return funcGen.Function[Value](cl), ok
 }
 
 func (th typeHandler) FromList(items []Value) Value {
@@ -224,7 +224,7 @@ func (th typeHandler) FromString(s string) Value {
 	return vString(s)
 }
 
-func (th typeHandler) Generate(ast parser2.AST, am, cm stack.ArgsMap, g *stack.FunctionGenerator[Value]) (stack.Func[Value], error) {
+func (th typeHandler) Generate(ast parser2.AST, am, cm funcGen.ArgsMap, g *funcGen.FunctionGenerator[Value]) (funcGen.Func[Value], error) {
 	if op, ok := ast.(*parser2.Operate); ok {
 		// AND and OR with short evaluation
 		switch op.Operator {
@@ -237,7 +237,7 @@ func (th typeHandler) Generate(ast parser2.AST, am, cm stack.ArgsMap, g *stack.F
 			if err != nil {
 				return nil, err
 			}
-			return func(st stack.Stack[Value], cs []Value) Value {
+			return func(st funcGen.Stack[Value], cs []Value) Value {
 				if !aFunc(st, cs).Bool() {
 					return vBool(false)
 				} else {
@@ -253,7 +253,7 @@ func (th typeHandler) Generate(ast parser2.AST, am, cm stack.ArgsMap, g *stack.F
 			if err != nil {
 				return nil, err
 			}
-			return func(st stack.Stack[Value], cs []Value) Value {
+			return func(st funcGen.Stack[Value], cs []Value) Value {
 				if aFunc(st, cs).Bool() {
 					return vBool(true)
 				} else {
@@ -267,7 +267,7 @@ func (th typeHandler) Generate(ast parser2.AST, am, cm stack.ArgsMap, g *stack.F
 
 var th typeHandler
 
-var DynType = stack.New[Value]().
+var DynType = funcGen.New[Value]().
 	AddOp("|", true, func(a, b Value) Value { return vBool(a.Bool() || b.Bool()) }).
 	AddOp("&", true, func(a, b Value) Value { return vBool(a.Bool() && b.Bool()) }).
 	AddOp("=", true, vEqual).
@@ -292,28 +292,28 @@ var DynType = stack.New[Value]().
 	AddConstant("pi", vFloat(math.Pi)).
 	AddConstant("true", vBool(true)).
 	AddConstant("false", vBool(false)).
-	AddStaticFunction("abs", stack.Function[Value]{
-		Func:   func(st stack.Stack[Value], cs []Value) Value { return vFloat(math.Abs(st.Get(0).Float())) },
+	AddStaticFunction("abs", funcGen.Function[Value]{
+		Func:   func(st funcGen.Stack[Value], cs []Value) Value { return vFloat(math.Abs(st.Get(0).Float())) },
 		Args:   1,
 		IsPure: true,
 	}).
-	AddStaticFunction("sqrt", stack.Function[Value]{
-		Func:   func(st stack.Stack[Value], cs []Value) Value { return vFloat(math.Sqrt(st.Get(0).Float())) },
+	AddStaticFunction("sqrt", funcGen.Function[Value]{
+		Func:   func(st funcGen.Stack[Value], cs []Value) Value { return vFloat(math.Sqrt(st.Get(0).Float())) },
 		Args:   1,
 		IsPure: true,
 	}).
-	AddStaticFunction("ln", stack.Function[Value]{
-		Func:   func(st stack.Stack[Value], cs []Value) Value { return vFloat(math.Log(st.Get(0).Float())) },
+	AddStaticFunction("ln", funcGen.Function[Value]{
+		Func:   func(st funcGen.Stack[Value], cs []Value) Value { return vFloat(math.Log(st.Get(0).Float())) },
 		Args:   1,
 		IsPure: true,
 	}).
-	AddStaticFunction("sprintf", stack.Function[Value]{
+	AddStaticFunction("sprintf", funcGen.Function[Value]{
 		Func:   sprintf,
 		Args:   -1,
 		IsPure: true,
 	})
 
-func sprintf(st stack.Stack[Value], cs []Value) Value {
+func sprintf(st funcGen.Stack[Value], cs []Value) Value {
 	switch st.Size() {
 	case 0:
 		return vString("")
