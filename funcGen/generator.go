@@ -78,6 +78,28 @@ func (s *Stack[V]) Remove(n int) {
 	s.size -= n
 }
 
+// Operator defines a operator like +
+type Operator[V any] struct {
+	// Operator is the operator as a string like "+"
+	Operator string
+	// Impl is the implementation of the operation
+	Impl func(a, b V) V
+	// IsPure is true if the result of the operation depends only on the operands.
+	// This is usually the case, there are only special corner cases where it is not.
+	// So IsPure is usually true.
+	IsPure bool
+	// IsCommutative is true if the operation is commutative
+	IsCommutative bool
+}
+
+// UnaryOperator defines a operator like - or !
+type UnaryOperator[V any] struct {
+	// Operator is the operator as a string like "+"
+	Operator string
+	// Impl is the implementation of the operation
+	Impl func(a V) V
+}
+
 // Function represents a function
 type Function[V any] struct {
 	// Func is the function itself
@@ -152,8 +174,8 @@ func (c constMap[V]) GetConst(name string) (V, bool) {
 
 type FunctionGenerator[V any] struct {
 	parser          *parser2.Parser[V]
-	operators       []parser2.Operator[V]
-	unary           []parser2.UnaryOperator[V]
+	operators       []Operator[V]
+	unary           []UnaryOperator[V]
 	numberParser    parser2.NumberParser[V]
 	stringHandler   parser2.StringConverter[V]
 	listHandler     ListHandler[V]
@@ -165,8 +187,8 @@ type FunctionGenerator[V any] struct {
 	toBool          ToBool[V]
 	isEqual         IsEqual[V]
 	staticFunctions map[string]Function[V]
-	opMap           map[string]parser2.Operator[V]
-	uMap            map[string]parser2.UnaryOperator[V]
+	opMap           map[string]Operator[V]
+	uMap            map[string]UnaryOperator[V]
 	customGenerator Generator[V]
 }
 
@@ -231,7 +253,7 @@ func (g *FunctionGenerator[V]) AddUnary(operator string, impl func(a V) V) *Func
 	if g.parser != nil {
 		panic("parser already created")
 	}
-	g.unary = append(g.unary, parser2.UnaryOperator[V]{
+	g.unary = append(g.unary, UnaryOperator[V]{
 		Operator: operator,
 		Impl:     impl,
 	})
@@ -253,7 +275,7 @@ func (g *FunctionGenerator[V]) AddOpPure(operator string, isCommutative bool, im
 	if g.parser != nil {
 		panic("parser already created")
 	}
-	g.operators = append(g.operators, parser2.Operator[V]{
+	g.operators = append(g.operators, Operator[V]{
 		Operator:      operator,
 		Impl:          impl,
 		IsPure:        isPure,
@@ -311,12 +333,12 @@ func (g *FunctionGenerator[V]) getParser() *parser2.Parser[V] {
 			SetConstants(g.constants).
 			SetOptimizer(g.optimizer)
 
-		opMap := map[string]parser2.Operator[V]{}
+		opMap := map[string]Operator[V]{}
 		for _, o := range g.operators {
 			parser.Op(o.Operator)
 			opMap[o.Operator] = o
 		}
-		uMap := map[string]parser2.UnaryOperator[V]{}
+		uMap := map[string]UnaryOperator[V]{}
 		for _, u := range g.unary {
 			parser.Unary(u.Operator)
 			uMap[u.Operator] = u
