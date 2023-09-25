@@ -39,8 +39,16 @@ func newStack[V any](v []V) Stack[V] {
 	}
 }
 
+func (s Stack[V]) ToSlice() []V {
+	return s.storage.data[s.offs : s.offs+s.size]
+}
+
 func (s Stack[V]) Get(n int) V {
 	return s.storage.get(s.offs + n)
+}
+
+func (s Stack[V]) Set(n int, v V) {
+	s.storage.set(s.offs+n, v)
 }
 
 func (s Stack[V]) Size() int {
@@ -57,12 +65,17 @@ func (s *Stack[V]) Pop() V {
 	return s.storage.get(s.offs + s.size)
 }
 
-func (s *Stack[V]) CreateFrame() Stack[V] {
-	return Stack[V]{
+func (s Stack[V]) CreateFrame(size int) Stack[V] {
+	st := Stack[V]{
 		storage: s.storage,
-		offs:    s.offs + s.size,
-		size:    0,
+		offs:    s.offs + s.size - size,
+		size:    size,
 	}
+	return st
+}
+
+func (s *Stack[V]) Remove(n int) {
+	s.size -= n
 }
 
 // Function represents a function
@@ -194,6 +207,11 @@ func (g *FunctionGenerator[V]) SetMapHandler(mapHandler MapHandler[V]) *Function
 	return g
 }
 
+func (g *FunctionGenerator[V]) SetMethodHandler(methodHandler MethodHandler[V]) *FunctionGenerator[V] {
+	g.methodHandler = methodHandler
+	return g
+}
+
 func (g *FunctionGenerator[V]) SetClosureHandler(closureHandler ClosureHandler[V]) *FunctionGenerator[V] {
 	g.closureHandler = closureHandler
 	return g
@@ -257,6 +275,14 @@ func (g *FunctionGenerator[V]) AddSimpleFunction(name string, f func(V) V) *Func
 	})
 }
 
+func (g *FunctionGenerator[V]) AddGoFunction(name string, args int, f func(a ...V) V) *FunctionGenerator[V] {
+	return g.AddStaticFunction(name, Function[V]{
+		Func:   func(st Stack[V], cs []V) V { return f(st.ToSlice()...) },
+		Args:   args,
+		IsPure: true,
+	})
+}
+
 func (g *FunctionGenerator[V]) AddStaticFunction(n string, f Function[V]) *FunctionGenerator[V] {
 	g.staticFunctions[n] = f
 	return g
@@ -269,6 +295,11 @@ func (g *FunctionGenerator[V]) SetOptimizer(optimizer parser2.Optimizer) *Functi
 
 func (g *FunctionGenerator[V]) SetCustomGenerator(generator Generator[V]) *FunctionGenerator[V] {
 	g.customGenerator = generator
+	return g
+}
+
+func (g *FunctionGenerator[V]) ModifyParser(modify func(a *parser2.Parser[V])) *FunctionGenerator[V] {
+	modify(g.getParser())
 	return g
 }
 
@@ -300,9 +331,12 @@ func (g *FunctionGenerator[V]) getParser() *parser2.Parser[V] {
 
 type ArgsMap map[string]int
 
-func (am ArgsMap) add(name string) ArgsMap {
+func (am ArgsMap) add(name string) error {
+	if _, ok := am[name]; ok {
+		return fmt.Errorf("variable redeclared: %s", name)
+	}
 	am[name] = len(am)
-	return am
+	return nil
 }
 
 type Func[V any] func(stack Stack[V], closureStore []V) V
@@ -314,8 +348,13 @@ func (g *FunctionGenerator[V]) Generate(args []string, exp string) (func([]V) (V
 	}
 
 	am := ArgsMap{}
-	for _, a := range args {
-		am.add(a)
+	if args != nil {
+		for _, a := range args {
+			err := am.add(a)
+			if err != nil {
+				return nil, err
+			}
+		}
 	}
 
 	f, err := g.GenerateFunc(ast, am, nil)
@@ -394,7 +433,10 @@ func (g *FunctionGenerator[V]) GenerateFunc(ast parser2.AST, am, cm ArgsMap) (Fu
 			if _, ok := uses[a.Name]; ok {
 				funcArgs := ArgsMap{}
 				for _, arg := range c.Names {
-					funcArgs.add(arg)
+					err := funcArgs.add(arg)
+					if err != nil {
+						return nil, err
+					}
 				}
 				usedVars := g.checkIfClosure(c.Func, funcArgs)
 				valFunc, err = g.createClosureLiteralFunc(c, funcArgs, usedVars, am, cm, a.Name)
@@ -409,15 +451,35 @@ func (g *FunctionGenerator[V]) GenerateFunc(ast parser2.AST, am, cm ArgsMap) (Fu
 				return nil, err
 			}
 		}
-		mainFunc, err := g.GenerateFunc(a.Inner, am.add(a.Name), cm)
-		if err != nil {
-			return nil, err
+		if i, ok := am[a.Name]; ok {
+			// redeclared variable
+			mainFunc, err := g.GenerateFunc(a.Inner, am, cm)
+			if err != nil {
+				return nil, err
+			}
+			return func(st Stack[V], cs []V) V {
+				va := valFunc(st, cs)
+				st.Set(i, va)
+				return mainFunc(st, cs)
+			}, nil
+		} else {
+			// new Variable
+			err = am.add(a.Name)
+			if err != nil {
+				return nil, err
+			}
+			mainFunc, err := g.GenerateFunc(a.Inner, am, cm)
+			if err != nil {
+				return nil, err
+			}
+			return func(st Stack[V], cs []V) V {
+				va := valFunc(st, cs)
+				st.Push(va)
+				v := mainFunc(st, cs)
+				st.Remove(1)
+				return v
+			}, nil
 		}
-		return func(st Stack[V], cs []V) V {
-			va := valFunc(st, cs)
-			st.Push(va)
-			return mainFunc(st, cs)
-		}, nil
 	case *parser2.If:
 		if g.toBool != nil {
 			condFunc, err := g.GenerateFunc(a.Cond, am, cm)
@@ -506,7 +568,10 @@ func (g *FunctionGenerator[V]) GenerateFunc(ast parser2.AST, am, cm ArgsMap) (Fu
 	case *parser2.ClosureLiteral:
 		funcArgs := ArgsMap{}
 		for _, arg := range a.Names {
-			funcArgs.add(arg)
+			err := funcArgs.add(arg)
+			if err != nil {
+				return nil, err
+			}
 		}
 		usedVars := g.checkIfClosure(a.Func, funcArgs)
 		if len(usedVars) == 0 {
@@ -599,11 +664,12 @@ func (g *FunctionGenerator[V]) GenerateFunc(ast parser2.AST, am, cm ArgsMap) (Fu
 					return nil, err
 				}
 				return func(st Stack[V], cs []V) V {
-					sf := st.CreateFrame()
 					for _, argFunc := range argsFuncList {
-						sf.Push(argFunc(st, cs))
+						st.Push(argFunc(st, cs))
 					}
-					return fun.Func(sf, nil)
+					v := fun.Func(st.CreateFrame(len(argsFuncList)), nil)
+					st.Remove(len(argsFuncList))
+					return v
 				}, nil
 			}
 		}
@@ -624,11 +690,12 @@ func (g *FunctionGenerator[V]) GenerateFunc(ast parser2.AST, am, cm ArgsMap) (Fu
 			if theFunc.Args >= 0 && theFunc.Args != len(a.Args) {
 				panic(a.Errorf("wrong number of arguments at call of %v, required %d, found %d", a.Func, theFunc.Args, len(a.Args)))
 			}
-			sf := st.CreateFrame()
 			for _, argFunc := range argsFuncList {
-				sf.Push(argFunc(st, cs))
+				st.Push(argFunc(st, cs))
 			}
-			return theFunc.Func(sf, cs)
+			v := theFunc.Func(st.CreateFrame(len(argsFuncList)), cs)
+			st.Remove(len(argsFuncList))
+			return v
 		}, nil
 	case *parser2.MethodCall:
 		valFunc, err := g.GenerateFunc(a.Value, am, cm)
@@ -647,11 +714,12 @@ func (g *FunctionGenerator[V]) GenerateFunc(ast parser2.AST, am, cm ArgsMap) (Fu
 			if g.mapHandler != nil && g.mapHandler.IsMap(value) {
 				if va, err := g.mapHandler.AccessMap(value, name); err == nil {
 					if theFunc, ok := g.extractFunction(va); ok {
-						sf := st.CreateFrame()
 						for _, argFunc := range argsFuncList {
-							sf.Push(argFunc(st, cs))
+							st.Push(argFunc(st, cs))
 						}
-						return theFunc.Func(sf, cs)
+						v := theFunc.Func(st.CreateFrame(len(argsFuncList)), cs)
+						st.Remove(len(argsFuncList))
+						return v
 					}
 				}
 			}
@@ -663,12 +731,13 @@ func (g *FunctionGenerator[V]) GenerateFunc(ast parser2.AST, am, cm ArgsMap) (Fu
 				if me.Args != len(argsFuncList)+1 {
 					panic(a.Errorf("wrong number of arguments at call of %s, required %d, found %d", name, me.Args-1, len(argsFuncList)))
 				}
-				argsValues := make([]V, len(argsFuncList)+1)
-				argsValues[0] = value
-				for i, arg := range argsFuncList {
-					argsValues[i+1] = arg(st, cs)
+				st.Push(value)
+				for _, arg := range argsFuncList {
+					st.Push(arg(st, cs))
 				}
-				return me.Func(newStack(argsValues), nil)
+				v := me.Func(st.CreateFrame(len(argsFuncList)+1), nil)
+				st.Remove(len(argsFuncList) + 1)
+				return v
 			}
 			panic(a.Errorf("method %s not found", name))
 		}, nil
@@ -916,4 +985,42 @@ func firstRuneLower(name string) string {
 		return name
 	}
 	return string(unicode.ToLower(r)) + name[l:]
+}
+
+func PrintMatchingCode[V any](v V) {
+	t := reflect.TypeOf((*V)(nil)).Elem()
+	typeName := t.Name()
+	typeOfV := reflect.TypeOf(v)
+
+	typeOfVName := typeOfV.Name()
+	mapName := typeOfVName + "MethodMap"
+	if typeOfV.Kind() == reflect.Pointer {
+		typeOfVName = "*" + typeOfV.Elem().Name()
+		mapName = typeOfV.Elem().Name() + "MethodMap"
+	}
+
+	fmt.Printf("\n\nvar %s=map[string]funcGen.Function[%s]{\n", firstRuneLower(mapName), typeName)
+	for i := 0; i < typeOfV.NumMethod(); i++ {
+		m := typeOfV.Method(i)
+		if matches[V](m) == nil {
+			methodName := firstRuneLower(m.Name)
+			mt := m.Func.Type()
+
+			fmt.Printf("  \"%s\": {\n", methodName)
+			fmt.Printf("    Func:func (st funcGen.Stack[%[1]v], cs []%[1]v) %[1]v {\n", typeName)
+			fmt.Printf("      return (st.Get(0).(%v)).%s(", typeOfVName, m.Name)
+			for j := 1; j < mt.NumIn(); j++ {
+				if j > 1 {
+					fmt.Print(", ")
+				}
+				fmt.Printf("st.Get(%d)", j)
+			}
+			fmt.Println(")")
+			fmt.Println("    },")
+			fmt.Printf("    Args: %d,\n", mt.NumIn())
+			fmt.Println("    IsPure:true,")
+			fmt.Println("  },")
+		}
+	}
+	fmt.Print("}\n\n\n")
 }
