@@ -339,6 +339,18 @@ func (am ArgsMap) add(name string) error {
 	return nil
 }
 
+func (am ArgsMap) copyAndAdd(name string) (ArgsMap, error) {
+	if _, ok := am[name]; ok {
+		return nil, fmt.Errorf("variable redeclared: %s", name)
+	}
+	n := ArgsMap{}
+	for k, v := range am {
+		n[k] = v
+	}
+	n[name] = len(n)
+	return n, nil
+}
+
 type Func[V any] func(stack Stack[V], closureStore []V) V
 
 func (g *FunctionGenerator[V]) Generate(args []string, exp string) (func([]V) (V, error), error) {
@@ -350,7 +362,7 @@ func (g *FunctionGenerator[V]) Generate(args []string, exp string) (func([]V) (V
 	am := ArgsMap{}
 	if args != nil {
 		for _, a := range args {
-			err := am.add(a)
+			am.add(a)
 			if err != nil {
 				return nil, err
 			}
@@ -464,11 +476,11 @@ func (g *FunctionGenerator[V]) GenerateFunc(ast parser2.AST, am, cm ArgsMap) (Fu
 			}, nil
 		} else {
 			// new Variable
-			err = am.add(a.Name)
+			amNew, err := am.copyAndAdd(a.Name)
 			if err != nil {
 				return nil, err
 			}
-			mainFunc, err := g.GenerateFunc(a.Inner, am, cm)
+			mainFunc, err := g.GenerateFunc(a.Inner, amNew, cm)
 			if err != nil {
 				return nil, err
 			}
