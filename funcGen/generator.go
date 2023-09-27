@@ -31,7 +31,7 @@ type Stack[V any] struct {
 	size    int
 }
 
-func newStack[V any](v []V) Stack[V] {
+func NewStack[V any](v []V) Stack[V] {
 	return Stack[V]{
 		storage: &stackStorage[V]{data: v},
 		offs:    0,
@@ -109,7 +109,7 @@ type Function[V any] struct {
 }
 
 func (f Function[V]) Eval(a ...V) V {
-	return f.Func(newStack(a), nil)
+	return f.Func(NewStack(a), nil)
 }
 
 // ListHandler is used to create and access lists or arrays
@@ -404,7 +404,7 @@ func (g *FunctionGenerator[V]) Generate(args []string, exp string) (func([]V) (V
 				}
 			}
 		}()
-		return f(newStack(v), nil), nil
+		return f(NewStack(v), nil), nil
 	}, nil
 }
 

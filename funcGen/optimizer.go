@@ -96,7 +96,7 @@ func (o optimizer[V]) Optimize(ast parser2.AST) (parser2.AST, error) {
 					return nil, fmt.Errorf("number of args wrong in: %v", fc)
 				}
 				if c, ok := o.allConst(fc.Args); ok {
-					return &parser2.Const[V]{fu.Func(newStack[V](c), nil), ident.Line}, nil
+					return &parser2.Const[V]{fu.Func(NewStack[V](c), nil), ident.Line}, nil
 				}
 			}
 		}

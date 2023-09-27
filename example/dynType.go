@@ -82,9 +82,12 @@ func (v vList) Map(val Value) Value {
 	if c.Args != 1 {
 		panic("map requires closure with one argument")
 	}
+	st := funcGen.NewStack[Value](make([]Value, 0, 10))
 	var m = make([]Value, len(v))
 	for i, e := range v {
-		m[i] = c.Eval(e)
+		st.Push(e)
+		m[i] = c.Func(st, nil)
+		st.Remove(1)
 	}
 	return vList(m)
 }
@@ -98,11 +101,15 @@ func (v vList) Reduce(val Value) Value {
 		panic("reduce requires closure with two arguments")
 	}
 	var red Value
+	st := funcGen.NewStack[Value](make([]Value, 0, 10))
 	for i, e := range v {
 		if i == 0 {
 			red = e
 		} else {
-			red = c.Eval(red, e)
+			st.Push(red)
+			st.Push(e)
+			red = c.Func(st, nil)
+			st.Remove(2)
 		}
 	}
 	return red

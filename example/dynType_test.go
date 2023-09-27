@@ -1,6 +1,7 @@
 package example
 
 import (
+	"fmt"
 	"github.com/hneemann/parser2"
 	"github.com/stretchr/testify/assert"
 	"math"
@@ -208,5 +209,42 @@ func BenchmarkFunc2(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		f(args)
+	}
+}
+
+func BenchmarkList(b *testing.B) {
+	f, err := DynType.Generate([]string{"l"}, "l.map(e->e*e).map(e->e/100)")
+	if err != nil {
+		fmt.Println(err)
+	}
+
+	l := make([]Value, 1000)
+	for i := range l {
+		l[i] = vFloat(i)
+	}
+
+	args := []Value{vList(l)}
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		f(args)
+	}
+}
+
+func BenchmarkList2(b *testing.B) {
+	l := make([]Value, 1000)
+	for i := range l {
+		l[i] = vFloat(i)
+	}
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		n := make([]Value, 1000)
+		for i := range l {
+			n[i] = vFloat(l[i].Float() * l[i].Float())
+		}
+		m := make([]Value, 1000)
+		for i := range l {
+			m[i] = vFloat(n[i].Float() / 100)
+		}
 	}
 }
