@@ -108,8 +108,20 @@ type Function[V any] struct {
 	IsPure bool
 }
 
-func (f Function[V]) Eval(a ...V) V {
-	return f.Func(NewStack(a), nil)
+func (f Function[V]) Eval1(st Stack[V], a V) V {
+	st.Push(a)
+	res := f.Func(st, nil)
+	st.Remove(1)
+	return res
+}
+
+func (f Function[V]) EvalSt(st Stack[V], a ...V) V {
+	for _, e := range a {
+		st.Push(e)
+	}
+	res := f.Func(st, nil)
+	st.Remove(len(a))
+	return res
 }
 
 // ListHandler is used to create and access lists or arrays

@@ -56,10 +56,6 @@ func (v vClosure) Bool() bool {
 	return false
 }
 
-func (v vClosure) Eval(a ...Value) Value {
-	return funcGen.Function[Value](v).Eval(a...)
-}
-
 type vList []Value
 
 func (v vList) Float() float64 {
