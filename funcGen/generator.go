@@ -389,8 +389,12 @@ type GeneratorContext struct {
 	isThis bool
 }
 
-func (c GeneratorContext) withArgs(am argsMap) GeneratorContext {
-	return GeneratorContext{am: am, cm: c.cm, isThis: c.isThis}
+func (c GeneratorContext) addLocalVar(name string) (GeneratorContext, error) {
+	newAm, err := c.am.copyAndAdd(name)
+	if err != nil {
+		return GeneratorContext{}, err
+	}
+	return GeneratorContext{am: newAm, cm: c.cm, isThis: c.isThis}, nil
 }
 
 func (g *FunctionGenerator[V]) Generate(args []string, exp string) (func([]V) (V, error), error) {
@@ -525,11 +529,11 @@ func (g *FunctionGenerator[V]) GenerateFunc(ast parser2.AST, gc GeneratorContext
 				return nil, err
 			}
 		}
-		amNew, err := gc.am.copyAndAdd(a.Name)
+		newGc, err := gc.addLocalVar(a.Name)
 		if err != nil {
 			return nil, a.EnhanceErrorf(err, "error in let")
 		}
-		mainFunc, err := g.GenerateFunc(a.Inner, gc.withArgs(amNew))
+		mainFunc, err := g.GenerateFunc(a.Inner, newGc)
 		if err != nil {
 			return nil, err
 		}
