@@ -227,16 +227,16 @@ func (th typeHandler) FromString(s string) Value {
 	return vString(s)
 }
 
-func (th typeHandler) Generate(ast parser2.AST, am, cm funcGen.ArgsMap, g *funcGen.FunctionGenerator[Value]) (funcGen.Func[Value], error) {
+func (th typeHandler) Generate(ast parser2.AST, gc funcGen.GeneratorContext, g *funcGen.FunctionGenerator[Value]) (funcGen.Func[Value], error) {
 	if op, ok := ast.(*parser2.Operate); ok {
 		// AND and OR with short evaluation
 		switch op.Operator {
 		case "&":
-			aFunc, err := g.GenerateFunc(op.A, am, cm)
+			aFunc, err := g.GenerateFunc(op.A, gc)
 			if err != nil {
 				return nil, err
 			}
-			bFunc, err := g.GenerateFunc(op.B, am, cm)
+			bFunc, err := g.GenerateFunc(op.B, gc)
 			if err != nil {
 				return nil, err
 			}
@@ -248,11 +248,11 @@ func (th typeHandler) Generate(ast parser2.AST, am, cm funcGen.ArgsMap, g *funcG
 				}
 			}, nil
 		case "|":
-			aFunc, err := g.GenerateFunc(op.A, am, cm)
+			aFunc, err := g.GenerateFunc(op.A, gc)
 			if err != nil {
 				return nil, err
 			}
-			bFunc, err := g.GenerateFunc(op.B, am, cm)
+			bFunc, err := g.GenerateFunc(op.B, gc)
 			if err != nil {
 				return nil, err
 			}
