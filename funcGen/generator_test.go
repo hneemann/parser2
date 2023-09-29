@@ -110,11 +110,11 @@ func TestFunctionGenerator_Generate(t *testing.T) {
 	for _, te := range tests {
 		test := te
 		t.Run(test.exp, func(t *testing.T) {
-			f, err := fg.Generate(test.args, test.exp)
+			f, err := fg.Generate(test.exp, test.args...)
 			assert.NoError(t, err)
 			assert.NotNil(t, f)
 			if f != nil {
-				res, err := f(test.argsVals)
+				res, err := f(NewStack(test.argsVals...))
 				assert.NoError(t, err)
 				if res != nil {
 					assert.InDelta(t, test.result, res.Float(), 1e-6)
@@ -125,19 +125,19 @@ func TestFunctionGenerator_Generate(t *testing.T) {
 }
 
 func BenchmarkFunc(b *testing.B) {
-	f, _ := NewGen().Generate([]string{"a"}, "func f(x) x*x;f(a)+f(2*a)")
+	f, _ := NewGen().Generate("func f(x) x*x;f(a)+f(2*a)", "a")
 	argVals := []Value{Float(2)}
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		f(argVals)
+		f(NewStack(argVals...))
 	}
 }
 
 func BenchmarkFunc2(b *testing.B) {
-	f, _ := NewGen().Generate([]string{"a", "b"}, "let c=1.5;func mul(x) y->y*x*c;mul(b)(a)")
+	f, _ := NewGen().Generate("let c=1.5;func mul(x) y->y*x*c;mul(b)(a)", "a", "b")
 	argVals := []Value{Float(3), Float(2)}
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		f(argVals)
+		f(NewStack(argVals...))
 	}
 }

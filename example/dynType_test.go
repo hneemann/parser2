@@ -3,6 +3,7 @@ package example
 import (
 	"fmt"
 	"github.com/hneemann/parser2"
+	"github.com/hneemann/parser2/funcGen"
 	"github.com/stretchr/testify/assert"
 	"math"
 	"testing"
@@ -65,10 +66,10 @@ func TestDynType(t *testing.T) {
 	for _, test := range tests {
 		test := test
 		t.Run(test.exp, func(t *testing.T) {
-			fu, err := DynType.Generate([]string{}, test.exp)
+			fu, err := DynType.Generate(test.exp)
 			assert.NoError(t, err, test.exp)
 			if fu != nil {
-				res, err := fu([]Value{})
+				res, err := fu(funcGen.NewEmptyStack[Value]())
 				assert.NoError(t, err, test.exp)
 				assert.EqualValues(t, test.res, res, test.exp)
 			}
@@ -163,10 +164,10 @@ func TestSolve(t *testing.T) {
 	for _, test := range tests {
 		test := test
 		t.Run(test.name, func(t *testing.T) {
-			f, err := DynType.Generate([]string{"a"}, test.exp)
+			f, err := DynType.Generate(test.exp, "a")
 			assert.NoError(t, err, test.name)
 			if f != nil {
-				r, err := f([]Value{vFloat(2)})
+				r, err := f(funcGen.NewStack[Value](vFloat(2)))
 				assert.NoError(t, err, test.name)
 				assert.InDelta(t, math.Sqrt(2), r.Float(), 1e-6, test.name)
 			}
@@ -175,8 +176,8 @@ func TestSolve(t *testing.T) {
 }
 
 func BenchmarkRegulaFalsi(b *testing.B) {
-	f, _ := DynType.Generate([]string{"a"}, regulaFalsi)
-	args := []Value{vFloat(2)}
+	f, _ := DynType.Generate(regulaFalsi, "a")
+	args := funcGen.NewStack[Value](vFloat(2))
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
@@ -185,8 +186,8 @@ func BenchmarkRegulaFalsi(b *testing.B) {
 }
 
 func BenchmarkCall(b *testing.B) {
-	f, _ := DynType.Generate([]string{"x", "y"}, "x+(2*y/x)")
-	args := []Value{vFloat(3), vFloat(3)}
+	f, _ := DynType.Generate("x+(2*y/x)", "x", "y")
+	args := funcGen.NewStack[Value](vFloat(3), vFloat(3))
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
@@ -195,8 +196,8 @@ func BenchmarkCall(b *testing.B) {
 }
 
 func BenchmarkFunc(b *testing.B) {
-	f, _ := DynType.Generate([]string{"a"}, "func f(x) x*x;f(a)+f(2*a)")
-	args := []Value{vFloat(3)}
+	f, _ := DynType.Generate("func f(x) x*x;f(a)+f(2*a)", "a")
+	args := funcGen.NewStack[Value](vFloat(3))
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		f(args)
@@ -204,8 +205,8 @@ func BenchmarkFunc(b *testing.B) {
 }
 
 func BenchmarkFunc2(b *testing.B) {
-	f, _ := DynType.Generate([]string{"a", "b"}, "let c=1.5;func mul(x) y->y*x*c;mul(b)(a)")
-	args := []Value{vFloat(3), vFloat(2)}
+	f, _ := DynType.Generate("let c=1.5;func mul(x) y->y*x*c;mul(b)(a)", "a", "b")
+	args := funcGen.NewStack[Value](vFloat(3), vFloat(2))
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		f(args)
@@ -213,7 +214,7 @@ func BenchmarkFunc2(b *testing.B) {
 }
 
 func BenchmarkList(b *testing.B) {
-	f, err := DynType.Generate([]string{"l"}, "l.map(e->e*e).map(e->e/100)")
+	f, err := DynType.Generate("l.map(e->e*e).map(e->e/100)", "l")
 	if err != nil {
 		fmt.Println(err)
 	}
@@ -223,7 +224,7 @@ func BenchmarkList(b *testing.B) {
 		l[i] = vFloat(i)
 	}
 
-	args := []Value{vList(l)}
+	args := funcGen.NewStack[Value](vList(l))
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		f(args)

@@ -1,6 +1,7 @@
 package example
 
 import (
+	"github.com/hneemann/parser2/funcGen"
 	"github.com/stretchr/testify/assert"
 	"testing"
 )
@@ -26,10 +27,10 @@ func TestBool(t *testing.T) {
 		t.Run(test.exp, func(t *testing.T) {
 			//check result
 			// create the function which evaluates the given expression
-			f, err := boolParser.Generate([]string{"a", "b"}, test.exp)
+			f, err := boolParser.Generate(test.exp, "a", "b")
 			assert.NoError(t, err)
 			// evaluate the function using the given variables
-			r, err := f(vars)
+			r, err := f(funcGen.NewStack(vars...))
 			assert.NoError(t, err)
 			assert.Equal(t, test.result, r)
 

@@ -1,6 +1,7 @@
 package example
 
 import (
+	"github.com/hneemann/parser2/funcGen"
 	"github.com/stretchr/testify/assert"
 	"testing"
 )
@@ -44,13 +45,13 @@ func TestMinimal(t *testing.T) {
 		{"const a=1+1;const b=3;a*b", 6, "6"},
 	}
 
-	vars := []float64{2}
+	vars := funcGen.NewStack[float64](2)
 	for _, test := range tests {
 		test := test
 		t.Run(test.exp, func(t *testing.T) {
 			// check result
 			// create the function which evaluates the given expression
-			f, err := minimal.Generate([]string{"a"}, test.exp)
+			f, err := minimal.Generate(test.exp, "a")
 			assert.NoError(t, err)
 			// evaluate the function using the given variables
 			r, err := f(vars)

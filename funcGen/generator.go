@@ -31,7 +31,15 @@ type Stack[V any] struct {
 	size    int
 }
 
-func NewStack[V any](v []V) Stack[V] {
+func NewEmptyStack[V any]() Stack[V] {
+	return Stack[V]{
+		storage: &stackStorage[V]{data: make([]V, 0, 10)},
+		offs:    0,
+		size:    0,
+	}
+}
+
+func NewStack[V any](v ...V) Stack[V] {
 	return Stack[V]{
 		storage: &stackStorage[V]{data: v},
 		offs:    0,
@@ -72,6 +80,14 @@ func (s Stack[V]) CreateFrame(size int) Stack[V] {
 
 func (s *Stack[V]) Remove(n int) {
 	s.size -= n
+}
+
+func (s *Stack[V]) Init(v ...V) {
+	s.offs = 0
+	s.size = 0
+	for _, a := range v {
+		s.Push(a)
+	}
 }
 
 // Operator defines a operator like +
@@ -362,6 +378,9 @@ func (g *FunctionGenerator[V]) getParser() *parser2.Parser[V] {
 type argsMap map[string]int
 
 func (am argsMap) add(name string) error {
+	if name == "" {
+		return fmt.Errorf("empty names are not allowed")
+	}
 	if _, ok := am[name]; ok {
 		return fmt.Errorf("variable redeclared: %s", name)
 	}
@@ -370,23 +389,23 @@ func (am argsMap) add(name string) error {
 }
 
 func (am argsMap) copyAndAdd(name string) (argsMap, error) {
-	if _, ok := am[name]; ok {
-		return nil, fmt.Errorf("variable redeclared: %s", name)
-	}
 	n := argsMap{}
 	for k, v := range am {
 		n[k] = v
 	}
-	n[name] = len(n)
+	err := n.add(name)
+	if err != nil {
+		return nil, err
+	}
 	return n, nil
 }
 
 type Func[V any] func(stack Stack[V], closureStore []V) V
 
 type GeneratorContext struct {
-	am     argsMap
-	cm     argsMap
-	isThis bool
+	am       argsMap
+	cm       argsMap
+	ThisName string
 }
 
 func (c GeneratorContext) addLocalVar(name string) (GeneratorContext, error) {
@@ -394,18 +413,18 @@ func (c GeneratorContext) addLocalVar(name string) (GeneratorContext, error) {
 	if err != nil {
 		return GeneratorContext{}, err
 	}
-	return GeneratorContext{am: newAm, cm: c.cm, isThis: c.isThis}, nil
+	return GeneratorContext{am: newAm, cm: c.cm, ThisName: c.ThisName}, nil
 }
 
-func (g *FunctionGenerator[V]) Generate(args []string, exp string) (func([]V) (V, error), error) {
-	return g.generateIntern(args, exp, false)
+func (g *FunctionGenerator[V]) Generate(exp string, args ...string) (func(Stack[V]) (V, error), error) {
+	return g.generateIntern(args, exp, "")
 }
 
-func (g *FunctionGenerator[V]) GenerateWithMap(exp string) (func([]V) (V, error), error) {
-	return g.generateIntern([]string{"this"}, exp, true)
+func (g *FunctionGenerator[V]) GenerateWithMap(exp string, mapName string) (func(Stack[V]) (V, error), error) {
+	return g.generateIntern([]string{mapName}, exp, mapName)
 }
 
-func (g *FunctionGenerator[V]) generateIntern(args []string, exp string, isThis bool) (func([]V) (V, error), error) {
+func (g *FunctionGenerator[V]) generateIntern(args []string, exp string, ThisName string) (func(Stack[V]) (V, error), error) {
 	ast, err := g.CreateAst(exp)
 	if err != nil {
 		return nil, err
@@ -421,13 +440,13 @@ func (g *FunctionGenerator[V]) generateIntern(args []string, exp string, isThis 
 		}
 	}
 
-	gc := GeneratorContext{am: am, cm: nil, isThis: isThis}
+	gc := GeneratorContext{am: am, cm: nil, ThisName: ThisName}
 
 	f, err := g.GenerateFunc(ast, gc)
 	if err != nil {
 		return nil, err
 	}
-	return func(v []V) (val V, err error) {
+	return func(st Stack[V]) (val V, err error) {
 		defer func() {
 			rec := recover()
 			if rec != nil {
@@ -440,7 +459,7 @@ func (g *FunctionGenerator[V]) generateIntern(args []string, exp string, isThis 
 				}
 			}
 		}()
-		return f(NewStack(v), nil), nil
+		return f(st, nil), nil
 	}, nil
 }
 
@@ -488,8 +507,8 @@ func (g *FunctionGenerator[V]) GenerateFunc(ast parser2.AST, gc GeneratorContext
 					return cs[index]
 				}, nil
 			} else {
-				if gc.isThis && g.mapHandler != nil {
-					if index, ok := gc.am["this"]; ok {
+				if gc.ThisName != "" && g.mapHandler != nil {
+					if index, ok := gc.am[gc.ThisName]; ok {
 						return func(st Stack[V], cs []V) V {
 							this := st.Get(index)
 							if v, err := g.mapHandler.AccessMap(this, a.Name); err == nil {
