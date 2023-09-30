@@ -69,17 +69,14 @@ func (s *Stack[V]) Pop() V {
 	return s.storage.get(s.offs + s.size)
 }
 
-func (s Stack[V]) CreateFrame(size int) Stack[V] {
+func (s *Stack[V]) CreateFrame(size int) Stack[V] {
+	s.size -= size
 	st := Stack[V]{
 		storage: s.storage,
-		offs:    s.offs + s.size - size,
+		offs:    s.offs + s.size,
 		size:    size,
 	}
 	return st
-}
-
-func (s *Stack[V]) Remove(n int) {
-	s.size -= n
 }
 
 func (s *Stack[V]) Init(v ...V) {
@@ -112,10 +109,16 @@ type UnaryOperator[V any] struct {
 	Impl func(a V) V
 }
 
+// Func is the signature of the go closures created to build the
+// generated function. The stack is used to store arguments and local
+// variables created by let, and the closureStore is used to pass the
+// accessed outer values to the function.
+type Func[V any] func(stack Stack[V], closureStore []V) V
+
 // Function represents a function
 type Function[V any] struct {
 	// Func is the function itself
-	Func func(st Stack[V], closureStore []V) V
+	Func Func[V]
 	// Args gives the number of arguments required. It is used for checking
 	// the number of arguments in the call. The value -1 means any number of
 	// arguments is allowed
@@ -124,20 +127,16 @@ type Function[V any] struct {
 	IsPure bool
 }
 
-func (f Function[V]) Eval1(st Stack[V], a V) V {
+func (f Function[V]) Eval(st Stack[V], a V) V {
 	st.Push(a)
-	res := f.Func(st, nil)
-	st.Remove(1)
-	return res
+	return f.Func(st.CreateFrame(1), nil)
 }
 
 func (f Function[V]) EvalSt(st Stack[V], a ...V) V {
 	for _, e := range a {
 		st.Push(e)
 	}
-	res := f.Func(st, nil)
-	st.Remove(len(a))
-	return res
+	return f.Func(st.CreateFrame(len(a)), nil)
 }
 
 // ListHandler is used to create and access lists or arrays
@@ -400,8 +399,6 @@ func (am argsMap) copyAndAdd(name string) (argsMap, error) {
 	return n, nil
 }
 
-type Func[V any] func(stack Stack[V], closureStore []V) V
-
 type GeneratorContext struct {
 	am       argsMap
 	cm       argsMap
@@ -559,9 +556,7 @@ func (g *FunctionGenerator[V]) GenerateFunc(ast parser2.AST, gc GeneratorContext
 		return func(st Stack[V], cs []V) V {
 			va := valFunc(st, cs)
 			st.Push(va)
-			v := mainFunc(st, cs)
-			st.Remove(1)
-			return v
+			return mainFunc(st, cs)
 		}, nil
 	case *parser2.If:
 		if g.toBool != nil {
@@ -753,9 +748,7 @@ func (g *FunctionGenerator[V]) GenerateFunc(ast parser2.AST, gc GeneratorContext
 					for _, argFunc := range argsFuncList {
 						st.Push(argFunc(st, cs))
 					}
-					v := fun.Func(st.CreateFrame(len(argsFuncList)), nil)
-					st.Remove(len(argsFuncList))
-					return v
+					return fun.Func(st.CreateFrame(len(argsFuncList)), nil)
 				}, nil
 			}
 		}
@@ -779,9 +772,7 @@ func (g *FunctionGenerator[V]) GenerateFunc(ast parser2.AST, gc GeneratorContext
 			for _, argFunc := range argsFuncList {
 				st.Push(argFunc(st, cs))
 			}
-			v := theFunc.Func(st.CreateFrame(len(argsFuncList)), cs)
-			st.Remove(len(argsFuncList))
-			return v
+			return theFunc.Func(st.CreateFrame(len(argsFuncList)), cs)
 		}, nil
 	case *parser2.MethodCall:
 		valFunc, err := g.GenerateFunc(a.Value, gc)
@@ -803,9 +794,7 @@ func (g *FunctionGenerator[V]) GenerateFunc(ast parser2.AST, gc GeneratorContext
 						for _, argFunc := range argsFuncList {
 							st.Push(argFunc(st, cs))
 						}
-						v := theFunc.Func(st.CreateFrame(len(argsFuncList)), cs)
-						st.Remove(len(argsFuncList))
-						return v
+						return theFunc.Func(st.CreateFrame(len(argsFuncList)), cs)
 					}
 				}
 			}
@@ -821,9 +810,7 @@ func (g *FunctionGenerator[V]) GenerateFunc(ast parser2.AST, gc GeneratorContext
 				for _, arg := range argsFuncList {
 					st.Push(arg(st, cs))
 				}
-				v := me.Func(st.CreateFrame(len(argsFuncList)+1), nil)
-				st.Remove(len(argsFuncList) + 1)
-				return v
+				return me.Func(st.CreateFrame(len(argsFuncList)+1), nil)
 			}
 			panic(a.Errorf("method %s not found", name))
 		}, nil

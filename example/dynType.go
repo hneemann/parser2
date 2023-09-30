@@ -82,8 +82,7 @@ func (v vList) Map(val Value) Value {
 	var m = make([]Value, len(v))
 	for i, e := range v {
 		st.Push(e)
-		m[i] = c.Func(st, nil)
-		st.Remove(1)
+		m[i] = c.Func(st.CreateFrame(1), nil)
 	}
 	return vList(m)
 }
@@ -104,8 +103,7 @@ func (v vList) Reduce(val Value) Value {
 		} else {
 			st.Push(red)
 			st.Push(e)
-			red = c.Func(st, nil)
-			st.Remove(2)
+			red = c.Func(st.CreateFrame(2), nil)
 		}
 	}
 	return red
