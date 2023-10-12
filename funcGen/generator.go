@@ -516,7 +516,7 @@ func (g *FunctionGenerator[V]) GenerateFunc(ast parser2.AST, gc GeneratorContext
 						}, nil
 					}
 				}
-				return nil, a.Errorf("not found:%s", a.Name)
+				return nil, a.Errorf("not found: %s", a.Name)
 			}
 		}
 	case *parser2.Let:
