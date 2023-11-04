@@ -1,6 +1,7 @@
 package parser2
 
 import (
+	"fmt"
 	"strings"
 	"unicode/utf8"
 )
@@ -150,9 +151,7 @@ func (t *Tokenizer) run(tokens chan<- Token) {
 		case ';':
 			tokens <- Token{tSemicolon, ";", t.getLine()}
 		case '"':
-			image := t.readSkip(func(c rune) bool { return c != '"' }, false)
-			t.next(false)
-			tokens <- Token{tString, image, t.getLine()}
+			tokens <- t.readStr()
 		case '\'':
 			image := t.readSkip(func(c rune) bool { return c != '\'' }, false)
 			t.next(false)
@@ -245,6 +244,38 @@ func (t *Tokenizer) readSkip(valid func(c rune) bool, skipComment bool) string {
 		} else {
 			t.unread()
 			return str.String()
+		}
+	}
+}
+
+func (t *Tokenizer) readStr() Token {
+	str := strings.Builder{}
+	for {
+		if c := t.next(false); c != '"' {
+			switch c {
+			case 0, '\n', '\r':
+				return Token{tInvalid, "EOL", t.getLine()}
+			case '\\':
+				i := t.next(false)
+				switch i {
+				case 'n':
+					str.WriteRune('\n')
+				case 'r':
+					str.WriteRune('\r')
+				case 't':
+					str.WriteRune('\t')
+				case '"':
+					str.WriteRune('"')
+				case '\\':
+					str.WriteRune('\\')
+				default:
+					return Token{tInvalid, fmt.Sprintf("Escape %c", i), t.getLine()}
+				}
+			default:
+				str.WriteRune(c)
+			}
+		} else {
+			return Token{tString, str.String(), t.getLine()}
 		}
 	}
 }

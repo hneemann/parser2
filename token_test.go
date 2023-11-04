@@ -42,9 +42,34 @@ func TestNewTokenizer(t *testing.T) {
 			want: []Token{{tString, "tüb", 1}},
 		},
 		{
+			name: "string new line",
+			exp:  "\"t\n",
+			want: []Token{{tInvalid, "EOL", 1}},
+		},
+		{
 			name: "string comment",
 			exp:  "\"t//b\"",
 			want: []Token{{tString, "t//b", 1}},
+		},
+		{
+			name: "string escape",
+			exp:  "\"t\\\\b\"",
+			want: []Token{{tString, "t\\b", 1}},
+		},
+		{
+			name: "string escape 2",
+			exp:  "\"t\\n\\r\\tb\"",
+			want: []Token{{tString, "t\n\r\tb", 1}},
+		},
+		{
+			name: "string escape 3",
+			exp:  "\"\\\"\"",
+			want: []Token{{tString, "\"", 1}},
+		},
+		{
+			name: "string escape 4",
+			exp:  "\"\\#",
+			want: []Token{{tInvalid, "Escape #", 1}},
 		},
 		{
 			name: "exp",
