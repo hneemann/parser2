@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/hneemann/parser2"
 	"github.com/hneemann/parser2/funcGen"
+	"github.com/hneemann/parser2/listMap"
 	"math"
 	"strconv"
 )
@@ -109,7 +110,11 @@ func (v vList) Reduce(val Value) Value {
 	return red
 }
 
-type vMap map[string]Value
+type vMap listMap.ListMap[Value]
+
+func (vm vMap) Get(key string) (Value, bool) {
+	return listMap.ListMap[Value](vm).Get(key)
+}
 
 func (v vMap) Float() float64 {
 	return 0
@@ -199,7 +204,7 @@ func (th typeHandler) AccessList(list Value, index Value) (Value, error) {
 	}
 }
 
-func (th typeHandler) FromMap(items map[string]Value) Value {
+func (th typeHandler) FromMap(items listMap.ListMap[Value]) Value {
 	return vMap(items)
 }
 
@@ -211,7 +216,7 @@ func (th typeHandler) IsMap(m Value) bool {
 func (th typeHandler) AccessMap(m Value, key string) (Value, error) {
 	ma, ok := m.(vMap)
 	if ok {
-		if v, ok := ma[key]; ok {
+		if v, ok := ma.Get(key); ok {
 			return v, nil
 		} else {
 			return nil, fmt.Errorf("map does not contain %v", key)

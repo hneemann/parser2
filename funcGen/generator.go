@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"github.com/hneemann/parser2"
+	"github.com/hneemann/parser2/listMap"
 	"reflect"
 	"unicode"
 	"unicode/utf8"
@@ -150,7 +151,7 @@ type ListHandler[V any] interface {
 // MapHandler is used to create and access maps
 type MapHandler[V any] interface {
 	// FromMap creates a map
-	FromMap(items map[string]V) V
+	FromMap(items listMap.ListMap[V]) V
 	// AccessMap is used to get a value from a map
 	AccessMap(m V, key string) (V, error)
 	// IsMap is used to check if the given value is a map
@@ -712,9 +713,9 @@ func (g *FunctionGenerator[V]) GenerateFunc(ast parser2.AST, gc GeneratorContext
 				return nil, err
 			}
 			return func(st Stack[V], cs []V) V {
-				mapValues := map[string]V{}
-				for i, arg := range itemsCode {
-					mapValues[i] = arg(st, cs)
+				mapValues := listMap.New[V](len(itemsCode))
+				for _, entry := range itemsCode {
+					mapValues.Put(entry.Key, entry.Value(st, cs))
 				}
 				return g.mapHandler.FromMap(mapValues)
 			}, nil
@@ -965,14 +966,15 @@ func (f *findNonArgAccess[V]) Visit(ast parser2.AST) bool {
 	return true
 }
 
-func (g *FunctionGenerator[V]) genCodeMap(a map[string]parser2.AST, gc GeneratorContext) (map[string]Func[V], error) {
-	args := map[string]Func[V]{}
-	for i, arg := range a {
+func (g *FunctionGenerator[V]) genCodeMap(a listMap.ListMap[parser2.AST], gc GeneratorContext) (listMap.ListMap[Func[V]], error) {
+	args := listMap.New[Func[V]](len(a))
+	for _, entry := range a {
 		var err error
-		args[i], err = g.GenerateFunc(arg, gc)
+		f, err := g.GenerateFunc(entry.Value, gc)
 		if err != nil {
 			return nil, err
 		}
+		args.Put(entry.Key, f)
 	}
 	return args, nil
 }

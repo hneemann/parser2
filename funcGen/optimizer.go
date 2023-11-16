@@ -3,6 +3,7 @@ package funcGen
 import (
 	"fmt"
 	"github.com/hneemann/parser2"
+	"github.com/hneemann/parser2/listMap"
 )
 
 type optimizer[V any] struct {
@@ -74,10 +75,10 @@ func (o optimizer[V]) Optimize(ast parser2.AST) (parser2.AST, error) {
 	// evaluate const map literals like {a:1,b:2}
 	if o.g.mapHandler != nil {
 		if m, ok := ast.(*parser2.MapLiteral); ok {
-			cm := map[string]V{}
-			for k, e := range m.Map {
-				if v, ok := o.isConst(e); ok {
-					cm[k] = v
+			cm := listMap.New[V](len(m.Map))
+			for _, entry := range m.Map {
+				if v, ok := o.isConst(entry.Value); ok {
+					cm.Put(entry.Key, v)
 				} else {
 					cm = nil
 					break

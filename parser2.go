@@ -4,6 +4,7 @@ package parser2
 import (
 	"bytes"
 	"fmt"
+	"github.com/hneemann/parser2/listMap"
 	"strconv"
 	"strings"
 	"unicode"
@@ -423,28 +424,26 @@ func (c *ClosureLiteral) String() string {
 }
 
 type MapLiteral struct {
-	Map map[string]AST
+	Map listMap.ListMap[AST]
 	Line
 }
 
 func (ml *MapLiteral) Traverse(visitor Visitor) {
 	if visitor.Visit(ml) {
-		for _, v := range ml.Map {
-			v.Traverse(visitor)
+		for _, entry := range ml.Map {
+			entry.Value.Traverse(visitor)
 		}
 	}
 }
 
 func (ml *MapLiteral) Optimize(optimizer Optimizer) error {
-	m := map[string]AST{}
-	for k, v := range ml.Map {
-		err := opt(&v, optimizer)
+	for i, entry := range ml.Map {
+		err := opt(&entry.Value, optimizer)
 		if err != nil {
 			return err
 		}
-		m[k] = v
+		ml.Map[i] = entry
 	}
-	ml.Map = m
 	return nil
 }
 
@@ -452,15 +451,15 @@ func (ml *MapLiteral) String() string {
 	b := bytes.Buffer{}
 	b.WriteString("{")
 	first := true
-	for k, v := range ml.Map {
+	for _, entry := range ml.Map {
 		if first {
 			first = false
 		} else {
 			b.WriteString(", ")
 		}
-		b.WriteString(k)
+		b.WriteString(entry.Key)
 		b.WriteString(":")
-		b.WriteString(v.String())
+		b.WriteString(entry.Value.String())
 	}
 	b.WriteString("}")
 	return b.String()
@@ -1185,7 +1184,7 @@ func (p *Parser[V]) parseArgs(tokenizer *Tokenizer, closeList TokenType, constan
 }
 
 func (p *Parser[V]) parseMap(tokenizer *Tokenizer, constants Constants[V]) (*MapLiteral, error) {
-	m := MapLiteral{Map: map[string]AST{}}
+	m := MapLiteral{Map: listMap.New[AST](1)}
 	for {
 		switch t := tokenizer.Next(); t.typ {
 		case tCloseCurly:
@@ -1195,11 +1194,11 @@ func (p *Parser[V]) parseMap(tokenizer *Tokenizer, constants Constants[V]) (*Map
 			if c := tokenizer.Next(); c.typ != tColon {
 				return nil, unexpected(":", c)
 			}
-			entry, err := p.parseExpression(tokenizer, constants, false)
+			entryAst, err := p.parseExpression(tokenizer, constants, false)
 			if err != nil {
 				return nil, err
 			}
-			m.Map[t.image] = entry
+			m.Map.Put(t.image, entryAst)
 			if tokenizer.Peek().typ == tComma {
 				tokenizer.Next()
 			} else {
