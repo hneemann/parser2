@@ -22,7 +22,7 @@ var minimal = funcGen.New[float64]().
 	AddUnary("-", func(a float64) float64 { return -a }).
 	AddSimpleFunction("sin", math.Sin).
 	AddSimpleFunction("sqrt", math.Sqrt).
-	SetToBool(func(c float64) bool { return c != 0 }).
+	SetToBool(func(c float64) (bool, bool) { return c != 0, true }).
 	SetNumberParser(
 		parser2.NumberParserFunc[float64](
 			func(n string) (float64, error) {

@@ -57,10 +57,14 @@ func (o optimizer[V]) Optimize(ast parser2.AST) (parser2.AST, error) {
 	// evaluate const if operation
 	if ifNode, ok := ast.(*parser2.If); ok && o.g.toBool != nil {
 		if c, ok := o.isConst(ifNode.Cond); ok {
-			if o.g.toBool(c) {
-				return ifNode.Then, nil
+			if cond, ok := o.g.toBool(c); ok {
+				if cond {
+					return ifNode.Then, nil
+				} else {
+					return ifNode.Else, nil
+				}
 			} else {
-				return ifNode.Else, nil
+				return nil, fmt.Errorf("if condition is not a bool")
 			}
 		}
 	}

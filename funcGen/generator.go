@@ -185,7 +185,7 @@ type Generator[V any] interface {
 	Generate(parser2.AST, GeneratorContext, *FunctionGenerator[V]) (Func[V], error)
 }
 
-type ToBool[V any] func(c V) bool
+type ToBool[V any] func(c V) (bool, bool)
 
 type IsEqual[V any] func(a, b V) bool
 
@@ -574,10 +574,14 @@ func (g *FunctionGenerator[V]) GenerateFunc(ast parser2.AST, gc GeneratorContext
 				return nil, err
 			}
 			return func(st Stack[V], cs []V) V {
-				if g.toBool(condFunc(st, cs)) {
-					return thenFunc(st, cs)
+				if cond, ok := g.toBool(condFunc(st, cs)); ok {
+					if cond {
+						return thenFunc(st, cs)
+					} else {
+						return elseFunc(st, cs)
+					}
 				} else {
-					return elseFunc(st, cs)
+					panic("if condition is not a bool")
 				}
 			}, nil
 		}
