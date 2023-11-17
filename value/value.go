@@ -24,48 +24,36 @@ type Value interface {
 	GetMethod(name string) (funcGen.Function[Value], bool)
 }
 
-type Empty struct {
-}
-
-func (e Empty) ToList() ([]Value, bool) {
-	return nil, false
-}
-
-func (e Empty) ToMap() (MapImplementation[Value], bool) {
-	return nil, false
-}
-
-func (e Empty) ToInt() (int, bool) {
-	return 0, false
-}
-
-func (e Empty) ToFloat() (float64, bool) {
-	return 0, false
-}
-
-func (e Empty) ToString() (string, bool) {
-	return "", false
-}
-
-func (e Empty) ToBool() (bool, bool) {
-	return false, false
-}
-
-func (e Empty) ToClosure() (funcGen.Function[Value], bool) {
-	return funcGen.Function[Value]{}, false
-}
-
-func (e Empty) GetMethod(name string) (funcGen.Function[Value], bool) {
-	return funcGen.Function[Value]{}, false
-}
-
 func NewList(items ...Value) Value {
 	return List{items: items}
 }
 
 type List struct {
-	Empty
 	items []Value
+}
+
+func (l List) ToMap() (MapImplementation[Value], bool) {
+	return nil, false
+}
+
+func (l List) ToInt() (int, bool) {
+	return 0, false
+}
+
+func (l List) ToFloat() (float64, bool) {
+	return 0, false
+}
+
+func (l List) ToString() (string, bool) {
+	return "", false
+}
+
+func (l List) ToBool() (bool, bool) {
+	return false, false
+}
+
+func (l List) ToClosure() (funcGen.Function[Value], bool) {
+	return funcGen.Function[Value]{}, false
 }
 
 func (l List) ToList() ([]Value, bool) {
@@ -177,13 +165,38 @@ func (v Map) GetMethod(name string) (funcGen.Function[Value], bool) {
 	return m, ok
 }
 
-type Closure struct {
-	Empty
-	closure funcGen.Function[Value]
+type Closure funcGen.Function[Value]
+
+func (c Closure) ToList() ([]Value, bool) {
+	return nil, false
+}
+
+func (c Closure) ToMap() (MapImplementation[Value], bool) {
+	return nil, false
+}
+
+func (c Closure) ToInt() (int, bool) {
+	return 0, false
+}
+
+func (c Closure) ToFloat() (float64, bool) {
+	return 0, false
+}
+
+func (c Closure) ToString() (string, bool) {
+	return "", false
+}
+
+func (c Closure) ToBool() (bool, bool) {
+	return false, false
+}
+
+func (c Closure) GetMethod(name string) (funcGen.Function[Value], bool) {
+	return funcGen.Function[Value]{}, false
 }
 
 func (c Closure) ToClosure() (funcGen.Function[Value], bool) {
-	return c.closure, true
+	return funcGen.Function[Value](c), true
 }
 
 type Bool bool
@@ -358,7 +371,7 @@ func (f factory) GetMethod(value Value, methodName string) (funcGen.Function[Val
 }
 
 func (f factory) FromClosure(c funcGen.Function[Value]) Value {
-	return Closure{closure: c}
+	return Closure(c)
 }
 
 func (f factory) ToClosure(value Value) (funcGen.Function[Value], bool) {

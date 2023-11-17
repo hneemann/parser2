@@ -1,6 +1,7 @@
 package example
 
 import (
+	"fmt"
 	"github.com/hneemann/parser2"
 	"github.com/hneemann/parser2/funcGen"
 	"github.com/hneemann/parser2/listMap"
@@ -194,10 +195,9 @@ func BenchmarkRegulaFalsi(b *testing.B) {
 	}
 }
 
-/*
 func BenchmarkCall(b *testing.B) {
 	f, _ := DynType.Generate("x+(2*y/x)", "x", "y")
-	args := funcGen.NewStack[Value](vFloat(3), vFloat(3))
+	args := funcGen.NewStack[value.Value](value.Float(3), value.Float(3))
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
@@ -207,7 +207,7 @@ func BenchmarkCall(b *testing.B) {
 
 func BenchmarkFunc(b *testing.B) {
 	f, _ := DynType.Generate("func f(x) x*x;f(a)+f(2*a)", "a")
-	args := funcGen.NewStack[Value](vFloat(3))
+	args := funcGen.NewStack[value.Value](value.Float(3))
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		f(args)
@@ -216,7 +216,7 @@ func BenchmarkFunc(b *testing.B) {
 
 func BenchmarkFunc2(b *testing.B) {
 	f, _ := DynType.Generate("let c=1.5;func mul(x) y->y*x*c;mul(b)(a)", "a", "b")
-	args := funcGen.NewStack[Value](vFloat(3), vFloat(2))
+	args := funcGen.NewStack[value.Value](value.Float(3), value.Float(2))
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		f(args)
@@ -229,33 +229,14 @@ func BenchmarkList(b *testing.B) {
 		fmt.Println(err)
 	}
 
-	l := make([]Value, 1000)
+	l := make([]value.Value, 1000)
 	for i := range l {
-		l[i] = vFloat(i)
+		l[i] = value.Float(i)
 	}
 
-	args := funcGen.NewStack[Value](vList(l))
+	args := funcGen.NewStack[value.Value](value.NewList(l...))
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		f(args)
 	}
 }
-
-func BenchmarkList2(b *testing.B) {
-	l := make([]Value, 1000)
-	for i := range l {
-		l[i] = vFloat(i)
-	}
-
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		n := make([]Value, 1000)
-		for i := range l {
-			n[i] = vFloat(l[i].Float() * l[i].Float())
-		}
-		m := make([]Value, 1000)
-		for i := range l {
-			m[i] = vFloat(n[i].Float() / 100)
-		}
-	}
-}*/
