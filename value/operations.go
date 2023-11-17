@@ -29,17 +29,17 @@ func Equal(a Value, b Value) bool {
 func LessEqual(a Value, b Value) Value {
 	if aa, ok := a.(Int); ok {
 		if bb, ok := b.(Int); ok {
-			return Bool{B: aa.I <= bb.I}
+			return Bool(aa <= bb)
 		}
 	}
 	if aa, ok := a.(String); ok {
 		if bb, ok := b.(String); ok {
-			return Bool{B: aa.S <= bb.S}
+			return Bool(aa <= bb)
 		}
 	}
 	if aa, ok := a.ToFloat(); ok {
 		if bb, ok := b.ToFloat(); ok {
-			return Bool{B: aa <= bb}
+			return Bool(aa <= bb)
 		}
 	}
 	panic(fmt.Errorf("less not allowed on %v<%v", a, b))
@@ -48,17 +48,17 @@ func LessEqual(a Value, b Value) Value {
 func Less(a Value, b Value) Value {
 	if aa, ok := a.(Int); ok {
 		if bb, ok := b.(Int); ok {
-			return Bool{B: aa.I < bb.I}
+			return Bool(aa < bb)
 		}
 	}
 	if aa, ok := a.(String); ok {
 		if bb, ok := b.(String); ok {
-			return Bool{B: aa.S < bb.S}
+			return Bool(aa < bb)
 		}
 	}
 	if aa, ok := a.ToFloat(); ok {
 		if bb, ok := b.ToFloat(); ok {
-			return Bool{B: aa < bb}
+			return Bool(aa < bb)
 		}
 	}
 	panic(fmt.Errorf("less not allowed on %v<%v", a, b))
@@ -73,17 +73,17 @@ func Swap(inner func(a, b Value) Value) func(a, b Value) Value {
 func Add(a, b Value) Value {
 	if aa, ok := a.(Int); ok {
 		if bb, ok := b.(Int); ok {
-			return Int{I: aa.I + bb.I}
+			return aa + bb
 		}
 	}
 	if aa, ok := a.(String); ok {
 		if bb, ok := b.(String); ok {
-			return String{S: aa.S + bb.S}
+			return aa + bb
 		}
 	}
 	if aa, ok := a.ToFloat(); ok {
 		if bb, ok := b.ToFloat(); ok {
-			return Float{F: aa + bb}
+			return Float(aa + bb)
 		}
 	}
 	panic(fmt.Errorf("add not allowed on %v+%v", a, b))
@@ -92,12 +92,12 @@ func Add(a, b Value) Value {
 func Sub(a, b Value) Value {
 	if aa, ok := a.(Int); ok {
 		if bb, ok := b.(Int); ok {
-			return Int{I: aa.I - bb.I}
+			return aa - bb
 		}
 	}
 	if aa, ok := a.ToFloat(); ok {
 		if bb, ok := b.ToFloat(); ok {
-			return Float{F: aa - bb}
+			return Float(aa - bb)
 		}
 	}
 	panic(fmt.Errorf("sub not allowed on %v-%v", a, b))
@@ -106,12 +106,12 @@ func Sub(a, b Value) Value {
 func Mul(a, b Value) Value {
 	if aa, ok := a.(Int); ok {
 		if bb, ok := b.(Int); ok {
-			return Int{I: aa.I * bb.I}
+			return aa * bb
 		}
 	}
 	if aa, ok := a.ToFloat(); ok {
 		if bb, ok := b.ToFloat(); ok {
-			return Float{F: aa * bb}
+			return Float(aa * bb)
 		}
 	}
 	panic(fmt.Errorf("mul not allowed on %v*%v", a, b))
@@ -120,12 +120,12 @@ func Mul(a, b Value) Value {
 func Div(a, b Value) Value {
 	if aa, ok := a.(Int); ok {
 		if bb, ok := b.(Int); ok {
-			return Int{I: aa.I / bb.I}
+			return aa / bb
 		}
 	}
 	if aa, ok := a.ToFloat(); ok {
 		if bb, ok := b.ToFloat(); ok {
-			return Float{F: aa / bb}
+			return Float(aa / bb)
 		}
 	}
 	panic(fmt.Errorf("div not allowed on %v/%v", a, b))
@@ -133,17 +133,35 @@ func Div(a, b Value) Value {
 
 func Neg(a Value) Value {
 	if aa, ok := a.(Int); ok {
-		return Int{I: -aa.I}
+		return -aa
 	}
 	if aa, ok := a.ToFloat(); ok {
-		return Float{F: -aa}
+		return Float(-aa)
 	}
 	panic(fmt.Errorf("neg not allowed on -%v", a))
 }
 
 func Not(a Value) Value {
 	if aa, ok := a.(Bool); ok {
-		return Bool{B: !aa.B}
+		return !aa
 	}
 	panic(fmt.Errorf("not not allowed on !%v", a))
+}
+
+func And(a, b Value) Value {
+	if aa, ok := a.ToBool(); ok {
+		if bb, ok := b.ToBool(); ok {
+			return Bool(aa && bb)
+		}
+	}
+	panic(fmt.Errorf("& not allowed on %v&%v", a, b))
+}
+
+func Or(a, b Value) Value {
+	if aa, ok := a.ToBool(); ok {
+		if bb, ok := b.ToBool(); ok {
+			return Bool(aa || bb)
+		}
+	}
+	panic(fmt.Errorf("| not allowed on %v&%v", a, b))
 }

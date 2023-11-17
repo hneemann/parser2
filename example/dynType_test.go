@@ -1,14 +1,15 @@
 package example
 
 import (
+	"github.com/hneemann/parser2"
 	"github.com/hneemann/parser2/funcGen"
+	"github.com/hneemann/parser2/listMap"
 	"github.com/hneemann/parser2/value"
 	"github.com/stretchr/testify/assert"
 	"math"
 	"testing"
 )
 
-/*
 func TestDynType(t *testing.T) {
 	tests := []struct {
 		exp string
@@ -17,8 +18,8 @@ func TestDynType(t *testing.T) {
 		{exp: "1e-7", res: float64(1e-7)},
 		{exp: "1e7", res: float64(1e7)},
 		{exp: "1e+7", res: float64(1e+7)},
-		{exp: "1+2", res: float64(3)},
-		{exp: "2-1", res: float64(1)},
+		{exp: "1+2", res: 3},
+		{exp: "2-1", res: 1},
 		{exp: "1<2", res: true},
 		{exp: "1>2", res: false},
 		{exp: "1>2", res: false},
@@ -36,35 +37,35 @@ func TestDynType(t *testing.T) {
 		{exp: "\"a\">\"b\"", res: false},
 		{exp: "\"a\"<\"b\"", res: true},
 		{exp: "\"test\">\"hello\"", res: true},
-		{exp: "\"test\"+\"hello\"", res: value.String{S: "testhello"}},
+		{exp: "\"test\"+\"hello\"", res: value.String("testhello")},
 		{exp: "sqrt(2)", res: math.Sqrt(2)},
 		{exp: "let x=2;sqrt(x)", res: math.Sqrt(2)},
 		{exp: "{a:1,b:2,c:3}", res: value.Map{M: listMap.ListMap[value.Value]{
-			{Key: "a", Value: value.Float{F: 2}},
-			{Key: "b", Value: value.Float{F: 4}},
-			{Key: "c", Value: value.Float{F: 6}},
+			{Key: "a", Value: value.Int(1)},
+			{Key: "b", Value: value.Int(2)},
+			{Key: "c", Value: value.Int(3)},
 		}}},
-		{exp: "{a:1,b:2,c:3}.b", res: value.Int{I: 2}},
-		{exp: "[1,2,3]", res: vList{vFloat(1), vFloat(2), vFloat(3)}},
-		{exp: "let a=2; [1,a,3]", res: vList{vFloat(1), vFloat(2), vFloat(3)}},
+		{exp: "{a:1,b:2,c:3}.b", res: value.Int(2)},
+		{exp: "[1,2,3]", res: value.NewList(value.Int(1), value.Int(2), value.Int(3))},
+		{exp: "let a=2; [1,a,3]", res: value.NewList(value.Int(1), value.Int(2), value.Int(3))},
 		{exp: "[1,2,3][2]", res: 3},
 		{exp: "let a=1;a", res: 1},
 		{exp: "let sqr=x->x*x;sqr(2)", res: 4},
 		{exp: "let s=3; let f=x->x*x*s;f(2)", res: 12},
-		{exp: "func fib(n) if n<=2 then 1 else fib(n-1)+fib(n-2);[fib(10),fib(15)]", res: vList{vFloat(55), vFloat(610)}},
-		{exp: "if 1<2 then 1 else 2", res: vFloat(1)},
-		{exp: "if 1>2 then 1 else 2", res: vFloat(2)},
-		{exp: "let a=2; if 1<a then 1 else 2", res: vFloat(1)},
-		{exp: "let a=2; if 1>a then 1 else 2", res: vFloat(2)},
-		{exp: "[1,2,3].size()", res: vFloat(3)},
-		{exp: "[1,2,3].map(e->e*2)", res: vList{vFloat(2), vFloat(4), vFloat(6)}},
-		{exp: "[1,2,3,4,5].reduce((a,b)->a+b)", res: vFloat(15)},
-		{exp: "let a=1;sprintf(\"%v->%v\",a,2)", res: vString("1->2")},
-		{exp: "let a=1;sprintf(\"%v->\",a)", res: vString("1->")},
-		{exp: "{a:x->x*2,b:x->x*3}.b(4)", res: vFloat(12)},
-		{exp: "const a=2;const b=3; a*b", res: vFloat(6)},
-		{exp: "func g(a) switch a case 0:\"Test\" case 1:\"Hello\" default \"World\"; [g(0),g(1),g(100)]", res: vList{vString("Test"), vString("Hello"), vString("World")}},
-		{exp: "func g(a) switch true case a=0:\"Test\" case a=1:\"Hello\" default \"World\"; [g(0),g(1),g(100)]", res: vList{vString("Test"), vString("Hello"), vString("World")}},
+		{exp: "func fib(n) if n<=2 then 1 else fib(n-1)+fib(n-2);[fib(10),fib(15)]", res: value.NewList(value.Int(55), value.Int(610))},
+		{exp: "if 1<2 then 1 else 2", res: value.Int(1)},
+		{exp: "if 1>2 then 1 else 2", res: value.Int(2)},
+		{exp: "let a=2; if 1<a then 1 else 2", res: value.Int(1)},
+		{exp: "let a=2; if 1>a then 1 else 2", res: value.Int(2)},
+		{exp: "[1,2,3].size()", res: value.Int(3)},
+		{exp: "[1,2,3].map(e->e*2)", res: value.NewList(value.Int(2), value.Int(4), value.Int(6))},
+		{exp: "[1,2,3,4,5].reduce((a,b)->a+b)", res: value.Int(15)},
+		{exp: "let a=1;sprintf(\"%v->%v\",a,2)", res: value.String("1->2")},
+		{exp: "let a=1;sprintf(\"%v->\",a)", res: value.String("1->")},
+		{exp: "{a:x->x*2,b:x->x*3}.b(4)", res: value.Int(12)},
+		{exp: "const a=2;const b=3; a*b", res: value.Int(6)},
+		{exp: "func g(a) switch a case 0:\"Test\" case 1:\"Hello\" default \"World\"; [g(0),g(1),g(100)]", res: value.NewList(value.String("Test"), value.String("Hello"), value.String("World"))},
+		{exp: "func g(a) switch true case a=0:\"Test\" case a=1:\"Hello\" default \"World\"; [g(0),g(1),g(100)]", res: value.NewList(value.String("Test"), value.String("Hello"), value.String("World"))},
 	}
 
 	for _, test := range tests {
@@ -73,7 +74,7 @@ func TestDynType(t *testing.T) {
 			fu, err := DynType.Generate(test.exp)
 			assert.NoError(t, err, test.exp)
 			if fu != nil {
-				res, err := fu(funcGen.NewEmptyStack[Value]())
+				res, err := fu(funcGen.NewEmptyStack[value.Value]())
 				assert.NoError(t, err, test.exp)
 				assert.EqualValues(t, test.res, res, test.exp)
 			}
@@ -86,17 +87,17 @@ func TestOptimizer(t *testing.T) {
 		exp string
 		res any
 	}{
-		{exp: "1+2", res: float64(3)},
-		{exp: "\"test\"+\"hello\"", res: vString("testhello")},
-		{exp: "[1+2,8/4]", res: vList{vFloat(3), vFloat(2)}},
-		{exp: "{a:1+2,b:8/4}", res: vMap{{"a", vFloat(3)}, {"b", vFloat(2)}}},
-		{exp: "(1+pi)/(pi+1)", res: vFloat(1)},
-		{exp: "sqrt(4/2)", res: vFloat(math.Sqrt(2))},
-		{exp: "(1<2) & (2<3)", res: vBool(true)},
-		{exp: "-2/(-1)", res: vFloat(2)},
-		{exp: "sprintf(\"%v->%v\",1,2)", res: vString("1->2")},
-		{exp: "sprintf(\"%v->\",1)", res: vString("1->")},
-		{exp: "const a=sqrt(2);const b=a*a; b", res: vFloat(2)},
+		{exp: "1+2", res: value.Int(3)},
+		{exp: "\"test\"+\"hello\"", res: value.String("testhello")},
+		{exp: "[1+2,8/4]", res: value.NewList(value.Int(3), value.Int(2))},
+		{exp: "{a:1+2,b:8/4}", res: value.Map{M: *listMap.NewP[value.Value](3).Put("a", value.Int(3)).Put("b", value.Int(2))}},
+		{exp: "(1+pi)/(pi+1)", res: value.Float(1)},
+		{exp: "sqrt(4/2)", res: value.Float(math.Sqrt(2))},
+		{exp: "(1<2) & (2<3)", res: value.Bool(true)},
+		{exp: "-2/(-1)", res: value.Float(2)},
+		{exp: "sprintf(\"%v->%v\",1,2)", res: value.String("1->2")},
+		{exp: "sprintf(\"%v->\",1)", res: value.String("1->")},
+		{exp: "const a=sqrt(2);const b=a*a; b", res: value.Float(2)},
 	}
 
 	for _, test := range tests {
@@ -104,9 +105,11 @@ func TestOptimizer(t *testing.T) {
 		t.Run(test.exp, func(t *testing.T) {
 			ast, err := DynType.CreateAst(test.exp)
 			assert.NoError(t, err, test.exp)
-			if c, ok := ast.(*parser2.Const[Value]); ok {
-				if f, ok := test.res.(vFloat); ok {
-					assert.InDelta(t, float64(f), c.Value.Float(), 1e-7)
+			if c, ok := ast.(*parser2.Const[value.Value]); ok {
+				if f, ok := test.res.(value.Float); ok {
+					fl, ok := c.Value.ToFloat()
+					assert.True(t, ok)
+					assert.InDelta(t, float64(f), fl, 1e-7)
 				} else {
 					assert.EqualValues(t, test.res, c.Value)
 				}
@@ -115,7 +118,7 @@ func TestOptimizer(t *testing.T) {
 			}
 		})
 	}
-}*/
+}
 
 // The power of closures and recursion.
 // Recursive implementation of the sqrt function using the Regula-Falsi algorithm.
@@ -171,7 +174,7 @@ func TestSolve(t *testing.T) {
 			f, err := DynType.Generate(test.exp, "a")
 			assert.NoError(t, err, test.name)
 			if f != nil {
-				r, err := f(funcGen.NewStack[value.Value](value.Float{F: 2}))
+				r, err := f(funcGen.NewStack[value.Value](value.Float(2)))
 				assert.NoError(t, err, test.name)
 				res, ok := r.ToFloat()
 				assert.True(t, ok)
@@ -183,7 +186,7 @@ func TestSolve(t *testing.T) {
 
 func BenchmarkRegulaFalsi(b *testing.B) {
 	f, _ := DynType.Generate(regulaFalsi, "a")
-	args := funcGen.NewStack[value.Value](value.Float{F: 2})
+	args := funcGen.NewStack[value.Value](value.Float(2))
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {

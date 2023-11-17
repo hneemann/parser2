@@ -59,6 +59,10 @@ func (e Empty) GetMethod(name string) (funcGen.Function[Value], bool) {
 	return funcGen.Function[Value]{}, false
 }
 
+func NewList(items ...Value) Value {
+	return List{items: items}
+}
+
 type List struct {
 	Empty
 	items []Value
@@ -76,6 +80,15 @@ func (l List) GetMethod(name string) (funcGen.Function[Value], bool) {
 var ListMethods = map[string]funcGen.Function[Value]{
 	"map":    {Func: ListMap, Args: 2, IsPure: true},
 	"reduce": {Func: ListReduce, Args: 2, IsPure: true},
+	"size":   {Func: ListSize, Args: 1, IsPure: true},
+}
+
+func ListSize(stack funcGen.Stack[Value], closureStore []Value) Value {
+	list, ok := stack.Get(0).ToList()
+	if !ok {
+		panic("size call on not list!")
+	}
+	return Int(len(list))
 }
 
 func ListMap(stack funcGen.Stack[Value], closureStore []Value) Value {
@@ -126,8 +139,31 @@ func ListReduce(stack funcGen.Stack[Value], closureStore []Value) Value {
 }
 
 type Map struct {
-	Empty
 	M MapImplementation[Value]
+}
+
+func (v Map) ToList() ([]Value, bool) {
+	return nil, false
+}
+
+func (v Map) ToInt() (int, bool) {
+	return 0, false
+}
+
+func (v Map) ToFloat() (float64, bool) {
+	return 0, false
+}
+
+func (v Map) ToString() (string, bool) {
+	return "", false
+}
+
+func (v Map) ToBool() (bool, bool) {
+	return false, false
+}
+
+func (v Map) ToClosure() (funcGen.Function[Value], bool) {
+	return funcGen.Function[Value]{}, false
 }
 
 func (v Map) ToMap() (MapImplementation[Value], bool) {
@@ -150,62 +186,149 @@ func (c Closure) ToClosure() (funcGen.Function[Value], bool) {
 	return c.closure, true
 }
 
-type Bool struct {
-	Empty
-	B bool
+type Bool bool
+
+func (b Bool) ToList() ([]Value, bool) {
+	return nil, false
+}
+
+func (b Bool) ToMap() (MapImplementation[Value], bool) {
+	return nil, false
+}
+
+func (b Bool) ToInt() (int, bool) {
+	return 0, false
+}
+
+func (b Bool) ToFloat() (float64, bool) {
+	return 0, false
+}
+
+func (b Bool) ToString() (string, bool) {
+	if b {
+		return "true", true
+	}
+	return "false", true
+}
+
+func (b Bool) ToClosure() (funcGen.Function[Value], bool) {
+	return funcGen.Function[Value]{}, false
+}
+
+func (b Bool) GetMethod(name string) (funcGen.Function[Value], bool) {
+	return funcGen.Function[Value]{}, false
 }
 
 func (b Bool) ToBool() (bool, bool) {
-	return b.B, true
+	return bool(b), true
 }
 
-type Float struct {
-	Empty
-	F float64
+type Float float64
+
+func (f Float) ToList() ([]Value, bool) {
+	return nil, false
+}
+
+func (f Float) ToMap() (MapImplementation[Value], bool) {
+	return nil, false
+}
+
+func (f Float) ToString() (string, bool) {
+	return "", false
+}
+
+func (f Float) ToClosure() (funcGen.Function[Value], bool) {
+	return funcGen.Function[Value]{}, false
+}
+
+func (f Float) GetMethod(name string) (funcGen.Function[Value], bool) {
+	return funcGen.Function[Value]{}, false
 }
 
 func (f Float) ToBool() (bool, bool) {
-	if f.F != 0 {
+	if f != 0 {
 		return true, true
 	}
 	return false, true
 }
 
 func (f Float) ToInt() (int, bool) {
-	return int(f.F), true
+	return int(f), true
 }
 
 func (f Float) ToFloat() (float64, bool) {
-	return f.F, true
+	return float64(f), true
 }
 
-type Int struct {
-	Empty
-	I int
+type Int int
+
+func (i Int) ToList() ([]Value, bool) {
+	return nil, false
+}
+
+func (i Int) ToMap() (MapImplementation[Value], bool) {
+	return nil, false
+}
+
+func (i Int) ToString() (string, bool) {
+	return "", false
+}
+
+func (i Int) ToClosure() (funcGen.Function[Value], bool) {
+	return funcGen.Function[Value]{}, false
+}
+
+func (i Int) GetMethod(name string) (funcGen.Function[Value], bool) {
+	return funcGen.Function[Value]{}, false
 }
 
 func (i Int) ToBool() (bool, bool) {
-	if i.I != 0 {
+	if i != 0 {
 		return true, true
 	}
 	return false, true
 }
 
 func (i Int) ToInt() (int, bool) {
-	return i.I, true
+	return int(i), true
 }
 
 func (i Int) ToFloat() (float64, bool) {
-	return float64(i.I), true
+	return float64(i), true
 }
 
-type String struct {
-	Empty
-	S string
+type String string
+
+func (s String) ToList() ([]Value, bool) {
+	return nil, false
+}
+
+func (s String) ToMap() (MapImplementation[Value], bool) {
+	return nil, false
+}
+
+func (s String) ToInt() (int, bool) {
+	return 0, false
+}
+
+func (s String) ToFloat() (float64, bool) {
+	return 0, false
+}
+
+func (s String) ToBool() (bool, bool) {
+	return false, false
+}
+
+func (s String) ToClosure() (funcGen.Function[Value], bool) {
+	return funcGen.Function[Value]{}, false
+}
+
+func (s String) GetMethod(name string) (funcGen.Function[Value], bool) {
+	return funcGen.Function[Value]{}, false
 }
 
 func (s String) ToString() (string, bool) {
-	return s.S, true
+	return string(s), true
 }
 
 type factory struct{}
@@ -213,17 +336,17 @@ type factory struct{}
 func (f factory) ParseNumber(n string) (Value, error) {
 	i, err := strconv.Atoi(n)
 	if err == nil {
-		return Int{I: i}, nil
+		return Int(i), nil
 	}
 	fl, err := strconv.ParseFloat(n, 64)
 	if err == nil {
-		return Float{F: fl}, nil
+		return Float(fl), nil
 	}
 	return nil, err
 }
 
 func (f factory) FromString(s string) Value {
-	return String{S: s}
+	return String(s)
 }
 
 func (f factory) GetMethod(value Value, methodName string) (funcGen.Function[Value], error) {
@@ -302,11 +425,11 @@ func (f factory) Generate(ast parser2.AST, gc funcGen.GeneratorContext, g *funcG
 				aVal := aFunc(st, cs)
 				if a, ok := aVal.ToBool(); ok {
 					if !a {
-						return Bool{B: false}
+						return Bool(false)
 					} else {
 						bVal := bFunc(st, cs)
 						if b, ok := bVal.ToBool(); ok {
-							return Bool{B: b}
+							return Bool(b)
 						} else {
 							panic(fmt.Errorf("not a bool: %v", bVal))
 						}
@@ -328,11 +451,11 @@ func (f factory) Generate(ast parser2.AST, gc funcGen.GeneratorContext, g *funcG
 				aVal := aFunc(st, cs)
 				if a, ok := aVal.ToBool(); ok {
 					if a {
-						return Bool{B: true}
+						return Bool(true)
 					} else {
 						bVal := bFunc(st, cs)
 						if b, ok := bVal.ToBool(); ok {
-							return Bool{B: b}
+							return Bool(b)
 						} else {
 							panic(fmt.Errorf("not a bool: %v", bVal))
 						}
@@ -357,8 +480,10 @@ func New() *funcGen.FunctionGenerator[Value] {
 		SetStringConverter(theFactory).
 		SetIsEqual(Equal).
 		SetToBool(func(c Value) (bool, bool) { return c.ToBool() }).
-		AddOp("=", true, func(a Value, b Value) Value { return Bool{B: Equal(a, b)} }).
-		AddOp("!=", true, func(a, b Value) Value { return Bool{B: !Equal(a, b)} }).
+		AddOp("|", true, Or).
+		AddOp("&", true, And).
+		AddOp("=", true, func(a Value, b Value) Value { return Bool(Equal(a, b)) }).
+		AddOp("!=", true, func(a, b Value) Value { return Bool(!Equal(a, b)) }).
 		AddOp("<", false, Less).
 		AddOp(">", false, Swap(Less)).
 		AddOp("<=", false, LessEqual).
@@ -376,13 +501,13 @@ func New() *funcGen.FunctionGenerator[Value] {
 			Func: func(st funcGen.Stack[Value], cs []Value) Value {
 				v := st.Get(0)
 				if v, ok := v.(Int); ok {
-					if v.I < 0 {
-						return Int{I: -v.I}
+					if v < 0 {
+						return Int(-v)
 					}
 					return v
 				}
 				if f, ok := v.ToFloat(); ok {
-					return Float{F: math.Abs(f)}
+					return Float(math.Abs(f))
 				}
 				panic(fmt.Errorf("abs not alowed on %v", v))
 			},
@@ -393,7 +518,7 @@ func New() *funcGen.FunctionGenerator[Value] {
 			Func: func(st funcGen.Stack[Value], cs []Value) Value {
 				v := st.Get(0)
 				if f, ok := v.ToFloat(); ok {
-					return Float{F: math.Sqrt(f)}
+					return Float(math.Sqrt(f))
 				}
 				panic(fmt.Errorf("sqrt not alowed on %v", v))
 			},
@@ -404,7 +529,7 @@ func New() *funcGen.FunctionGenerator[Value] {
 			Func: func(st funcGen.Stack[Value], cs []Value) Value {
 				v := st.Get(0)
 				if f, ok := v.ToFloat(); ok {
-					return Float{F: math.Log(f)}
+					return Float(math.Log(f))
 				}
 				panic(fmt.Errorf("ln not alowed on %v", v))
 			},
@@ -415,7 +540,7 @@ func New() *funcGen.FunctionGenerator[Value] {
 			Func: func(st funcGen.Stack[Value], cs []Value) Value {
 				v := st.Get(0)
 				if f, ok := v.ToFloat(); ok {
-					return Float{F: math.Exp(f)}
+					return Float(math.Exp(f))
 				}
 				panic(fmt.Errorf("exp not alowed on %v", v))
 			},
