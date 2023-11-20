@@ -299,12 +299,21 @@ func (g *FunctionGenerator[V]) AddOpPure(operator string, isCommutative bool, im
 	if g.parser != nil {
 		panic("parser already created")
 	}
-	g.operators = append(g.operators, Operator[V]{
+
+	opItem := Operator[V]{
 		Operator:      operator,
 		Impl:          impl,
 		IsPure:        isPure,
 		IsCommutative: isCommutative,
-	})
+	}
+
+	for i, op := range g.operators {
+		if op.Operator == operator {
+			g.operators[i] = opItem
+			return g
+		}
+	}
+	g.operators = append(g.operators, opItem)
 	return g
 }
 
@@ -431,7 +440,7 @@ func (g *FunctionGenerator[V]) generateIntern(args []string, exp string, ThisNam
 	am := argsMap{}
 	if args != nil {
 		for _, a := range args {
-			am.add(a)
+			err = am.add(a)
 			if err != nil {
 				return nil, err
 			}

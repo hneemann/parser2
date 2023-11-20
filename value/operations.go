@@ -1,6 +1,9 @@
 package value
 
-import "fmt"
+import (
+	"fmt"
+	"math"
+)
 
 func Equal(a Value, b Value) bool {
 	if aa, ok := a.(Bool); ok {
@@ -118,17 +121,21 @@ func Mul(a, b Value) Value {
 }
 
 func Div(a, b Value) Value {
-	if aa, ok := a.(Int); ok {
-		if bb, ok := b.(Int); ok {
-			return aa / bb
-		}
-	}
 	if aa, ok := a.ToFloat(); ok {
 		if bb, ok := b.ToFloat(); ok {
 			return Float(aa / bb)
 		}
 	}
 	panic(fmt.Errorf("div not allowed on %v/%v", a, b))
+}
+
+func Pow(a, b Value) Value {
+	if aa, ok := a.ToFloat(); ok {
+		if bb, ok := b.ToFloat(); ok {
+			return Float(math.Pow(aa, bb))
+		}
+	}
+	panic(fmt.Errorf("^ not allowed on %v^%v", a, b))
 }
 
 func Neg(a Value) Value {

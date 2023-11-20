@@ -36,3 +36,16 @@ func (l *ListMap[V]) Put(key string, v V) *ListMap[V] {
 	*l = append(*l, listMapEntry[V]{Key: key, Value: v})
 	return l
 }
+
+func (l ListMap[V]) Iter(yield func(key string, v V) bool) bool {
+	for _, e := range l {
+		if !yield(e.Key, e.Value) {
+			return false
+		}
+	}
+	return true
+}
+
+func (l ListMap[V]) Size() int {
+	return len(l)
+}
