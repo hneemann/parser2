@@ -22,6 +22,11 @@ func Equal(a Value, b Value) bool {
 			return aa == bb
 		}
 	}
+	if aa, ok := a.(*List); ok {
+		if bb, ok := b.(*List); ok {
+			return aa.Equals(bb)
+		}
+	}
 	if aa, ok := a.ToFloat(); ok {
 		if bb, ok := b.ToFloat(); ok {
 			return aa == bb
@@ -85,8 +90,8 @@ func Add(a, b Value) Value {
 			return aa + String(bb)
 		}
 	}
-	if aa, ok := a.(List); ok {
-		if bb, ok := b.(List); ok {
+	if aa, ok := a.(*List); ok {
+		if bb, ok := b.(*List); ok {
 			return NewListFromIterable(iterator.Append(aa.iterable, bb.iterable))
 		}
 	}

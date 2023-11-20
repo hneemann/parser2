@@ -20,16 +20,47 @@ func TestValueType(t *testing.T) {
 		{exp: "1e+7", res: float64(1e+7)},
 		{exp: "1+2", res: 3},
 		{exp: "2-1", res: 1},
+		{exp: "1.0+2.0", res: 3.0},
+		{exp: "2.0-1.0", res: 1.0},
 		{exp: "1<2", res: true},
 		{exp: "1>2", res: false},
 		{exp: "1>2", res: false},
 		{exp: "1<2", res: true},
 		{exp: "2=2", res: true},
 		{exp: "1=2", res: false},
+		{exp: "1.0+2.0", res: 3.0},
+		{exp: "3.0*2.0", res: 6.0},
+		{exp: "-3.0", res: -3.0},
+		{exp: "3.0^3.0", res: 27.0},
+		{exp: "1.0<2.0", res: true},
+		{exp: "1.0>2.0", res: false},
+		{exp: "1.0>2.0", res: false},
+		{exp: "1.0<2.0", res: true},
+		{exp: "2.0=2.0", res: true},
+		{exp: "1.0=2.0", res: false},
 		{exp: "2!=2", res: false},
 		{exp: "1!=2", res: true},
 		{exp: "2>=2", res: true},
 		{exp: "2<=2", res: true},
+		{exp: "2.0>=2.0", res: true},
+		{exp: "2.0<=2.0", res: true},
+		{exp: "!(1<2)", res: false},
+		{exp: "1<2 & 3<4", res: true},
+		{exp: "1<2 & 3>4", res: false},
+		{exp: "1<2 | 3>4", res: true},
+		{exp: "1<2 | 3>4", res: true},
+		{exp: "1>2 | 3>4", res: false},
+		{exp: "let a=2;1<a & 3<4", res: true},
+		{exp: "let a=2;1<a & 3>4", res: false},
+		{exp: "let a=2;1<a | 3>4", res: true},
+		{exp: "let a=2;1<a | 3>4", res: true},
+		{exp: "let a=2;1>a | 3>4", res: false},
+		{exp: "let a=2;abs(a)", res: 2},
+		{exp: "let a= -2;abs(a)", res: 2},
+		{exp: "let a=2.0;abs(a)", res: 2},
+		{exp: "let a= -2.0;abs(a)", res: 2},
+		{exp: "let a=2;sqr(a)", res: 4},
+		{exp: "let a=2.0;sqr(a)", res: 4.0},
 		{exp: "\"a\"=\"a\"", res: true},
 		{exp: "\"a\">=\"a\"", res: true},
 		{exp: "\"a\"<=\"a\"", res: true},
@@ -62,6 +93,9 @@ func TestValueType(t *testing.T) {
 		{exp: "let a=2; if 1<a then 1 else 2", res: Int(1)},
 		{exp: "let a=2; if 1>a then 1 else 2", res: Int(2)},
 		{exp: "[1,2,3].size()", res: Int(3)},
+		{exp: "[1,2,3]=[1,2,3]", res: true},
+		{exp: "[1,2,3]=[1,2,4]", res: false},
+		{exp: "[1,2,3]=[1,2]", res: false},
 		{exp: "[1,2,3].map(e->e*2)", res: NewList(Int(2), Int(4), Int(6))},
 		{exp: "[1,2,3,4,5].reduce((a,b)->a+b)", res: Int(15)},
 		{exp: "{a:x->x*2,b:x->x*3}.b(4)", res: Int(12)},
@@ -105,6 +139,13 @@ func TestValueType(t *testing.T) {
 		{exp: "{a:1,b:2}.replace(m->m.a+m.b)", res: Int(3)},
 		{exp: "\"\"+list(12).group(i->\"n\"+round(i/4),i->i).list().order((a,b)->a.key<b.key)",
 			res: "[{key:n0, value:[0, 1]}, {key:n1, value:[2, 3, 4, 5]}, {key:n2, value:[6, 7, 8, 9]}, {key:n3, value:[10, 11]}]"},
+
+		{exp: "\"Hello World\".len()", res: Int(11)},
+		{exp: "\"Hello World\".indexOf(\"Wo\")", res: Int(6)},
+		{exp: "\"Hello World\".toLower()", res: "hello world"},
+		{exp: "\"Hello World\".toUpper()", res: "HELLO WORLD"},
+		{exp: "\"Hello World\".contains(\"Wo\")", res: true},
+		{exp: "\"Hello World\".contains(\"wo\")", res: false},
 	}
 
 	valueParser := SetUpParser(New())
@@ -120,8 +161,8 @@ func TestValueType(t *testing.T) {
 					float, ok := res.(Float)
 					assert.True(t, ok)
 					assert.InDelta(t, test.res, float64(float), 1e-6, test.exp)
-				} else if expList, ok := test.res.(List); ok {
-					actList, ok := res.(List)
+				} else if expList, ok := test.res.(*List); ok {
+					actList, ok := res.(*List)
 					assert.True(t, ok)
 					assert.EqualValues(t, expList.ToSlice(), actList.ToSlice(), test.exp)
 				} else {
@@ -161,8 +202,8 @@ func TestOptimizer(t *testing.T) {
 					fl, ok := c.Value.ToFloat()
 					assert.True(t, ok)
 					assert.InDelta(t, float64(f), fl, 1e-7)
-				} else if expList, ok := test.res.(List); ok {
-					actList, ok := c.Value.(List)
+				} else if expList, ok := test.res.(*List); ok {
+					actList, ok := c.Value.(*List)
 					assert.True(t, ok)
 					assert.EqualValues(t, expList.ToSlice(), actList.ToSlice(), test.exp)
 				} else {

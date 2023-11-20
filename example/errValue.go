@@ -12,8 +12,8 @@ type ErrValue struct {
 	err float64
 }
 
-func (e ErrValue) ToList() (value.List, bool) {
-	return value.List{}, false
+func (e ErrValue) ToList() (*value.List, bool) {
+	return nil, false
 }
 
 func (e ErrValue) ToMap() (value.Map, bool) {

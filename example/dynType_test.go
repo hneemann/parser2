@@ -32,7 +32,7 @@ func TestDynType(t *testing.T) {
 					assert.True(t, ok)
 					assert.InDelta(t, test.res, float64(float), 1e-6, test.exp)
 				} else if expList, ok := test.res.(value.List); ok {
-					actList, ok := res.(value.List)
+					actList, ok := res.(*value.List)
 					assert.True(t, ok)
 					assert.EqualValues(t, expList.ToSlice(), actList.ToSlice(), test.exp)
 				} else {
@@ -63,7 +63,7 @@ func TestOptimizer(t *testing.T) {
 					assert.True(t, ok)
 					assert.InDelta(t, float64(f), fl, 1e-7)
 				} else if expList, ok := test.res.(value.List); ok {
-					actList, ok := c.Value.(value.List)
+					actList, ok := c.Value.(*value.List)
 					assert.True(t, ok)
 					assert.EqualValues(t, expList.ToSlice(), actList.ToSlice(), test.exp)
 				} else {
