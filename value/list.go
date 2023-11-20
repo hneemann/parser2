@@ -112,19 +112,23 @@ func toFunc(name string, st funcGen.Stack[Value], n int, args int) funcGen.Funct
 
 func (l *List) Accept(st funcGen.Stack[Value]) *List {
 	f := toFunc("accept", st, 1, 1)
-	return NewListFromIterable(iterator.Filter[Value](l.iterable, func(v Value) bool {
-		if accept, ok := f.Eval(st, v).ToBool(); ok {
-			return accept
+	return NewListFromIterable(iterator.FilterAuto[Value](l.iterable, func() func(v Value) bool {
+		lst := funcGen.NewEmptyStack[Value]()
+		return func(v Value) bool {
+			if accept, ok := f.Eval(lst, v).ToBool(); ok {
+				return accept
+			}
+			panic(fmt.Errorf("closure in accept does not return a bool"))
 		}
-		panic(fmt.Errorf("closure in accept does not return a bool"))
 	}))
 }
 
 func (l *List) Map(st funcGen.Stack[Value]) *List {
 	f := toFunc("map", st, 1, 1)
 	return NewListFromIterable(iterator.MapAuto[Value, Value](l.iterable, func() func(i int, v Value) Value {
+		lst := funcGen.NewEmptyStack[Value]()
 		return func(i int, v Value) Value {
-			return f.Eval(st, v)
+			return f.Eval(lst, v)
 		}
 	}))
 }
@@ -151,6 +155,21 @@ func (s Sortable) Less(i, j int) bool {
 
 func (s Sortable) Swap(i, j int) {
 	s.items[i], s.items[j] = s.items[j], s.items[i]
+}
+
+func (l *List) IndexOf(st funcGen.Stack[Value]) Int {
+	v := st.Get(1)
+	index := -1
+	i := 0
+	l.iterable()(func(value Value) bool {
+		if Equal(v, value) {
+			index = i
+			return false
+		}
+		i++
+		return true
+	})
+	return Int(index)
 }
 
 func (l *List) Order(st funcGen.Stack[Value]) *List {
@@ -252,18 +271,19 @@ var ListMethods = map[string]funcGen.Function[Value]{
 	"reduce":  methodAtList(2, func(list *List, stack funcGen.Stack[Value]) Value { return list.Reduce(stack) }),
 	"replace": methodAtList(2, func(list *List, stack funcGen.Stack[Value]) Value { return list.Replace(stack) }),
 	"combine": methodAtList(2, func(list *List, stack funcGen.Stack[Value]) Value { return list.Combine(stack) }),
+	"indexOf": methodAtList(2, func(list *List, stack funcGen.Stack[Value]) Value { return list.IndexOf(stack) }),
 	"group":   methodAtList(3, func(list *List, stack funcGen.Stack[Value]) Value { return list.GroupBy(stack) }),
 	"order":   methodAtList(2, func(list *List, stack funcGen.Stack[Value]) Value { return list.Order(stack) }),
 	"iir":     methodAtList(3, func(list *List, stack funcGen.Stack[Value]) Value { return list.IIr(stack) }),
 	"size":    methodAtList(1, func(list *List, stack funcGen.Stack[Value]) Value { return Int(list.Size()) }),
 }
 
-func (l List) GetMethod(name string) (funcGen.Function[Value], bool) {
+func (l *List) GetMethod(name string) (funcGen.Function[Value], bool) {
 	m, ok := ListMethods[name]
 	return m, ok
 }
 
-func (l List) Equals(other *List) bool {
+func (l *List) Equals(other *List) bool {
 	a := l.ToSlice()
 	b := other.ToSlice()
 	if len(a) != len(b) {
