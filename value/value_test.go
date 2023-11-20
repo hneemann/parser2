@@ -92,6 +92,11 @@ func TestValueType(t *testing.T) {
 		{exp: "if 1>2 then 1 else 2", res: Int(2)},
 		{exp: "let a=2; if 1<a then 1 else 2", res: Int(1)},
 		{exp: "let a=2; if 1>a then 1 else 2", res: Int(2)},
+		{exp: "[1,2].replace(l->l[0]+l[1])", res: Int(3)},
+		{exp: "[1,2,3].indexOf(2)", res: Int(1)},
+		{exp: "[1,2,3].indexOf(7)", res: Int(-1)},
+		{exp: "2 ~ [1,2,3]", res: true},
+		{exp: "7 ~ [1,2,3]", res: false},
 		{exp: "[1,2,3].size()", res: Int(3)},
 		{exp: "[1,2,3]=[1,2,3]", res: true},
 		{exp: "[1,2,3]=[1,2,4]", res: false},
@@ -109,7 +114,11 @@ func TestValueType(t *testing.T) {
 		// Prefix Sum
 		{exp: "[1,2,3,4,4].iir(i->i,(i,l)->i+l)", res: NewList(Int(1), Int(3), Int(6), Int(10), Int(14))},
 		// Fibonacci Sequence
-		{exp: "list(12).iir(i->[1,1],(i,l)->[l[1],l[0]+l[1]]).map(l->l[0])", res: NewList(Int(1), Int(1), Int(2), Int(3), Int(5), Int(8), Int(13), Int(21), Int(34), Int(55), Int(89), Int(144))},
+		{exp: "list(12).iir(i->[1,1],(i,l)->[l[1],l[0]+l[1]]).map(l->l[0])",
+			res: NewList(Int(1), Int(1), Int(2), Int(3), Int(5), Int(8), Int(13), Int(21), Int(34), Int(55), Int(89), Int(144))},
+		// Low-pass Filter
+		{exp: "list(11).iir(i->0,(i,l)->(1024+l)>>1)",
+			res: NewList(Int(0), Int(512), Int(768), Int(896), Int(960), Int(992), Int(1008), Int(1016), Int(1020), Int(1022), Int(1023))},
 		{exp: "list(6).combine((a,b)->a+b)", res: NewList(Int(1), Int(3), Int(5), Int(7), Int(9))},
 		{exp: "[1,2,3].size()", res: Int(3)},
 		{exp: "{a:1,b:2,c:3}.map((k,v)->v*v)", res: Map{M: listMap.ListMap[Value]{

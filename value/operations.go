@@ -54,6 +54,21 @@ func LessEqual(a Value, b Value) Value {
 	panic(fmt.Errorf("less not allowed on %v<%v", a, b))
 }
 
+func In(a Value, b Value) Value {
+	if list, ok := b.(*List); ok {
+		found := false
+		list.iterable()(func(value Value) bool {
+			if Equal(a, value) {
+				found = true
+				return false
+			}
+			return true
+		})
+		return Bool(found)
+	}
+	panic(fmt.Errorf("~ not allowed on %v~%v", a, b))
+}
+
 func Less(a Value, b Value) Value {
 	if aa, ok := a.(Int); ok {
 		if bb, ok := b.(Int); ok {
@@ -115,6 +130,23 @@ func Sub(a, b Value) Value {
 		}
 	}
 	panic(fmt.Errorf("sub not allowed on %v-%v", a, b))
+}
+
+func Left(a, b Value) Value {
+	if aa, ok := a.(Int); ok {
+		if bb, ok := b.(Int); ok {
+			return aa << bb
+		}
+	}
+	panic(fmt.Errorf("mul not allowed on %v*%v", a, b))
+}
+func Right(a, b Value) Value {
+	if aa, ok := a.(Int); ok {
+		if bb, ok := b.(Int); ok {
+			return aa >> bb
+		}
+	}
+	panic(fmt.Errorf("mul not allowed on %v*%v", a, b))
 }
 
 func Mul(a, b Value) Value {
