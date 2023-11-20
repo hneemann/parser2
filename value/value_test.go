@@ -282,7 +282,7 @@ func TestSolve(t *testing.T) {
 }
 
 func BenchmarkRegulaFalsi(b *testing.B) {
-	f, _ := New().Generate(regulaFalsi, "a")
+	f, _ := SetUpParser(New()).Generate(regulaFalsi, "a")
 	args := funcGen.NewStack[Value](Float(2))
 
 	b.ResetTimer()
@@ -292,7 +292,7 @@ func BenchmarkRegulaFalsi(b *testing.B) {
 }
 
 func BenchmarkCall(b *testing.B) {
-	f, _ := New().Generate("x+(2*y/x)", "x", "y")
+	f, _ := SetUpParser(New()).Generate("x+(2*y/x)", "x", "y")
 	args := funcGen.NewStack[Value](Float(3), Float(3))
 
 	b.ResetTimer()
@@ -302,7 +302,7 @@ func BenchmarkCall(b *testing.B) {
 }
 
 func BenchmarkFunc(b *testing.B) {
-	f, _ := New().Generate("func f(x) x*x;f(a)+f(2*a)", "a")
+	f, _ := SetUpParser(New()).Generate("func f(x) x*x;f(a)+f(2*a)", "a")
 	args := funcGen.NewStack[Value](Float(3))
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
@@ -311,7 +311,7 @@ func BenchmarkFunc(b *testing.B) {
 }
 
 func BenchmarkFunc2(b *testing.B) {
-	f, _ := New().Generate("let c=1.5;func mul(x) y->y*x*c;mul(b)(a)", "a", "b")
+	f, _ := SetUpParser(New()).Generate("let c=1.5;func mul(x) y->y*x*c;mul(b)(a)", "a", "b")
 	args := funcGen.NewStack[Value](Float(3), Float(2))
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
@@ -320,7 +320,7 @@ func BenchmarkFunc2(b *testing.B) {
 }
 
 func BenchmarkList(b *testing.B) {
-	f, err := New().Generate("l.map(e->e*e).map(e->e/100)", "l")
+	f, err := SetUpParser(New()).Generate("l.map(e->e*e).map(e->e/100)", "l")
 	if err != nil {
 		fmt.Println(err)
 	}
