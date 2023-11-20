@@ -1,12 +1,14 @@
 package value
 
 import (
+	"bytes"
 	"fmt"
 	"github.com/hneemann/iterator"
 	"github.com/hneemann/parser2"
 	"github.com/hneemann/parser2/funcGen"
 	"github.com/hneemann/parser2/listMap"
 	"math"
+	"sort"
 	"strconv"
 )
 
@@ -14,6 +16,26 @@ type MapImplementation[V any] interface {
 	Get(key string) (V, bool)
 	Iter(yield func(key string, v Value) bool) bool
 	Size() int
+}
+
+type SimpleMap map[string]Value
+
+func (s SimpleMap) Get(key string) (Value, bool) {
+	v, ok := s[key]
+	return v, ok
+}
+
+func (s SimpleMap) Iter(yield func(key string, v Value) bool) bool {
+	for k, v := range s {
+		if !yield(k, v) {
+			return false
+		}
+	}
+	return true
+}
+
+func (s SimpleMap) Size() int {
+	return len(s)
 }
 
 type Value interface {
@@ -63,7 +85,24 @@ func (l List) ToFloat() (float64, bool) {
 }
 
 func (l List) ToString() (string, bool) {
-	return "", false
+	var b bytes.Buffer
+	b.WriteString("[")
+	first := true
+	l.iterable()(func(v Value) bool {
+		if first {
+			first = false
+		} else {
+			b.WriteString(", ")
+		}
+		if s, ok := v.ToString(); ok {
+			b.WriteString(s)
+		} else {
+			b.WriteString("?")
+		}
+		return true
+	})
+	b.WriteString("]")
+	return b.String(), true
 }
 
 func (l List) ToBool() (bool, bool) {
@@ -78,11 +117,7 @@ func (l List) ToList() (List, bool) {
 	return l, true
 }
 
-func (l List) Iter(yield func(Value) bool) bool {
-	return l.iterable()(yield)
-}
-
-func (l List) Eval() List {
+func (l *List) Eval() {
 	if !l.itemsPresent {
 		var it []Value
 		l.iterable()(func(value Value) bool {
@@ -92,15 +127,16 @@ func (l List) Eval() List {
 		l.items = it
 		l.itemsPresent = true
 	}
-	return l
 }
 
-func (l List) ToSlice() []Value {
-	return l.Eval().items
+func (l *List) ToSlice() []Value {
+	l.Eval()
+	return l.items[0:len(l.items):len(l.items)]
 }
 
-func (l List) Size() int {
-	return len(l.Eval().items)
+func (l *List) Size() int {
+	l.Eval()
+	return len(l.items)
 }
 
 func toFunc(name string, st funcGen.Stack[Value], n int, args int) funcGen.Function[Value] {
@@ -134,6 +170,70 @@ func (l List) Map(st funcGen.Stack[Value]) List {
 	}))
 }
 
+type Sortable struct {
+	items []Value
+	st    funcGen.Stack[Value]
+	less  funcGen.Function[Value]
+}
+
+func (s Sortable) Len() int {
+	return len(s.items)
+}
+
+func (s Sortable) Less(i, j int) bool {
+	s.st.Push(s.items[i])
+	s.st.Push(s.items[j])
+	if l, ok := s.less.Func(s.st.CreateFrame(2), nil).ToBool(); ok {
+		return l
+	} else {
+		panic("closure in order needs to return a bool")
+	}
+}
+
+func (s Sortable) Swap(i, j int) {
+	s.items[i], s.items[j] = s.items[j], s.items[i]
+}
+
+func (l List) Order(st funcGen.Stack[Value]) List {
+	f := toFunc("order", st, 1, 2)
+
+	items := l.ToSlice()
+	itemsCopy := make([]Value, len(items))
+	copy(itemsCopy, items)
+
+	s := Sortable{
+		items: itemsCopy,
+		st:    st,
+		less:  f,
+	}
+
+	sort.Sort(s)
+	return NewList(itemsCopy...)
+}
+
+func (l List) Combine(st funcGen.Stack[Value]) List {
+	f := toFunc("combine", st, 1, 2)
+	return NewListFromIterable(iterator.Combine[Value, Value](l.iterable, func(a, b Value) Value {
+		st.Push(a)
+		st.Push(b)
+		return f.Func(st.CreateFrame(2), nil)
+	}))
+}
+
+func (l List) IIr(st funcGen.Stack[Value]) List {
+	initial := toFunc("iir", st, 1, 1)
+	function := toFunc("iir", st, 2, 2)
+	return NewListFromIterable(iterator.IirMap[Value, Value](l.iterable,
+		func(item Value) Value {
+			return initial.Eval(st, item)
+		},
+		func(item Value, lastItem Value, last Value) Value {
+			st.Push(item)
+			st.Push(last)
+			return function.Func(st.CreateFrame(2), nil)
+		}))
+}
+
 func (l List) Reduce(st funcGen.Stack[Value]) Value {
 	f := toFunc("reduce", st, 1, 2)
 	res, ok := iterator.Reduce[Value](l.iterable, func(a, b Value) Value {
@@ -147,6 +247,37 @@ func (l List) Reduce(st funcGen.Stack[Value]) Value {
 	panic("error in reduce, no items in list")
 }
 
+func (l List) Replace(st funcGen.Stack[Value]) Value {
+	f := toFunc("replace", st, 1, 1)
+	return f.Eval(st, l)
+}
+
+func (l List) GroupBy(st funcGen.Stack[Value]) Map {
+	keyFunc := toFunc("groupBy", st, 1, 1)
+	valueFunc := toFunc("groupBy", st, 2, 1)
+	m := make(map[string]*[]Value)
+	l.iterable()(func(value Value) bool {
+		k := keyFunc.Eval(st, value)
+		v := valueFunc.Eval(st, value)
+		if key, ok := k.ToString(); ok {
+			if l, ok := m[key]; ok {
+				*l = append(*l, v)
+			} else {
+				ll := []Value{v}
+				m[key] = &ll
+			}
+		} else {
+			panic("groupBy requires a string as key type")
+		}
+		return true
+	})
+	ma := make(SimpleMap)
+	for k, l := range m {
+		ma[k] = NewList(*l...)
+	}
+	return Map{ma}
+}
+
 func methodAtList(args int, method func(list List, stack funcGen.Stack[Value]) Value) funcGen.Function[Value] {
 	return funcGen.Function[Value]{Func: func(stack funcGen.Stack[Value], closureStore []Value) Value {
 		if obj, ok := stack.Get(0).ToList(); ok {
@@ -157,11 +288,15 @@ func methodAtList(args int, method func(list List, stack funcGen.Stack[Value]) V
 }
 
 var ListMethods = map[string]funcGen.Function[Value]{
-	"accept": methodAtList(2, func(list List, stack funcGen.Stack[Value]) Value { return list.Accept(stack) }),
-	"map":    methodAtList(2, func(list List, stack funcGen.Stack[Value]) Value { return list.Map(stack) }),
-	"reduce": methodAtList(2, func(list List, stack funcGen.Stack[Value]) Value { return list.Reduce(stack) }),
-	"size":   methodAtList(1, func(list List, stack funcGen.Stack[Value]) Value { return Int(list.Size()) }),
-	"eval":   methodAtList(1, func(list List, stack funcGen.Stack[Value]) Value { return list.Eval() }),
+	"accept":  methodAtList(2, func(list List, stack funcGen.Stack[Value]) Value { return list.Accept(stack) }),
+	"map":     methodAtList(2, func(list List, stack funcGen.Stack[Value]) Value { return list.Map(stack) }),
+	"reduce":  methodAtList(2, func(list List, stack funcGen.Stack[Value]) Value { return list.Reduce(stack) }),
+	"replace": methodAtList(2, func(list List, stack funcGen.Stack[Value]) Value { return list.Replace(stack) }),
+	"combine": methodAtList(2, func(list List, stack funcGen.Stack[Value]) Value { return list.Combine(stack) }),
+	"group":   methodAtList(3, func(list List, stack funcGen.Stack[Value]) Value { return list.GroupBy(stack) }),
+	"order":   methodAtList(2, func(list List, stack funcGen.Stack[Value]) Value { return list.Order(stack) }),
+	"iir":     methodAtList(3, func(list List, stack funcGen.Stack[Value]) Value { return list.IIr(stack) }),
+	"size":    methodAtList(1, func(list List, stack funcGen.Stack[Value]) Value { return Int(list.Size()) }),
 }
 
 func (l List) GetMethod(name string) (funcGen.Function[Value], bool) {
@@ -186,7 +321,26 @@ func (v Map) ToFloat() (float64, bool) {
 }
 
 func (v Map) ToString() (string, bool) {
-	return "", false
+	var b bytes.Buffer
+	b.WriteString("{")
+	first := true
+	v.M.Iter(func(key string, v Value) bool {
+		if first {
+			first = false
+		} else {
+			b.WriteString(", ")
+		}
+		b.WriteString(key)
+		b.WriteString(":")
+		if s, ok := v.ToString(); ok {
+			b.WriteString(s)
+		} else {
+			b.WriteString("?")
+		}
+		return true
+	})
+	b.WriteString("}")
+	return b.String(), true
 }
 
 func (v Map) ToBool() (bool, bool) {
@@ -234,6 +388,11 @@ func (v Map) Map(st funcGen.Stack[Value]) Map {
 	return Map{M: newMap}
 }
 
+func (v Map) Replace(st funcGen.Stack[Value]) Value {
+	f := toFunc("replace", st, 1, 1)
+	return f.Eval(st, v)
+}
+
 func (v Map) List() List {
 	return NewListFromIterable(func() iterator.Iterator[Value] {
 		return func(f func(Value) bool) bool {
@@ -259,10 +418,11 @@ func methodAtMap(args int, method func(m Map, stack funcGen.Stack[Value]) Value)
 }
 
 var MapMethods = map[string]funcGen.Function[Value]{
-	"accept": methodAtMap(2, func(m Map, stack funcGen.Stack[Value]) Value { return m.Accept(stack) }),
-	"map":    methodAtMap(2, func(m Map, stack funcGen.Stack[Value]) Value { return m.Map(stack) }),
-	"list":   methodAtMap(1, func(m Map, stack funcGen.Stack[Value]) Value { return m.List() }),
-	"size":   methodAtMap(1, func(m Map, stack funcGen.Stack[Value]) Value { return Int(m.Size()) }),
+	"accept":  methodAtMap(2, func(m Map, stack funcGen.Stack[Value]) Value { return m.Accept(stack) }),
+	"map":     methodAtMap(2, func(m Map, stack funcGen.Stack[Value]) Value { return m.Map(stack) }),
+	"replace": methodAtMap(2, func(m Map, stack funcGen.Stack[Value]) Value { return m.Replace(stack) }),
+	"list":    methodAtMap(1, func(m Map, stack funcGen.Stack[Value]) Value { return m.List() }),
+	"size":    methodAtMap(1, func(m Map, stack funcGen.Stack[Value]) Value { return Int(m.Size()) }),
 }
 
 func (v Map) GetMethod(name string) (funcGen.Function[Value], bool) {
@@ -393,7 +553,7 @@ func (i Int) ToMap() (Map, bool) {
 }
 
 func (i Int) ToString() (string, bool) {
-	return "", false
+	return strconv.Itoa(int(i)), true
 }
 
 func (i Int) ToClosure() (funcGen.Function[Value], bool) {
@@ -669,6 +829,31 @@ func New() *funcGen.FunctionGenerator[Value] {
 					return Float(f * f)
 				}
 				panic(fmt.Errorf("sqr not alowed on %v", v))
+			},
+			Args:   1,
+			IsPure: true,
+		}).
+		AddStaticFunction("round", funcGen.Function[Value]{
+			Func: func(st funcGen.Stack[Value], cs []Value) Value {
+				v := st.Get(0)
+				if v, ok := v.(Int); ok {
+					return v
+				}
+				if f, ok := v.ToFloat(); ok {
+					return Int(math.Round(f))
+				}
+				panic(fmt.Errorf("sqr not alowed on %v", v))
+			},
+			Args:   1,
+			IsPure: true,
+		}).
+		AddStaticFunction("list", funcGen.Function[Value]{
+			Func: func(st funcGen.Stack[Value], cs []Value) Value {
+				v := st.Get(0)
+				if size, ok := v.ToInt(); ok {
+					return NewListFromIterable(iterator.Generate(size, func(i int) Value { return Int(i) }))
+				}
+				panic(fmt.Errorf("list not alowed on %v", v))
 			},
 			Args:   1,
 			IsPure: true,

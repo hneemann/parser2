@@ -48,6 +48,7 @@ func TestValueType(t *testing.T) {
 		{exp: "{a:1,b:2,c:3}.b", res: Int(2)},
 		{exp: "[1,2,3]", res: NewList(Int(1), Int(2), Int(3))},
 		{exp: "let a=2; [1,a,3]", res: NewList(Int(1), Int(2), Int(3))},
+		{exp: "let a=2;[1,a]+[3,4]", res: NewList(Int(1), Int(2), Int(3), Int(4))},
 		{exp: "[1,2,3][2]", res: 3},
 		{exp: "let a=1;a", res: 1},
 		{exp: "let sqr=x->x*x;sqr(2)", res: 4},
@@ -70,7 +71,12 @@ func TestValueType(t *testing.T) {
 		{exp: "[1,2,3].map(i->i*i)", res: NewList(Int(1), Int(4), Int(9))},
 		{exp: "[1,2,3].accept(i->i>1)", res: NewList(Int(2), Int(3))},
 		{exp: "[1,2,3].accept(i->i>1)", res: NewList(Int(2), Int(3))},
-		{exp: "[1,2,3].reduce((a,b)->a+b)", res: Int(6)},
+		{exp: "[1,2,3,3].reduce((a,b)->a+b)", res: Int(9)},
+		// Prefix Sum
+		{exp: "[1,2,3,4,4].iir(i->i,(i,l)->i+l)", res: NewList(Int(1), Int(3), Int(6), Int(10), Int(14))},
+		// Fibonacci Sequence
+		{exp: "list(12).iir(i->[1,1],(i,l)->[l[1],l[0]+l[1]]).map(l->l[0])", res: NewList(Int(1), Int(1), Int(2), Int(3), Int(5), Int(8), Int(13), Int(21), Int(34), Int(55), Int(89), Int(144))},
+		{exp: "list(6).combine((a,b)->a+b)", res: NewList(Int(1), Int(3), Int(5), Int(7), Int(9))},
 		{exp: "[1,2,3].size()", res: Int(3)},
 		{exp: "{a:1,b:2,c:3}.map((k,v)->v*v)", res: Map{M: listMap.ListMap[Value]{
 			{Key: "a", Value: Int(1)},
@@ -96,6 +102,9 @@ func TestValueType(t *testing.T) {
 			}},
 		)},
 		{exp: "{a:1,b:2,c:3,d:-1}.size()", res: Int(4)},
+		{exp: "{a:1,b:2}.replace(m->m.a+m.b)", res: Int(3)},
+		{exp: "\"\"+list(12).group(i->\"n\"+round(i/4),i->i).list().order((a,b)->a.key<b.key)",
+			res: "[{key:n0, value:[0, 1]}, {key:n1, value:[2, 3, 4, 5]}, {key:n2, value:[6, 7, 8, 9]}, {key:n3, value:[10, 11]}]"},
 	}
 
 	valueParser := SetUpParser(New())

@@ -2,6 +2,7 @@ package value
 
 import (
 	"fmt"
+	"github.com/hneemann/iterator"
 	"math"
 )
 
@@ -80,8 +81,13 @@ func Add(a, b Value) Value {
 		}
 	}
 	if aa, ok := a.(String); ok {
-		if bb, ok := b.(String); ok {
-			return aa + bb
+		if bb, ok := b.ToString(); ok {
+			return aa + String(bb)
+		}
+	}
+	if aa, ok := a.(List); ok {
+		if bb, ok := b.(List); ok {
+			return NewListFromIterable(iterator.Append(aa.iterable, bb.iterable))
 		}
 	}
 	if aa, ok := a.ToFloat(); ok {
