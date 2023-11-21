@@ -27,6 +27,11 @@ func Equal(a Value, b Value) bool {
 			return aa.Equals(bb)
 		}
 	}
+	if aa, ok := a.(Map); ok {
+		if bb, ok := b.(Map); ok {
+			return aa.Equals(bb)
+		}
+	}
 	if aa, ok := a.ToFloat(); ok {
 		if bb, ok := b.ToFloat(); ok {
 			return aa == bb
@@ -138,7 +143,7 @@ func Left(a, b Value) Value {
 			return aa << bb
 		}
 	}
-	panic(fmt.Errorf("mul not allowed on %v*%v", a, b))
+	panic(fmt.Errorf("<< not allowed on %v<<%v", a, b))
 }
 func Right(a, b Value) Value {
 	if aa, ok := a.(Int); ok {
@@ -146,7 +151,7 @@ func Right(a, b Value) Value {
 			return aa >> bb
 		}
 	}
-	panic(fmt.Errorf("mul not allowed on %v*%v", a, b))
+	panic(fmt.Errorf(">> not allowed on %v>>%v", a, b))
 }
 
 func Mul(a, b Value) Value {

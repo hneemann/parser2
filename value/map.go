@@ -88,6 +88,26 @@ func (v Map) Size() int {
 	return v.M.Size()
 }
 
+func (v Map) Equals(other Map) bool {
+	if v.Size() != other.Size() {
+		return false
+	}
+	equal := true
+	v.M.Iter(func(key string, v Value) bool {
+		if o, ok := other.Get(key); ok {
+			if !Equal(o, v) {
+				equal = false
+				return false
+			}
+		} else {
+			equal = false
+			return false
+		}
+		return true
+	})
+	return equal
+}
+
 func (v Map) Accept(st funcGen.Stack[Value]) Map {
 	f := toFunc("accept", st, 1, 2)
 	newMap := listMap.New[Value](v.M.Size())
