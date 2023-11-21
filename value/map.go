@@ -8,20 +8,20 @@ import (
 	"github.com/hneemann/parser2/listMap"
 )
 
-type MapImplementation[V any] interface {
+type MapStorage[V any] interface {
 	Get(key string) (V, bool)
 	Iter(yield func(key string, v Value) bool) bool
 	Size() int
 }
 
-type SimpleMap map[string]Value
+type RealMap map[string]Value
 
-func (s SimpleMap) Get(key string) (Value, bool) {
+func (s RealMap) Get(key string) (Value, bool) {
 	v, ok := s[key]
 	return v, ok
 }
 
-func (s SimpleMap) Iter(yield func(key string, v Value) bool) bool {
+func (s RealMap) Iter(yield func(key string, v Value) bool) bool {
 	for k, v := range s {
 		if !yield(k, v) {
 			return false
@@ -30,12 +30,12 @@ func (s SimpleMap) Iter(yield func(key string, v Value) bool) bool {
 	return true
 }
 
-func (s SimpleMap) Size() int {
+func (s RealMap) Size() int {
 	return len(s)
 }
 
 type Map struct {
-	M MapImplementation[Value]
+	M MapStorage[Value]
 }
 
 func (v Map) ToList() (*List, bool) {
@@ -158,6 +158,63 @@ func (v Map) List() *List {
 	})
 }
 
+func (v Map) Get(key string) (Value, bool) {
+	return v.M.Get(key)
+}
+
+func (v Map) IsAvail(stack funcGen.Stack[Value]) Value {
+	if key, ok := stack.Get(1).(String); ok {
+		_, ok := v.M.Get(string(key))
+		return Bool(ok)
+	}
+	panic("isAvail requires a string as argument")
+}
+
+func (v Map) GetM(stack funcGen.Stack[Value]) Value {
+	if key, ok := stack.Get(1).(String); ok {
+		if v, ok := v.M.Get(string(key)); ok {
+			return v
+		} else {
+			panic(fmt.Errorf("key %v not found in map", key))
+		}
+	}
+	panic("get requires a string as argument")
+}
+
+type AppendMap struct {
+	key    string
+	value  Value
+	parent MapStorage[Value]
+}
+
+func (a AppendMap) Get(key string) (Value, bool) {
+	if key == a.key {
+		return a.value, true
+	} else {
+		return a.parent.Get(key)
+	}
+}
+
+func (a AppendMap) Iter(yield func(key string, v Value) bool) bool {
+	if !yield(a.key, a.value) {
+		return false
+	} else {
+		return a.parent.Iter(yield)
+	}
+}
+
+func (a AppendMap) Size() int {
+	return a.parent.Size() + 1
+}
+
+func (v Map) PutM(stack funcGen.Stack[Value]) Map {
+	if key, ok := stack.Get(1).(String); ok {
+		val := stack.Get(2)
+		return Map{AppendMap{key: string(key), value: val, parent: v.M}}
+	}
+	panic("get requires a string as argument")
+}
+
 func methodAtMap(args int, method func(m Map, stack funcGen.Stack[Value]) Value) funcGen.Function[Value] {
 	return funcGen.Function[Value]{Func: func(stack funcGen.Stack[Value], closureStore []Value) Value {
 		if m, ok := stack.Get(0).ToMap(); ok {
@@ -173,13 +230,12 @@ var MapMethods = map[string]funcGen.Function[Value]{
 	"replace": methodAtMap(2, func(m Map, stack funcGen.Stack[Value]) Value { return m.Replace(stack) }),
 	"list":    methodAtMap(1, func(m Map, stack funcGen.Stack[Value]) Value { return m.List() }),
 	"size":    methodAtMap(1, func(m Map, stack funcGen.Stack[Value]) Value { return Int(m.Size()) }),
+	"isAvail": methodAtMap(2, func(m Map, stack funcGen.Stack[Value]) Value { return m.IsAvail(stack) }),
+	"get":     methodAtMap(2, func(m Map, stack funcGen.Stack[Value]) Value { return m.GetM(stack) }),
+	"put":     methodAtMap(3, func(m Map, stack funcGen.Stack[Value]) Value { return m.PutM(stack) }),
 }
 
 func (v Map) GetMethod(name string) (funcGen.Function[Value], bool) {
 	m, ok := MapMethods[name]
 	return m, ok
-}
-
-func (v Map) Get(key string) (Value, bool) {
-	return v.M.Get(key)
 }

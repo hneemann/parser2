@@ -11,12 +11,12 @@ func TestMap_Equals(t *testing.T) {
 		a, b Map
 		want bool
 	}{
-		{name: "empty", a: Map{SimpleMap{}}, b: Map{SimpleMap{}}, want: true},
-		{name: "one empty", a: Map{SimpleMap{"a": Int(1)}}, b: Map{SimpleMap{}}, want: false},
-		{name: "one empty", a: Map{SimpleMap{}}, b: Map{SimpleMap{"a": Int(1)}}, want: false},
-		{name: "not equal", a: Map{SimpleMap{"a": Int(2)}}, b: Map{SimpleMap{"a": Int(1)}}, want: false},
-		{name: "not equal", a: Map{SimpleMap{"a": Int(1)}}, b: Map{SimpleMap{"b": Int(1)}}, want: false},
-		{name: "equal", a: Map{SimpleMap{"a": Int(1)}}, b: Map{SimpleMap{"a": Int(1)}}, want: true},
+		{name: "empty", a: Map{RealMap{}}, b: Map{RealMap{}}, want: true},
+		{name: "one empty", a: Map{RealMap{"a": Int(1)}}, b: Map{RealMap{}}, want: false},
+		{name: "one empty", a: Map{RealMap{}}, b: Map{RealMap{"a": Int(1)}}, want: false},
+		{name: "not equal", a: Map{RealMap{"a": Int(2)}}, b: Map{RealMap{"a": Int(1)}}, want: false},
+		{name: "not equal", a: Map{RealMap{"a": Int(1)}}, b: Map{RealMap{"b": Int(1)}}, want: false},
+		{name: "equal", a: Map{RealMap{"a": Int(1)}}, b: Map{RealMap{"a": Int(1)}}, want: true},
 	}
 	for _, tt := range tests {
 		test := tt

@@ -159,6 +159,14 @@ func TestValueType(t *testing.T) {
 		{exp: "\"Hello World\".toUpper()", res: String("HELLO WORLD")},
 		{exp: "\"Hello World\".contains(\"Wo\")", res: Bool(true)},
 		{exp: "\"Hello World\".contains(\"wo\")", res: Bool(false)},
+
+		{exp: "{a:1,b:2}.isAvail(\"a\")", res: Bool(true)},
+		{exp: "{a:1,b:2}.isAvail(\"c\")", res: Bool(false)},
+		{exp: "{a:1,b:2}.get(\"a\")", res: Int(1)},
+		{exp: "\"\"+{a:1,b:2}.put(\"c\",3)", res: String("{c:3, a:1, b:2}")},
+		{exp: "{a:1,b:2}.put(\"c\",3).c", res: Int(3)},
+		{exp: "{a:1,b:2}.put(\"c\",3).b", res: Int(2)},
+		{exp: "{a:1,b:2}.put(\"c\",3).size()", res: Int(3)},
 	}
 
 	valueParser := SetUpParser(New())

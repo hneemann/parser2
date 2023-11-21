@@ -249,7 +249,7 @@ func (l *List) GroupBy(st funcGen.Stack[Value]) Map {
 		}
 		return true
 	})
-	ma := make(SimpleMap)
+	ma := make(RealMap)
 	for k, l := range m {
 		ma[k] = NewList(*l...)
 	}
