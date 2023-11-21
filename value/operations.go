@@ -173,6 +173,19 @@ func Div(a, b Value) Value {
 }
 
 func Pow(a, b Value) Value {
+	if aa, ok := a.(Int); ok {
+		if bb, ok := b.(Int); ok {
+			if bb > 0 && bb < 10 {
+				n := int(aa)
+				for j := 1; j < int(bb); j++ {
+					n *= int(aa)
+				}
+				return Int(n)
+			} else {
+				return Int(math.Pow(float64(aa), float64(bb)))
+			}
+		}
+	}
 	if aa, ok := a.ToFloat(); ok {
 		if bb, ok := b.ToFloat(); ok {
 			return Float(math.Pow(aa, bb))

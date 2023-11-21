@@ -110,8 +110,23 @@ func (f Float) ToClosure() (funcGen.Function[Value], bool) {
 	return funcGen.Function[Value]{}, false
 }
 
-func (f Float) GetMethod(string) (funcGen.Function[Value], bool) {
-	return funcGen.Function[Value]{}, false
+var FloatMethods = map[string]funcGen.Function[Value]{
+	"int": {
+		Func: func(stack funcGen.Stack[Value], closureStore []Value) Value {
+			if f, ok := stack.Get(0).ToFloat(); ok {
+				return Int(f)
+			} else {
+				panic("not called on a float")
+			}
+		},
+		Args:   1,
+		IsPure: true,
+	},
+}
+
+func (f Float) GetMethod(name string) (funcGen.Function[Value], bool) {
+	m, ok := FloatMethods[name]
+	return m, ok
 }
 
 func (f Float) ToBool() (bool, bool) {
@@ -147,8 +162,19 @@ func (i Int) ToClosure() (funcGen.Function[Value], bool) {
 	return funcGen.Function[Value]{}, false
 }
 
-func (i Int) GetMethod(string) (funcGen.Function[Value], bool) {
-	return funcGen.Function[Value]{}, false
+var IntMethods = map[string]funcGen.Function[Value]{
+	"int": {
+		Func: func(stack funcGen.Stack[Value], closureStore []Value) Value {
+			return stack.Get(0)
+		},
+		Args:   1,
+		IsPure: true,
+	},
+}
+
+func (i Int) GetMethod(name string) (funcGen.Function[Value], bool) {
+	m, ok := IntMethods[name]
+	return m, ok
 }
 
 func (i Int) ToBool() (bool, bool) {
