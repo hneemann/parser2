@@ -32,6 +32,10 @@ func TestErrValue(t *testing.T) {
 		{exp: "(100+err(8))/(10+err(1))", res: ErrValue{10, 2}},
 		{exp: "(10+err(2)).val()", res: value.Float(10)},
 		{exp: "(10+err(2)).err()", res: value.Float(2)},
+		{exp: `let a=10+err(1);
+               let b=20+err(1);
+               let c=30+err(1);
+               (a+b)/c`, res: ErrValue{val: 1, err: 0.10344827586206895}},
 	}
 
 	for _, test := range tests {

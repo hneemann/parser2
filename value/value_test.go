@@ -1,6 +1,7 @@
 package value
 
 import (
+	"bytes"
 	"fmt"
 	"github.com/hneemann/parser2"
 	"github.com/hneemann/parser2/funcGen"
@@ -8,6 +9,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"math"
 	"testing"
+	"unicode"
 )
 
 type testType struct {
@@ -60,8 +62,10 @@ func TestBasic(t *testing.T) {
 		{exp: "let a=2;1<a | 3>4", res: Bool(true)},
 		{exp: "let a=2;1>a | 3>4", res: Bool(false)},
 		{exp: "let a=2;abs(a)", res: Int(2)},
+		{exp: "let a=2;abs(-a)", res: Int(2)},
 		{exp: "let a= -2;abs(a)", res: Int(2)},
 		{exp: "let a=2.0;abs(a)", res: 2.0},
+		{exp: "let a=2.0;abs(-a)", res: 2.0},
 		{exp: "let a= -2.0;abs(a)", res: 2.0},
 		{exp: "let a=5;12%a", res: Int(2)},
 		{exp: "let a=2;sqr(a)", res: Int(4)},
@@ -82,6 +86,7 @@ func TestBasic(t *testing.T) {
 		{exp: "let x=pi;sin(x)", res: 0.0},
 		{exp: "let x=pi;cos(x/2)", res: 0.0},
 		{exp: "let s=3; let f=x->x*x*s;f(2)", res: Int(12)},
+		{exp: "func inv(x) -x; inv(2)", res: Int(-2)},
 		{exp: "func fib(n) if n<=2 then 1 else fib(n-1)+fib(n-2);[fib(10),fib(15)]", res: NewList(Int(55), Int(610))},
 		{exp: "if 1<2 then 1 else 2", res: Int(1)},
 		{exp: "if 1>2 then 1 else 2", res: Int(2)},
@@ -92,6 +97,10 @@ func TestBasic(t *testing.T) {
 		{exp: "func g(a) switch true case a=0:\"Test\" case a=1:\"Hello\" default \"World\"; [g(0),g(1),g(100)]", res: NewList(String("Test"), String("Hello"), String("World"))},
 		{exp: "(3.2).int()", res: Int(3)},
 		{exp: "(3).int()", res: Int(3)},
+		{exp: "let a=1;sprintf()", res: String("")},
+		{exp: "let a=1;sprintf(\"Hello World\")", res: String("Hello World")},
+		{exp: "let a=1;sprintf(\"%v->%v\",a,2)", res: String("1->2")},
+		{exp: "let a=1;sprintf(\"%v->\",a)", res: String("1->")},
 	})
 }
 
@@ -99,7 +108,7 @@ func runTest(t *testing.T, tests []testType) {
 	valueParser := SetUpParser(New())
 	for _, test := range tests {
 		test := test
-		t.Run(test.exp, func(t *testing.T) {
+		t.Run(shrinkSpace(test.exp), func(t *testing.T) {
 			fu, err := valueParser.Generate(test.exp)
 			assert.NoError(t, err, test.exp)
 			if fu != nil {
@@ -119,6 +128,23 @@ func runTest(t *testing.T, tests []testType) {
 			}
 		})
 	}
+}
+
+func shrinkSpace(str string) string {
+	var b bytes.Buffer
+	lastWasSpace := true
+	for _, r := range str {
+		if unicode.IsSpace(r) {
+			if !lastWasSpace {
+				lastWasSpace = true
+				b.WriteRune('_')
+			}
+		} else {
+			b.WriteRune(r)
+			lastWasSpace = false
+		}
+	}
+	return b.String()
 }
 
 func TestOptimizer(t *testing.T) {

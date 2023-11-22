@@ -100,7 +100,9 @@ func (l *List) Append(st funcGen.Stack[Value]) *List {
 	l.Eval()
 	newList := append(l.items, st.Get(1))
 	// ensure a copy operation on the next call to append
-	l.items = l.items[:len(l.items):len(l.items)]
+	if len(l.items) != cap(l.items) {
+		l.items = l.items[:len(l.items):len(l.items)]
+	}
 	return NewList(newList...)
 }
 
