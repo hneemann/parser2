@@ -110,19 +110,7 @@ func (f Float) ToClosure() (funcGen.Function[Value], bool) {
 	return funcGen.Function[Value]{}, false
 }
 
-var FloatMethods = map[string]funcGen.Function[Value]{
-	"int": {
-		Func: func(stack funcGen.Stack[Value], closureStore []Value) Value {
-			if f, ok := stack.Get(0).ToFloat(); ok {
-				return Int(f)
-			} else {
-				panic("not called on a float")
-			}
-		},
-		Args:   1,
-		IsPure: true,
-	},
-}
+var FloatMethods = map[string]funcGen.Function[Value]{}
 
 func (f Float) GetMethod(name string) (funcGen.Function[Value], bool) {
 	m, ok := FloatMethods[name]
@@ -162,15 +150,7 @@ func (i Int) ToClosure() (funcGen.Function[Value], bool) {
 	return funcGen.Function[Value]{}, false
 }
 
-var IntMethods = map[string]funcGen.Function[Value]{
-	"int": {
-		Func: func(stack funcGen.Stack[Value], closureStore []Value) Value {
-			return stack.Get(0)
-		},
-		Args:   1,
-		IsPure: true,
-	},
-}
+var IntMethods = map[string]funcGen.Function[Value]{}
 
 func (i Int) GetMethod(name string) (funcGen.Function[Value], bool) {
 	m, ok := IntMethods[name]
@@ -385,6 +365,17 @@ func New() *funcGen.FunctionGenerator[Value] {
 		AddOp("^", false, Pow).
 		AddUnary("-", func(a Value) Value { return Neg(a) }).
 		AddUnary("!", func(a Value) Value { return Not(a) }).
+		AddStaticFunction("int", funcGen.Function[Value]{
+			Func: func(st funcGen.Stack[Value], cs []Value) Value {
+				v := st.Get(0)
+				if i, ok := v.ToInt(); ok {
+					return Int(i)
+				}
+				panic(fmt.Errorf("int not alowed on %v", v))
+			},
+			Args:   1,
+			IsPure: true,
+		}).
 		AddStaticFunction("abs", funcGen.Function[Value]{
 			Func: func(st funcGen.Stack[Value], cs []Value) Value {
 				v := st.Get(0)

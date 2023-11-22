@@ -95,8 +95,8 @@ func TestBasic(t *testing.T) {
 		{exp: "const a=2;const b=3; a*b", res: Int(6)},
 		{exp: "func g(a) switch a case 0:\"Test\" case 1:\"Hello\" default \"World\"; [g(0),g(1),g(100)]", res: NewList(String("Test"), String("Hello"), String("World"))},
 		{exp: "func g(a) switch true case a=0:\"Test\" case a=1:\"Hello\" default \"World\"; [g(0),g(1),g(100)]", res: NewList(String("Test"), String("Hello"), String("World"))},
-		{exp: "(3.2).int()", res: Int(3)},
-		{exp: "(3).int()", res: Int(3)},
+		{exp: "int(3.2)", res: Int(3)},
+		{exp: "int(3)", res: Int(3)},
 		{exp: "let a=1;sprintf()", res: String("")},
 		{exp: "let a=1;sprintf(\"Hello World\")", res: String("Hello World")},
 		{exp: "let a=1;sprintf(\"%v->%v\",a,2)", res: String("1->2")},
@@ -121,7 +121,7 @@ func runTest(t *testing.T, tests []testType) {
 				} else if expList, ok := test.res.(*List); ok {
 					actList, ok := res.(*List)
 					assert.True(t, ok)
-					assert.EqualValues(t, expList.ToSlice(), actList.ToSlice(), test.exp)
+					assert.Equal(t, expList.ToSlice(), actList.ToSlice(), test.exp)
 				} else {
 					assert.Equal(t, test.res, res, test.exp)
 				}

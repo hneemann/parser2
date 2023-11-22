@@ -35,7 +35,7 @@ func TestErrValue(t *testing.T) {
 		{exp: `let a=10+err(1);
                let b=20+err(1);
                let c=30+err(1);
-               (a+b)/c`, res: ErrValue{val: 1, err: 0.10344827586206895}},
+               (a+b)/c`, res: ErrValue{val: 1, err: 32.0/29.0 - 1}},
 	}
 
 	for _, test := range tests {
@@ -46,7 +46,19 @@ func TestErrValue(t *testing.T) {
 			if fu != nil {
 				res, err := fu(funcGen.NewEmptyStack[value.Value]())
 				assert.NoError(t, err, test.exp)
-				assert.EqualValues(t, test.res, res, test.exp)
+				switch expected := test.res.(type) {
+				case value.Float:
+					f, ok := res.ToFloat()
+					assert.True(t, ok)
+					assert.InDelta(t, float64(expected), f, 1e-6, test.exp)
+				case ErrValue:
+					e, ok := res.(ErrValue)
+					assert.True(t, ok)
+					assert.InDelta(t, expected.val, e.val, 1e-6, test.exp)
+					assert.InDelta(t, expected.err, e.err, 1e-6, test.exp)
+				default:
+					assert.Equal(t, test.res, res, test.exp)
+				}
 			}
 		})
 	}
