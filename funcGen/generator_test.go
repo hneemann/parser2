@@ -4,7 +4,9 @@ import (
 	"fmt"
 	"github.com/hneemann/parser2"
 	"github.com/stretchr/testify/assert"
+	"math"
 	"strconv"
+	"strings"
 	"testing"
 )
 
@@ -16,6 +18,10 @@ type Float float64
 
 func (f Float) Float() float64 {
 	return float64(f)
+}
+
+func (f Float) Sqrt() Float {
+	return Float(math.Sqrt(float64(f)))
 }
 
 func (f Float) String() string {
@@ -137,6 +143,12 @@ func TestFunctionGenerator_Generate(t *testing.T) {
 			exp:      "const c=3; if c then 0 else a",
 			result:   0,
 		},
+		{
+			args:     []string{"a"},
+			argsVals: []Value{Float(2)},
+			exp:      "a.sqrt()",
+			result:   math.Sqrt(2),
+		},
 	}
 
 	for _, te := range tests {
@@ -154,6 +166,16 @@ func TestFunctionGenerator_Generate(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestReflectionError(t *testing.T) {
+	f, err := NewGen().Generate("a.doesNotExist()", "a")
+	assert.NoError(t, err)
+	_, err = f(NewStack[Value](Float(2)))
+	assert.Error(t, err)
+	errStr := err.Error()
+	assert.True(t, strings.Contains(errStr, "method DoesNotExist not found"))
+	assert.True(t, strings.Contains(errStr, "available are: Sqrt()"))
 }
 
 func BenchmarkFunc(b *testing.B) {

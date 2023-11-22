@@ -65,11 +65,6 @@ func (s *Stack[V]) Push(v V) {
 	s.size++
 }
 
-func (s *Stack[V]) Pop() V {
-	s.size--
-	return s.storage.get(s.offs + s.size)
-}
-
 func (s *Stack[V]) CreateFrame(size int) Stack[V] {
 	s.size -= size
 	st := Stack[V]{
@@ -1067,6 +1062,7 @@ func matches[V any](m reflect.Method) error {
 	return nil
 }
 
+/*
 func firstRuneLower(name string) string {
 	r, l := utf8.DecodeRune([]byte(name))
 	if unicode.IsLower(r) {
@@ -1112,3 +1108,4 @@ func PrintMatchingCode[V any](v V) {
 	}
 	fmt.Print("}\n\n\n")
 }
+*/
