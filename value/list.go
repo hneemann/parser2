@@ -224,20 +224,12 @@ func (l *List) IIr(st funcGen.Stack[Value]) *List {
 }
 
 func (l *List) Visit(st funcGen.Stack[Value]) Value {
-	initialFunc := toFunc("visit", st, 1, 1)
+	visitor := st.Get(1)
 	function := toFunc("visit", st, 2, 2)
-	var visitor Value
-	first := true
 	l.iterable()(func(value Value) bool {
-		if first {
-			st.Push(value)
-			visitor = initialFunc.Func(st.CreateFrame(1), nil)
-			first = false
-		} else {
-			st.Push(visitor)
-			st.Push(value)
-			visitor = function.Func(st.CreateFrame(2), nil)
-		}
+		st.Push(visitor)
+		st.Push(value)
+		visitor = function.Func(st.CreateFrame(2), nil)
 		return true
 	})
 	return visitor

@@ -38,22 +38,26 @@ func TestList(t *testing.T) {
 		{exp: "let a=[1,2].append(3);\"\"+[a.append(4), a.append(5)]", res: String("[[1, 2, 3, 4], [1, 2, 3, 5]]")},
 		{exp: "let a=[1,2].append(3);\"\"+[a.append(4), a.append(5)]", res: String("[[1, 2, 3, 4], [1, 2, 3, 5]]")},
 		{exp: "let a=[1,2].append(3);\"\"+[a.append(4), a.append(5)]", res: String("[[1, 2, 3, 4], [1, 2, 3, 5]]")},
-		{exp: "\"\"+list(20).visit(val->[val],(vis,val)->vis.append(val))", res: String("[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19]")},
-		{exp: stateMachine, res: String("[9, 19, 29, 39, 49, 59, 69, 79, 89, 99]")},
+		{exp: "\"\"+list(20).visit([],(vis,val)->vis.append(val))", res: String("[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19]")},
+		{exp: visitAdnCollect, res: String("[9, 19, 29, 39, 49, 59, 69, 79, 89, 99]")},
+		{exp: accept, res: String("[9, 19, 29, 39, 49, 59, 69, 79, 89, 99]")},
 	})
 }
 
-const stateMachine = `
+const visitAdnCollect = `
   let data=list(100).map(i->if i%10=9 then i else 0);
   
   let events=data
-       .visit(
-            i->{last:i, found:[]},
-            (vis,i)->if vis.last<i 
-                     then {last:i, found:vis.found.append(i)}
-                     else {last:i, found:vis.found}
-             )
-       .found;
+       .visit([],(vis,i)->if i!=0 
+                          then vis.append(i)
+                          else vis);
+  ""+events
+`
+
+const accept = `
+  let data=list(100).map(i->if i%10=9 then i else 0);
+  
+  let events=data.accept(i->i!=0);
 
   ""+events
 `
