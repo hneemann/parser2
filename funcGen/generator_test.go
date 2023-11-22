@@ -49,6 +49,8 @@ func NewGen() *FunctionGenerator[Value] {
 	return New[Value]().
 		AddOp("+", true, func(a Value, b Value) Value { return Float(a.Float() + b.Float()) }).
 		AddOp("*", true, func(a Value, b Value) Value { return Float(a.Float() * b.Float()) }).
+		AddUnary("-", func(a Value) Value { return Float(-a.Float()) }).
+		SetToBool(func(c Value) (bool, bool) { return c.Float() != 0, true }).
 		SetClosureHandler(th).
 		SetNumberParser(
 			parser2.NumberParserFunc[Value](
@@ -104,6 +106,36 @@ func TestFunctionGenerator_Generate(t *testing.T) {
 			argsVals: []Value{Float(3), Float(2)},
 			exp:      "let c=1.5;func mul(x) y->y*x*c;mul(b)(a)",
 			result:   9,
+		},
+		{
+			args:     []string{"a"},
+			argsVals: []Value{Float(3)},
+			exp:      "a*(3*3)",
+			result:   27,
+		},
+		{
+			args:     []string{"a"},
+			argsVals: []Value{Float(3)},
+			exp:      "3*a*3",
+			result:   27,
+		},
+		{
+			args:     []string{"a"},
+			argsVals: []Value{Float(3)},
+			exp:      "a*3*3",
+			result:   27,
+		},
+		{
+			args:     []string{"a"},
+			argsVals: []Value{Float(3)},
+			exp:      "const c=3; a*(-c)",
+			result:   -9,
+		},
+		{
+			args:     []string{},
+			argsVals: []Value{},
+			exp:      "const c=3; if c then 0 else a",
+			result:   0,
 		},
 	}
 
