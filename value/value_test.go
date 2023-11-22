@@ -10,11 +10,13 @@ import (
 	"testing"
 )
 
-func TestValueType(t *testing.T) {
-	tests := []struct {
-		exp string
-		res any
-	}{
+type testType struct {
+	exp string
+	res any
+}
+
+func TestBasic(t *testing.T) {
+	runTest(t, []testType{
 		{exp: "1e-7", res: float64(1e-7)},
 		{exp: "1e7", res: float64(1e7)},
 		{exp: "1e+7", res: float64(1e+7)},
@@ -61,6 +63,7 @@ func TestValueType(t *testing.T) {
 		{exp: "let a= -2;abs(a)", res: Int(2)},
 		{exp: "let a=2.0;abs(a)", res: 2.0},
 		{exp: "let a= -2.0;abs(a)", res: 2.0},
+		{exp: "let a=5;12%a", res: Int(2)},
 		{exp: "let a=2;sqr(a)", res: Int(4)},
 		{exp: "let a=2.0;sqr(a)", res: 4.0},
 		{exp: "\"a\"=\"a\"", res: Bool(true)},
@@ -73,16 +76,6 @@ func TestValueType(t *testing.T) {
 		{exp: "\"test\"+\"hello\"", res: String("testhello")},
 		{exp: "sqrt(2)", res: math.Sqrt(2)},
 		{exp: "let x=2;sqrt(x)", res: math.Sqrt(2)},
-		{exp: "{a:1,b:2,c:3}", res: Map{M: listMap.ListMap[Value]{
-			{Key: "a", Value: Int(1)},
-			{Key: "b", Value: Int(2)},
-			{Key: "c", Value: Int(3)},
-		}}},
-		{exp: "{a:1,b:2,c:3}.b", res: Int(2)},
-		{exp: "[1,2,3]", res: NewList(Int(1), Int(2), Int(3))},
-		{exp: "let a=2; [1,a,3]", res: NewList(Int(1), Int(2), Int(3))},
-		{exp: "let a=2;[1,a]+[3,4]", res: NewList(Int(1), Int(2), Int(3), Int(4))},
-		{exp: "[1,2,3][2]", res: Int(3)},
 		{exp: "let a=1;a", res: Int(1)},
 		{exp: "let sqr=x->x*x;sqr(2)", res: Int(4)},
 		{exp: "let x=2;sqr(2)", res: Int(4)},
@@ -94,81 +87,15 @@ func TestValueType(t *testing.T) {
 		{exp: "if 1>2 then 1 else 2", res: Int(2)},
 		{exp: "let a=2; if 1<a then 1 else 2", res: Int(1)},
 		{exp: "let a=2; if 1>a then 1 else 2", res: Int(2)},
-		{exp: "[1,2].replace(l->l[0]+l[1])", res: Int(3)},
-		{exp: "[1,2,3].indexOf(2)", res: Int(1)},
-		{exp: "[1,2,3].indexOf(7)", res: Int(-1)},
-		{exp: "2 ~ [1,2,3]", res: Bool(true)},
-		{exp: "7 ~ [1,2,3]", res: Bool(false)},
-		{exp: "[1,2,3].size()", res: Int(3)},
-		{exp: "[1,2,3]=[1,2,3]", res: Bool(true)},
-		{exp: "[1,2,3]=[1,2,4]", res: Bool(false)},
-		{exp: "[1,2,3]=[1,2]", res: Bool(false)},
-		{exp: "[1,2,3].map(e->e*2)", res: NewList(Int(2), Int(4), Int(6))},
-		{exp: "[1,2,3,4,5].reduce((a,b)->a+b)", res: Int(15)},
-		{exp: "{a:x->x*2,b:x->x*3}.b(4)", res: Int(12)},
 		{exp: "const a=2;const b=3; a*b", res: Int(6)},
 		{exp: "func g(a) switch a case 0:\"Test\" case 1:\"Hello\" default \"World\"; [g(0),g(1),g(100)]", res: NewList(String("Test"), String("Hello"), String("World"))},
 		{exp: "func g(a) switch true case a=0:\"Test\" case a=1:\"Hello\" default \"World\"; [g(0),g(1),g(100)]", res: NewList(String("Test"), String("Hello"), String("World"))},
-		{exp: "[1,2,3].map(i->i*i)", res: NewList(Int(1), Int(4), Int(9))},
-		{exp: "[1,2,3].accept(i->i>1)", res: NewList(Int(2), Int(3))},
-		{exp: "[1,2,3].accept(i->i>1)", res: NewList(Int(2), Int(3))},
-		{exp: "[1,2,3,3].reduce((a,b)->a+b)", res: Int(9)},
 		{exp: "(3.2).int()", res: Int(3)},
 		{exp: "(3).int()", res: Int(3)},
-		// Prefix Sum
-		{exp: "[1,2,3,4,4].iir(i->i,(i,l)->i+l)", res: NewList(Int(1), Int(3), Int(6), Int(10), Int(14))},
-		// Fibonacci Sequence
-		{exp: "list(12).iir(i->[1,1],(i,l)->[l[1],l[0]+l[1]]).map(l->l[0])",
-			res: NewList(Int(1), Int(1), Int(2), Int(3), Int(5), Int(8), Int(13), Int(21), Int(34), Int(55), Int(89), Int(144))},
-		// Low-pass Filter
-		{exp: "list(11).iir(i->0,(i,l)->(1024+l)>>1)",
-			res: NewList(Int(0), Int(512), Int(768), Int(896), Int(960), Int(992), Int(1008), Int(1016), Int(1020), Int(1022), Int(1023))},
-		{exp: "list(6).combine((a,b)->a+b)", res: NewList(Int(1), Int(3), Int(5), Int(7), Int(9))},
-		{exp: "[1,2,3].size()", res: Int(3)},
-		{exp: "{a:1,b:2,c:3}.map((k,v)->v*v)", res: Map{M: listMap.ListMap[Value]{
-			{Key: "a", Value: Int(1)},
-			{Key: "b", Value: Int(4)},
-			{Key: "c", Value: Int(9)},
-		}}},
-		{exp: "{a:1,b:2,c:3}.accept((k,v)->v>1)", res: Map{M: listMap.ListMap[Value]{
-			{Key: "b", Value: Int(2)},
-			{Key: "c", Value: Int(3)},
-		}}},
-		{exp: "{a:1,b:2,c:3}.list()", res: NewList(
-			Map{M: listMap.ListMap[Value]{
-				{Key: "key", Value: String("a")},
-				{Key: "value", Value: Int(1)},
-			}},
-			Map{M: listMap.ListMap[Value]{
-				{Key: "key", Value: String("b")},
-				{Key: "value", Value: Int(2)},
-			}},
-			Map{M: listMap.ListMap[Value]{
-				{Key: "key", Value: String("c")},
-				{Key: "value", Value: Int(3)},
-			}},
-		)},
-		{exp: "{a:1,b:2,c:3,d:-1}.size()", res: Int(4)},
-		{exp: "{a:1,b:2}.replace(m->m.a+m.b)", res: Int(3)},
-		{exp: "\"\"+list(12).group(i->\"n\"+round(i/4),i->i).list().order((a,b)->a.key<b.key)",
-			res: String("[{key:n0, value:[0, 1]}, {key:n1, value:[2, 3, 4, 5]}, {key:n2, value:[6, 7, 8, 9]}, {key:n3, value:[10, 11]}]")},
+	})
+}
 
-		{exp: "\"Hello World\".len()", res: Int(11)},
-		{exp: "\"Hello World\".indexOf(\"Wo\")", res: Int(6)},
-		{exp: "\"Hello World\".toLower()", res: String("hello world")},
-		{exp: "\"Hello World\".toUpper()", res: String("HELLO WORLD")},
-		{exp: "\"Hello World\".contains(\"Wo\")", res: Bool(true)},
-		{exp: "\"Hello World\".contains(\"wo\")", res: Bool(false)},
-
-		{exp: "{a:1,b:2}.isAvail(\"a\")", res: Bool(true)},
-		{exp: "{a:1,b:2}.isAvail(\"c\")", res: Bool(false)},
-		{exp: "{a:1,b:2}.get(\"a\")", res: Int(1)},
-		{exp: "\"\"+{a:1,b:2}.put(\"c\",3)", res: String("{c:3, a:1, b:2}")},
-		{exp: "{a:1,b:2}.put(\"c\",3).c", res: Int(3)},
-		{exp: "{a:1,b:2}.put(\"c\",3).b", res: Int(2)},
-		{exp: "{a:1,b:2}.put(\"c\",3).size()", res: Int(3)},
-	}
-
+func runTest(t *testing.T, tests []testType) {
 	valueParser := SetUpParser(New())
 	for _, test := range tests {
 		test := test

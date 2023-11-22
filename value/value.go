@@ -380,6 +380,7 @@ func New() *funcGen.FunctionGenerator[Value] {
 		AddOp("<<", false, Left).
 		AddOp(">>", false, Right).
 		AddOp("*", true, Mul).
+		AddOp("%", false, Mod).
 		AddOp("/", false, Div).
 		AddOp("^", false, Pow).
 		AddUnary("-", func(a Value) Value { return Neg(a) }).

@@ -1,9 +1,54 @@
 package value
 
 import (
+	"github.com/hneemann/parser2/listMap"
 	"github.com/stretchr/testify/assert"
 	"testing"
 )
+
+func TestMap(t *testing.T) {
+	runTest(t, []testType{
+		{exp: "{a:1,b:2,c:3}", res: Map{M: listMap.ListMap[Value]{
+			{Key: "a", Value: Int(1)},
+			{Key: "b", Value: Int(2)},
+			{Key: "c", Value: Int(3)},
+		}}},
+		{exp: "{a:1,b:2,c:3}.b", res: Int(2)},
+		{exp: "{a:x->x*2,b:x->x*3}.b(4)", res: Int(12)},
+		{exp: "{a:1,b:2,c:3}.map((k,v)->v*v)", res: Map{M: listMap.ListMap[Value]{
+			{Key: "a", Value: Int(1)},
+			{Key: "b", Value: Int(4)},
+			{Key: "c", Value: Int(9)},
+		}}},
+		{exp: "{a:1,b:2,c:3}.accept((k,v)->v>1)", res: Map{M: listMap.ListMap[Value]{
+			{Key: "b", Value: Int(2)},
+			{Key: "c", Value: Int(3)},
+		}}},
+		{exp: "{a:1,b:2,c:3}.list()", res: NewList(
+			Map{M: listMap.ListMap[Value]{
+				{Key: "key", Value: String("a")},
+				{Key: "value", Value: Int(1)},
+			}},
+			Map{M: listMap.ListMap[Value]{
+				{Key: "key", Value: String("b")},
+				{Key: "value", Value: Int(2)},
+			}},
+			Map{M: listMap.ListMap[Value]{
+				{Key: "key", Value: String("c")},
+				{Key: "value", Value: Int(3)},
+			}},
+		)},
+		{exp: "{a:1,b:2,c:3,d:-1}.size()", res: Int(4)},
+		{exp: "{a:1,b:2}.replace(m->m.a+m.b)", res: Int(3)},
+		{exp: "{a:1,b:2}.isAvail(\"a\")", res: Bool(true)},
+		{exp: "{a:1,b:2}.isAvail(\"c\")", res: Bool(false)},
+		{exp: "{a:1,b:2}.get(\"a\")", res: Int(1)},
+		{exp: "\"\"+{a:1,b:2}.put(\"c\",3)", res: String("{c:3, a:1, b:2}")},
+		{exp: "{a:1,b:2}.put(\"c\",3).c", res: Int(3)},
+		{exp: "{a:1,b:2}.put(\"c\",3).b", res: Int(2)},
+		{exp: "{a:1,b:2}.put(\"c\",3).size()", res: Int(3)},
+	})
+}
 
 func TestMap_Equals(t *testing.T) {
 	tests := []struct {

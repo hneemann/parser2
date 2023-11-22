@@ -583,7 +583,7 @@ func simpleIdentifier(r rune) (func(r rune) bool, bool) {
 }
 
 func simpleOperator(r rune) (func(r rune) bool, bool) {
-	const opStr = "+-*/&|!~<=>^"
+	const opStr = "+-*/&|!~<=>^%"
 
 	if strings.ContainsRune(opStr, r) {
 		return func(r rune) bool {

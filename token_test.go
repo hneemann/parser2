@@ -131,6 +131,11 @@ func TestNewTokenizer(t *testing.T) {
 			exp:  "a//ss\n//ss\n\na",
 			want: []Token{{tIdent, "a", 1}, {tIdent, "a", 4}},
 		},
+		{
+			name: "mod",
+			exp:  "a % 10",
+			want: []Token{{tIdent, "a", 1}, {tOperate, "%", 1}, {tNumber, "10", 1}},
+		},
 	}
 
 	for _, test := range tests {

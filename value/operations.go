@@ -153,6 +153,14 @@ func Right(a, b Value) Value {
 	}
 	panic(fmt.Errorf(">> not allowed on %v>>%v", a, b))
 }
+func Mod(a, b Value) Value {
+	if aa, ok := a.(Int); ok {
+		if bb, ok := b.(Int); ok {
+			return aa % bb
+		}
+	}
+	panic(fmt.Errorf("%% not allowed on %v%%%v", a, b))
+}
 
 func Mul(a, b Value) Value {
 	if aa, ok := a.(Int); ok {

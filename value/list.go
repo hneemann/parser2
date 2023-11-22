@@ -93,6 +93,17 @@ func (l *List) ToSlice() []Value {
 	return l.items[0:len(l.items):len(l.items)]
 }
 
+// Append creates a new list with a single element appended
+// The original list remains unchanged while appending element
+// by element is still efficient.
+func (l *List) Append(st funcGen.Stack[Value]) *List {
+	l.Eval()
+	newList := append(l.items, st.Get(1))
+	// ensure a copy operation on the next call to append
+	l.items = l.items[:len(l.items):len(l.items)]
+	return NewList(newList...)
+}
+
 func (l *List) Size() int {
 	l.Eval()
 	return len(l.items)
@@ -212,6 +223,26 @@ func (l *List) IIr(st funcGen.Stack[Value]) *List {
 		}))
 }
 
+func (l *List) Visit(st funcGen.Stack[Value]) Value {
+	initialFunc := toFunc("visit", st, 1, 1)
+	function := toFunc("visit", st, 2, 2)
+	var visitor Value
+	first := true
+	l.iterable()(func(value Value) bool {
+		if first {
+			st.Push(value)
+			visitor = initialFunc.Func(st.CreateFrame(1), nil)
+			first = false
+		} else {
+			st.Push(visitor)
+			st.Push(value)
+			visitor = function.Func(st.CreateFrame(2), nil)
+		}
+		return true
+	})
+	return visitor
+}
+
 func (l *List) Reduce(st funcGen.Stack[Value]) Value {
 	f := toFunc("reduce", st, 1, 2)
 	res, ok := iterator.Reduce[Value](l.iterable, func(a, b Value) Value {
@@ -274,7 +305,9 @@ var ListMethods = map[string]funcGen.Function[Value]{
 	"indexOf": methodAtList(2, func(list *List, stack funcGen.Stack[Value]) Value { return list.IndexOf(stack) }),
 	"group":   methodAtList(3, func(list *List, stack funcGen.Stack[Value]) Value { return list.GroupBy(stack) }),
 	"order":   methodAtList(2, func(list *List, stack funcGen.Stack[Value]) Value { return list.Order(stack) }),
+	"append":  methodAtList(2, func(list *List, stack funcGen.Stack[Value]) Value { return list.Append(stack) }),
 	"iir":     methodAtList(3, func(list *List, stack funcGen.Stack[Value]) Value { return list.IIr(stack) }),
+	"visit":   methodAtList(3, func(list *List, stack funcGen.Stack[Value]) Value { return list.Visit(stack) }),
 	"size":    methodAtList(1, func(list *List, stack funcGen.Stack[Value]) Value { return Int(list.Size()) }),
 }
 
