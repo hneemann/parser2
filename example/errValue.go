@@ -40,27 +40,25 @@ func (e ErrValue) ToClosure() (funcGen.Function[value.Value], bool) {
 	return funcGen.Function[value.Value]{}, false
 }
 
-func (e ErrValue) GetMethod(name string) (funcGen.Function[value.Value], bool) {
-	switch name {
-	case "val":
-		return funcGen.Function[value.Value]{
-			Func: func(stack funcGen.Stack[value.Value], closureStore []value.Value) value.Value {
-				return value.Float(stack.Get(0).(ErrValue).val)
-			},
-			Args:   1,
-			IsPure: true,
-		}, true
-	case "err":
-		return funcGen.Function[value.Value]{
-			Func: func(stack funcGen.Stack[value.Value], closureStore []value.Value) value.Value {
-				return value.Float(stack.Get(0).(ErrValue).err)
-			},
-			Args:   1,
-			IsPure: true,
-		}, true
-	default:
-		return funcGen.Function[value.Value]{}, false
-	}
+var ErrValueMethods = value.MethodMap{
+	"val": funcGen.Function[value.Value]{
+		Func: func(stack funcGen.Stack[value.Value], closureStore []value.Value) value.Value {
+			return value.Float(stack.Get(0).(ErrValue).val)
+		},
+		Args:   1,
+		IsPure: true,
+	},
+	"err": funcGen.Function[value.Value]{
+		Func: func(stack funcGen.Stack[value.Value], closureStore []value.Value) value.Value {
+			return value.Float(stack.Get(0).(ErrValue).err)
+		},
+		Args:   1,
+		IsPure: true,
+	},
+}
+
+func (e ErrValue) GetMethod(name string) (funcGen.Function[value.Value], error) {
+	return ErrValueMethods.Get(name)
 }
 
 func errOperation(name string,

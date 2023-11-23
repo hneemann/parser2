@@ -145,13 +145,12 @@ func (v Map) Replace(st funcGen.Stack[Value]) Value {
 
 func (v Map) List() *List {
 	return NewListFromIterable(func() iterator.Iterator[Value] {
-		return func(f func(Value) bool) bool {
+		return func(yield func(Value) bool) bool {
 			v.M.Iter(func(key string, v Value) bool {
 				m := listMap.New[Value](2)
 				m.Put("key", String(key))
 				m.Put("value", v)
-				f(Map{m})
-				return true
+				return yield(Map{m})
 			})
 			return true
 		}
@@ -215,27 +214,17 @@ func (v Map) PutM(stack funcGen.Stack[Value]) Map {
 	panic("get requires a string as argument")
 }
 
-func methodAtMap(args int, method func(m Map, stack funcGen.Stack[Value]) Value) funcGen.Function[Value] {
-	return funcGen.Function[Value]{Func: func(stack funcGen.Stack[Value], closureStore []Value) Value {
-		if m, ok := stack.Get(0).ToMap(); ok {
-			return method(m, stack)
-		}
-		panic("call of map method on non map")
-	}, Args: args, IsPure: true}
+var MapMethods = MethodMap{
+	"accept":  methodAtType(2, func(m Map, stack funcGen.Stack[Value]) Value { return m.Accept(stack) }),
+	"map":     methodAtType(2, func(m Map, stack funcGen.Stack[Value]) Value { return m.Map(stack) }),
+	"replace": methodAtType(2, func(m Map, stack funcGen.Stack[Value]) Value { return m.Replace(stack) }),
+	"list":    methodAtType(1, func(m Map, stack funcGen.Stack[Value]) Value { return m.List() }),
+	"size":    methodAtType(1, func(m Map, stack funcGen.Stack[Value]) Value { return Int(m.Size()) }),
+	"isAvail": methodAtType(2, func(m Map, stack funcGen.Stack[Value]) Value { return m.IsAvail(stack) }),
+	"get":     methodAtType(2, func(m Map, stack funcGen.Stack[Value]) Value { return m.GetM(stack) }),
+	"put":     methodAtType(3, func(m Map, stack funcGen.Stack[Value]) Value { return m.PutM(stack) }),
 }
 
-var MapMethods = map[string]funcGen.Function[Value]{
-	"accept":  methodAtMap(2, func(m Map, stack funcGen.Stack[Value]) Value { return m.Accept(stack) }),
-	"map":     methodAtMap(2, func(m Map, stack funcGen.Stack[Value]) Value { return m.Map(stack) }),
-	"replace": methodAtMap(2, func(m Map, stack funcGen.Stack[Value]) Value { return m.Replace(stack) }),
-	"list":    methodAtMap(1, func(m Map, stack funcGen.Stack[Value]) Value { return m.List() }),
-	"size":    methodAtMap(1, func(m Map, stack funcGen.Stack[Value]) Value { return Int(m.Size()) }),
-	"isAvail": methodAtMap(2, func(m Map, stack funcGen.Stack[Value]) Value { return m.IsAvail(stack) }),
-	"get":     methodAtMap(2, func(m Map, stack funcGen.Stack[Value]) Value { return m.GetM(stack) }),
-	"put":     methodAtMap(3, func(m Map, stack funcGen.Stack[Value]) Value { return m.PutM(stack) }),
-}
-
-func (v Map) GetMethod(name string) (funcGen.Function[Value], bool) {
-	m, ok := MapMethods[name]
-	return m, ok
+func (v Map) GetMethod(name string) (funcGen.Function[Value], error) {
+	return MapMethods.Get(name)
 }

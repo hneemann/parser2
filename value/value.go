@@ -18,7 +18,7 @@ type Value interface {
 	ToString() (string, bool)
 	ToBool() (bool, bool)
 	ToClosure() (funcGen.Function[Value], bool)
-	GetMethod(name string) (funcGen.Function[Value], bool)
+	GetMethod(name string) (funcGen.Function[Value], error)
 }
 
 type Closure funcGen.Function[Value]
@@ -47,8 +47,8 @@ func (c Closure) ToBool() (bool, bool) {
 	return false, false
 }
 
-func (c Closure) GetMethod(string) (funcGen.Function[Value], bool) {
-	return funcGen.Function[Value]{}, false
+func (c Closure) GetMethod(name string) (funcGen.Function[Value], error) {
+	return funcGen.Function[Value]{}, fmt.Errorf("method %s for found", name)
 }
 
 func (c Closure) ToClosure() (funcGen.Function[Value], bool) {
@@ -84,8 +84,10 @@ func (b Bool) ToClosure() (funcGen.Function[Value], bool) {
 	return funcGen.Function[Value]{}, false
 }
 
-func (b Bool) GetMethod(string) (funcGen.Function[Value], bool) {
-	return funcGen.Function[Value]{}, false
+var BoolMethods = MethodMap{}
+
+func (b Bool) GetMethod(name string) (funcGen.Function[Value], error) {
+	return BoolMethods.Get(name)
 }
 
 func (b Bool) ToBool() (bool, bool) {
@@ -110,11 +112,10 @@ func (f Float) ToClosure() (funcGen.Function[Value], bool) {
 	return funcGen.Function[Value]{}, false
 }
 
-var FloatMethods = map[string]funcGen.Function[Value]{}
+var FloatMethods = MethodMap{}
 
-func (f Float) GetMethod(name string) (funcGen.Function[Value], bool) {
-	m, ok := FloatMethods[name]
-	return m, ok
+func (f Float) GetMethod(name string) (funcGen.Function[Value], error) {
+	return FloatMethods.Get(name)
 }
 
 func (f Float) ToBool() (bool, bool) {
@@ -150,11 +151,10 @@ func (i Int) ToClosure() (funcGen.Function[Value], bool) {
 	return funcGen.Function[Value]{}, false
 }
 
-var IntMethods = map[string]funcGen.Function[Value]{}
+var IntMethods = MethodMap{}
 
-func (i Int) GetMethod(name string) (funcGen.Function[Value], bool) {
-	m, ok := IntMethods[name]
-	return m, ok
+func (i Int) GetMethod(name string) (funcGen.Function[Value], error) {
+	return IntMethods.Get(name)
 }
 
 func (i Int) ToBool() (bool, bool) {
@@ -191,10 +191,11 @@ func (f factory) FromString(s string) Value {
 }
 
 func (f factory) GetMethod(value Value, methodName string) (funcGen.Function[Value], error) {
-	if m, ok := value.GetMethod(methodName); ok {
-		return m, nil
+	m, err := value.GetMethod(methodName)
+	if err != nil {
+		return funcGen.Function[Value]{}, err
 	} else {
-		return funcGen.Function[Value]{}, fmt.Errorf("method not found: %s", methodName)
+		return m, nil
 	}
 }
 

@@ -5,7 +5,9 @@ import (
 	"fmt"
 	"github.com/hneemann/iterator"
 	"github.com/hneemann/parser2/funcGen"
+	"github.com/hneemann/parser2/listMap"
 	"sort"
+	"strconv"
 )
 
 func NewList(items ...Value) *List {
@@ -255,59 +257,95 @@ func (l *List) Replace(st funcGen.Stack[Value]) Value {
 	return f.Eval(st, l)
 }
 
-func (l *List) GroupBy(st funcGen.Stack[Value]) Map {
-	keyFunc := toFunc("groupBy", st, 1, 1)
-	valueFunc := toFunc("groupBy", st, 2, 1)
-	m := make(map[string]*[]Value)
-	l.iterable()(func(value Value) bool {
-		k := keyFunc.Eval(st, value)
-		v := valueFunc.Eval(st, value)
-		if key, ok := k.ToString(); ok {
-			if l, ok := m[key]; ok {
-				*l = append(*l, v)
-			} else {
-				ll := []Value{v}
-				m[key] = &ll
-			}
+func (l *List) GroupByString(st funcGen.Stack[Value]) *List {
+	keyFunc := toFunc("groupByString", st, 1, 1)
+	return GroupBy(l, func(value Value) Value {
+		st.Push(value)
+		key := keyFunc.Func(st.CreateFrame(1), nil)
+		if str, ok := key.ToString(); ok {
+			return String(str)
 		} else {
-			panic("groupBy requires a string as key type")
+			panic("groupByString requires strings as key")
+		}
+	})
+}
+
+func (l *List) GroupByInt(st funcGen.Stack[Value]) *List {
+	keyFunc := toFunc("groupByInt", st, 1, 1)
+	return GroupBy(l, func(value Value) Value {
+		st.Push(value)
+		key := keyFunc.Func(st.CreateFrame(1), nil)
+		if i, ok := key.ToInt(); ok {
+			return Int(i)
+		} else {
+			panic("groupByInt requires an int as key")
+		}
+	})
+}
+
+func GroupBy(list *List, keyFunc func(Value) Value) *List {
+	m := make(map[Value]*[]Value)
+	list.iterable()(func(value Value) bool {
+		key := keyFunc(value)
+		if l, ok := m[key]; ok {
+			*l = append(*l, value)
+		} else {
+			ll := []Value{value}
+			m[key] = &ll
 		}
 		return true
 	})
-	ma := make(RealMap)
-	for k, l := range m {
-		ma[k] = NewList(*l...)
+	var result []Value
+	for k, v := range m {
+		entry := listMap.New[Value](2)
+		entry.Put("key", k)
+		entry.Put("value", NewList(*v...))
+		result = append(result, Map{entry})
 	}
-	return Map{ma}
+	return NewList(result...)
 }
 
-func methodAtList(args int, method func(list *List, stack funcGen.Stack[Value]) Value) funcGen.Function[Value] {
+func methodAtType[V Value](args int, method func(obj V, stack funcGen.Stack[Value]) Value) funcGen.Function[Value] {
 	return funcGen.Function[Value]{Func: func(stack funcGen.Stack[Value], closureStore []Value) Value {
-		if obj, ok := stack.Get(0).ToList(); ok {
+		if obj, ok := stack.Get(0).(V); ok {
 			return method(obj, stack)
 		}
-		panic("call of list method on non list")
+		panic("internal error: call of method on wrong type")
 	}, Args: args, IsPure: true}
 }
 
-var ListMethods = map[string]funcGen.Function[Value]{
-	"accept":  methodAtList(2, func(list *List, stack funcGen.Stack[Value]) Value { return list.Accept(stack) }),
-	"map":     methodAtList(2, func(list *List, stack funcGen.Stack[Value]) Value { return list.Map(stack) }),
-	"reduce":  methodAtList(2, func(list *List, stack funcGen.Stack[Value]) Value { return list.Reduce(stack) }),
-	"replace": methodAtList(2, func(list *List, stack funcGen.Stack[Value]) Value { return list.Replace(stack) }),
-	"combine": methodAtList(2, func(list *List, stack funcGen.Stack[Value]) Value { return list.Combine(stack) }),
-	"indexOf": methodAtList(2, func(list *List, stack funcGen.Stack[Value]) Value { return list.IndexOf(stack) }),
-	"group":   methodAtList(3, func(list *List, stack funcGen.Stack[Value]) Value { return list.GroupBy(stack) }),
-	"order":   methodAtList(2, func(list *List, stack funcGen.Stack[Value]) Value { return list.Order(stack) }),
-	"append":  methodAtList(2, func(list *List, stack funcGen.Stack[Value]) Value { return list.Append(stack) }),
-	"iir":     methodAtList(3, func(list *List, stack funcGen.Stack[Value]) Value { return list.IIr(stack) }),
-	"visit":   methodAtList(3, func(list *List, stack funcGen.Stack[Value]) Value { return list.Visit(stack) }),
-	"size":    methodAtList(1, func(list *List, stack funcGen.Stack[Value]) Value { return Int(list.Size()) }),
+type MethodMap map[string]funcGen.Function[Value]
+
+func (mm MethodMap) Get(name string) (funcGen.Function[Value], error) {
+	if m, ok := mm[name]; ok {
+		return m, nil
+	}
+	var l []string
+	for k, f := range mm {
+		l = append(l, k+"("+strconv.Itoa(f.Args-1)+")")
+	}
+	sort.Strings(l)
+	return funcGen.Function[Value]{}, fmt.Errorf("method '%s' not found; available are %v", name, l)
 }
 
-func (l *List) GetMethod(name string) (funcGen.Function[Value], bool) {
-	m, ok := ListMethods[name]
-	return m, ok
+var ListMethods = MethodMap{
+	"accept":        methodAtType(2, func(list *List, stack funcGen.Stack[Value]) Value { return list.Accept(stack) }),
+	"map":           methodAtType(2, func(list *List, stack funcGen.Stack[Value]) Value { return list.Map(stack) }),
+	"reduce":        methodAtType(2, func(list *List, stack funcGen.Stack[Value]) Value { return list.Reduce(stack) }),
+	"replace":       methodAtType(2, func(list *List, stack funcGen.Stack[Value]) Value { return list.Replace(stack) }),
+	"combine":       methodAtType(2, func(list *List, stack funcGen.Stack[Value]) Value { return list.Combine(stack) }),
+	"indexOf":       methodAtType(2, func(list *List, stack funcGen.Stack[Value]) Value { return list.IndexOf(stack) }),
+	"groupByString": methodAtType(2, func(list *List, stack funcGen.Stack[Value]) Value { return list.GroupByString(stack) }),
+	"groupByInt":    methodAtType(2, func(list *List, stack funcGen.Stack[Value]) Value { return list.GroupByInt(stack) }),
+	"order":         methodAtType(2, func(list *List, stack funcGen.Stack[Value]) Value { return list.Order(stack) }),
+	"append":        methodAtType(2, func(list *List, stack funcGen.Stack[Value]) Value { return list.Append(stack) }),
+	"iir":           methodAtType(3, func(list *List, stack funcGen.Stack[Value]) Value { return list.IIr(stack) }),
+	"visit":         methodAtType(3, func(list *List, stack funcGen.Stack[Value]) Value { return list.Visit(stack) }),
+	"size":          methodAtType(1, func(list *List, stack funcGen.Stack[Value]) Value { return Int(list.Size()) }),
+}
+
+func (l *List) GetMethod(name string) (funcGen.Function[Value], error) {
+	return ListMethods.Get(name)
 }
 
 func (l *List) Equals(other *List) bool {

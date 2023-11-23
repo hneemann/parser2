@@ -51,24 +51,14 @@ func (s String) IndexOf(st funcGen.Stack[Value]) Value {
 	}
 }
 
-func methodAtString(args int, method func(str String, stack funcGen.Stack[Value]) Value) funcGen.Function[Value] {
-	return funcGen.Function[Value]{Func: func(stack funcGen.Stack[Value], closureStore []Value) Value {
-		if obj, ok := stack.Get(0).ToString(); ok {
-			return method(String(obj), stack)
-		}
-		panic("call of list method on non list")
-	}, Args: args, IsPure: true}
+var StringMethods = MethodMap{
+	"len":      methodAtType(1, func(str String, stack funcGen.Stack[Value]) Value { return Int(len(string(str))) }),
+	"toLower":  methodAtType(1, func(str String, stack funcGen.Stack[Value]) Value { return String(strings.ToLower(string(str))) }),
+	"toUpper":  methodAtType(1, func(str String, stack funcGen.Stack[Value]) Value { return String(strings.ToUpper(string(str))) }),
+	"contains": methodAtType(2, func(str String, stack funcGen.Stack[Value]) Value { return str.Contains(stack) }),
+	"indexOf":  methodAtType(2, func(str String, stack funcGen.Stack[Value]) Value { return str.IndexOf(stack) }),
 }
 
-var StringMethods = map[string]funcGen.Function[Value]{
-	"len":      methodAtString(1, func(str String, stack funcGen.Stack[Value]) Value { return Int(len(string(str))) }),
-	"toLower":  methodAtString(1, func(str String, stack funcGen.Stack[Value]) Value { return String(strings.ToLower(string(str))) }),
-	"toUpper":  methodAtString(1, func(str String, stack funcGen.Stack[Value]) Value { return String(strings.ToUpper(string(str))) }),
-	"contains": methodAtString(2, func(str String, stack funcGen.Stack[Value]) Value { return str.Contains(stack) }),
-	"indexOf":  methodAtString(2, func(str String, stack funcGen.Stack[Value]) Value { return str.IndexOf(stack) }),
-}
-
-func (s String) GetMethod(name string) (funcGen.Function[Value], bool) {
-	m, ok := StringMethods[name]
-	return m, ok
+func (s String) GetMethod(name string) (funcGen.Function[Value], error) {
+	return StringMethods.Get(name)
 }

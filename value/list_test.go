@@ -33,14 +33,16 @@ func TestList(t *testing.T) {
 			res: NewList(Int(0), Int(512), Int(768), Int(896), Int(960), Int(992), Int(1008), Int(1016), Int(1020), Int(1022), Int(1023))},
 		{exp: "list(6).combine((a,b)->a+b)", res: NewList(Int(1), Int(3), Int(5), Int(7), Int(9))},
 		{exp: "[1,2,3].size()", res: Int(3)},
-		{exp: "\"\"+list(12).group(i->\"n\"+round(i/4),i->i).list().order((a,b)->a.key<b.key)",
-			res: String("[{key:n0, value:[0, 1]}, {key:n1, value:[2, 3, 4, 5]}, {key:n2, value:[6, 7, 8, 9]}, {key:n3, value:[10, 11]}]")},
 		{exp: "let a=[1,2].append(3);\"\"+[a.append(4), a.append(5)]", res: String("[[1, 2, 3, 4], [1, 2, 3, 5]]")},
 		{exp: "let a=[1,2].append(3);\"\"+[a.append(4), a.append(5)]", res: String("[[1, 2, 3, 4], [1, 2, 3, 5]]")},
 		{exp: "let a=[1,2].append(3);\"\"+[a.append(4), a.append(5)]", res: String("[[1, 2, 3, 4], [1, 2, 3, 5]]")},
 		{exp: "\"\"+list(20).visit([],(vis,val)->vis.append(val))", res: String("[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19]")},
 		{exp: visitAdnCollect, res: String("[9, 19, 29, 39, 49, 59, 69, 79, 89, 99]")},
 		{exp: accept, res: String("[9, 19, 29, 39, 49, 59, 69, 79, 89, 99]")},
+		{exp: "\"\"+list(12).groupByString(i->\"n\"+round(i/4)).order((a,b)->a.key<b.key)",
+			res: String("[{key:n0, value:[0, 1]}, {key:n1, value:[2, 3, 4, 5]}, {key:n2, value:[6, 7, 8, 9]}, {key:n3, value:[10, 11]}]")},
+		{exp: "\"\"+list(12).groupByInt(i->round(i/4)).order((a,b)->a.key<b.key)",
+			res: String("[{key:0, value:[0, 1]}, {key:1, value:[2, 3, 4, 5]}, {key:2, value:[6, 7, 8, 9]}, {key:3, value:[10, 11]}]")},
 	})
 }
 
