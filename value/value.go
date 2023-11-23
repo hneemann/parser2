@@ -103,7 +103,7 @@ func (f Float) ToMap() (Map, bool) {
 }
 
 func (f Float) ToString() (string, bool) {
-	return "", false
+	return strconv.FormatFloat(float64(f), 'g', -1, 64), true
 }
 
 func (f Float) ToClosure() (funcGen.Function[Value], bool) {
@@ -365,6 +365,28 @@ func New() *funcGen.FunctionGenerator[Value] {
 		AddOp("^", false, Pow).
 		AddUnary("-", func(a Value) Value { return Neg(a) }).
 		AddUnary("!", func(a Value) Value { return Not(a) }).
+		AddStaticFunction("string", funcGen.Function[Value]{
+			Func: func(st funcGen.Stack[Value], cs []Value) Value {
+				v := st.Get(0)
+				if s, ok := v.ToString(); ok {
+					return String(s)
+				}
+				panic(fmt.Errorf("string not alowed on %v", v))
+			},
+			Args:   1,
+			IsPure: true,
+		}).
+		AddStaticFunction("float", funcGen.Function[Value]{
+			Func: func(st funcGen.Stack[Value], cs []Value) Value {
+				v := st.Get(0)
+				if f, ok := v.ToFloat(); ok {
+					return Float(f)
+				}
+				panic(fmt.Errorf("float not alowed on %v", v))
+			},
+			Args:   1,
+			IsPure: true,
+		}).
 		AddStaticFunction("int", funcGen.Function[Value]{
 			Func: func(st funcGen.Stack[Value], cs []Value) Value {
 				v := st.Get(0)
