@@ -8,8 +8,8 @@ import (
 	"github.com/hneemann/parser2/listMap"
 )
 
-type MapStorage[V any] interface {
-	Get(key string) (V, bool)
+type MapStorage interface {
+	Get(key string) (Value, bool)
 	Iter(yield func(key string, v Value) bool) bool
 	Size() int
 }
@@ -35,7 +35,7 @@ func (s RealMap) Size() int {
 }
 
 type Map struct {
-	M MapStorage[Value]
+	M MapStorage
 }
 
 func (v Map) ToList() (*List, bool) {
@@ -183,7 +183,7 @@ func (v Map) GetM(stack funcGen.Stack[Value]) Value {
 type AppendMap struct {
 	key    string
 	value  Value
-	parent MapStorage[Value]
+	parent MapStorage
 }
 
 func (a AppendMap) Get(key string) (Value, bool) {
