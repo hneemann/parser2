@@ -60,25 +60,28 @@ type Tokenizer struct {
 
 type Matcher func(r rune) (func(r rune) bool, bool)
 
-type Detect func(r rune) Detect
+type Detect func(r rune) (Detect, bool)
 
 func NewDetect(operators []string) Detect {
-	if len(operators) == 0 {
-		return func(r rune) Detect {
-			return nil
+	if len(operators) == 1 && operators[0] == "" {
+		return func(r rune) (Detect, bool) {
+			return nil, true
 		}
 	}
 
 	m := map[rune]*[]string{}
+	endIsValid := false
 	for _, op := range operators {
 		r, n := utf8.DecodeRuneInString(op)
-		remainingOp := op[n:]
-		l, ok := m[r]
-		if !ok {
-			l = &[]string{}
-			m[r] = l
-		}
-		if len(remainingOp) > 0 {
+		if n == 0 {
+			endIsValid = true
+		} else {
+			remainingOp := op[n:]
+			l, ok := m[r]
+			if !ok {
+				l = &[]string{}
+				m[r] = l
+			}
 			*l = append(*l, remainingOp)
 		}
 	}
@@ -92,13 +95,13 @@ func NewDetect(operators []string) Detect {
 	for r, l := range m {
 		rl = append(rl, runeListEntry{r: r, f: NewDetect(*l)})
 	}
-	return func(r rune) Detect {
+	return func(r rune) (Detect, bool) {
 		for _, rle := range rl {
 			if rle.r == r {
-				return rle.f
+				return rle.f, true
 			}
 		}
-		return nil
+		return nil, endIsValid
 	}
 }
 
@@ -226,15 +229,16 @@ func (t *Tokenizer) run(tokens chan<- Token) {
 
 func (t *Tokenizer) parseOperator() (string, bool) {
 	r := t.next(false)
-	if d := t.operatorDetect(r); d != nil {
+	if d, _ := t.operatorDetect(r); d != nil {
 		op := string(r)
 		for {
 			r = t.next(false)
-			if d = d(r); d != nil {
+			var ok bool
+			if d, ok = d(r); d != nil {
 				op += string(r)
 			} else {
 				t.unread()
-				return op, true
+				return op, ok
 			}
 		}
 	} else {

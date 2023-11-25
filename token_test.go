@@ -152,6 +152,46 @@ func TestNewTokenizer(t *testing.T) {
 	}
 }
 
+func TestOperatorDetect(t *testing.T) {
+	tests := []struct {
+		name string
+		exp  string
+		op   []string
+		want []Token
+	}{
+		{
+			name: "op1",
+			exp:  "+--->",
+			op:   []string{"+", "--", "->"},
+			want: []Token{{tOperate, "+", 1}, {tOperate, "--", 1}, {tOperate, "->", 1}},
+		},
+		{
+			name: "op2",
+			exp:  "+-+",
+			op:   []string{"+", "--", "->"},
+			want: []Token{{tOperate, "+", 1}, {tInvalid, "-", 1}, {tOperate, "+", 1}},
+		},
+		{
+			name: "op3",
+			exp:  "+-->",
+			op:   []string{"+", "-", "->"},
+			want: []Token{{tOperate, "+", 1}, {tOperate, "-", 1}, {tOperate, "->", 1}},
+		},
+	}
+
+	for _, tt := range tests {
+		test := tt
+		t.Run(test.name, func(t *testing.T) {
+			tok := NewTokenizer(test.exp, simpleNumber, simpleIdentifier, NewDetect(test.op), map[string]string{}, true)
+			for _, to := range test.want {
+				assert.EqualValues(t, to, tok.Next())
+			}
+			assert.EqualValues(t, TokenEof, tok.Next())
+			assert.EqualValues(t, TokenEof, tok.Next())
+		})
+	}
+}
+
 func TestNewTokenizerNoComment(t *testing.T) {
 	tests := []struct {
 		name string
@@ -200,7 +240,7 @@ func TestNewTokenizerNoComment(t *testing.T) {
 		},
 	}
 
-	detect := NewDetect([]string{"//", "->", "/="})
+	detect := NewDetect([]string{"//", "->", "/=", "-", "/"})
 	for _, test := range tests {
 		test := test
 		t.Run(test.name, func(t *testing.T) {
