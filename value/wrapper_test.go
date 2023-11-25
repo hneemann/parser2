@@ -1,7 +1,6 @@
 package value
 
 import (
-	"fmt"
 	"github.com/stretchr/testify/assert"
 	"testing"
 )
@@ -45,10 +44,10 @@ func TestToMap(t *testing.T) {
 	assert.True(t, cOk)
 	assert.Equal(t, Float(1.5), c)
 
-	var s string
+	is := map[string]Value{}
 	m.M.Iter(func(key string, v Value) bool {
-		s += fmt.Sprintf("%s:%v ", key, v)
+		is[key] = v
 		return true
 	})
-	assert.Equal(t, "a:1 b:2 c:1.5 ", s)
+	assert.Equal(t, Map{RealMap{"a": Int(1), "b": Int(2), "c": Float(1.5)}}, Map{RealMap(is)})
 }
