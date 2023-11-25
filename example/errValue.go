@@ -120,7 +120,7 @@ var ErrValueParser = value.SetUpParser(value.New().
 	AddOp("/", true, errOperation("/", value.Div,
 		func(a, b ErrValue) ErrValue {
 			val := a.val / b.val
-			return ErrValue{val, math.Abs((math.Abs(a.val)+a.err)/(math.Abs(b.val)-b.err) - val)}
+			return ErrValue{val, (math.Abs(a.val)+a.err)/(math.Abs(b.val)-b.err) - math.Abs(val)}
 		}),
 	).
 	AddOp("+-", false, func(a value.Value, b value.Value) value.Value {
