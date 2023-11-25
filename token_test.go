@@ -177,6 +177,18 @@ func TestOperatorDetect(t *testing.T) {
 			op:   []string{"+", "-", "->"},
 			want: []Token{{tOperate, "+", 1}, {tOperate, "-", 1}, {tOperate, "->", 1}},
 		},
+		{
+			name: "op3",
+			exp:  "+-+---+",
+			op:   []string{"+", "-", "---"},
+			want: []Token{{tOperate, "+", 1}, {tOperate, "-", 1}, {tOperate, "+", 1}, {tOperate, "---", 1}, {tOperate, "+", 1}},
+		},
+		{
+			name: "op3",
+			exp:  "+-+--+",
+			op:   []string{"+", "-", "---"},
+			want: []Token{{tOperate, "+", 1}, {tOperate, "-", 1}, {tOperate, "+", 1}, {tInvalid, "--", 1}, {tOperate, "+", 1}},
+		},
 	}
 
 	for _, tt := range tests {
