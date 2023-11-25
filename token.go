@@ -216,7 +216,6 @@ func (t *Tokenizer) run(tokens chan<- Token) {
 					tokens <- Token{tIdent, image, t.getLine()}
 				}
 			} else {
-				t.unread()
 				if op, ok := t.parseOperator(); ok {
 					tokens <- Token{tOperate, op, t.getLine()}
 				} else {
