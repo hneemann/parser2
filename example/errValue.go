@@ -123,6 +123,14 @@ var ErrValueParser = value.SetUpParser(value.New().
 			return ErrValue{val, math.Abs((math.Abs(a.val)+a.err)/(math.Abs(b.val)-b.err) - val)}
 		}),
 	).
+	AddOp("+-", false, func(a value.Value, b value.Value) value.Value {
+		if v, ok := a.ToFloat(); ok {
+			if e, ok := b.ToFloat(); ok {
+				return ErrValue{v, math.Abs(e)}
+			}
+		}
+		panic(fmt.Errorf("+- not allowed on %v/%v", a, b))
+	}).
 	AddStaticFunction("err", funcGen.Function[value.Value]{
 		Func:   toErr,
 		Args:   1,
