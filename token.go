@@ -44,36 +44,79 @@ func (t Token) String() string {
 }
 
 type Tokenizer struct {
-	str           string
-	isLast        bool
-	last          rune
-	tok           chan Token
-	tokenAvail    int
-	token         [2]Token
-	line          Line
-	number        Matcher
-	identifier    Matcher
-	operator      Matcher
-	textOperators map[string]string
-	allowComments bool
+	str            string
+	isLast         bool
+	last           rune
+	tok            chan Token
+	tokenAvail     int
+	token          [2]Token
+	line           Line
+	number         Matcher
+	identifier     Matcher
+	operatorDetect Detect
+	textOperators  map[string]string
+	allowComments  bool
 }
 
 type Matcher func(r rune) (func(r rune) bool, bool)
 
-func NewTokenizer(text string, number, identifier, operator Matcher, textOp map[string]string, allowComments bool) *Tokenizer {
+type Detect func(r rune) Detect
+
+func NewDetect(operators []string) Detect {
+	if len(operators) == 0 {
+		return func(r rune) Detect {
+			return nil
+		}
+	}
+
+	m := map[rune]*[]string{}
+	for _, op := range operators {
+		r, n := utf8.DecodeRuneInString(op)
+		remainingOp := op[n:]
+		l, ok := m[r]
+		if !ok {
+			l = &[]string{}
+			m[r] = l
+		}
+		if len(remainingOp) > 0 {
+			*l = append(*l, remainingOp)
+		}
+	}
+
+	type runeListEntry struct {
+		r rune
+		f Detect
+	}
+
+	var rl []runeListEntry
+	for r, l := range m {
+		rl = append(rl, runeListEntry{r: r, f: NewDetect(*l)})
+	}
+	return func(r rune) Detect {
+		for _, rle := range rl {
+			if rle.r == r {
+				return rle.f
+			}
+		}
+		return nil
+	}
+}
+
+func NewTokenizer(text string, number, identifier Matcher, operatorDetect Detect, textOp map[string]string, allowComments bool) *Tokenizer {
 	t := make(chan Token)
 	tok := &Tokenizer{
-		str:           text,
-		textOperators: textOp,
-		number:        number,
-		identifier:    identifier,
-		operator:      operator,
-		allowComments: allowComments,
-		line:          1,
-		tok:           t}
+		str:            text,
+		textOperators:  textOp,
+		number:         number,
+		identifier:     identifier,
+		operatorDetect: operatorDetect,
+		allowComments:  allowComments,
+		line:           1,
+		tok:            t}
 	go tok.run(t)
 	return tok
 }
+
 func (t *Tokenizer) Peek() Token {
 	return t.forward(1)
 }
@@ -169,13 +212,33 @@ func (t *Tokenizer) run(tokens chan<- Token) {
 				} else {
 					tokens <- Token{tIdent, image, t.getLine()}
 				}
-			} else if f, ok := t.operator(c); ok {
-				image := t.read(f)
-				tokens <- Token{tOperate, image, t.getLine()}
 			} else {
-				tokens <- Token{tInvalid, string(t.peek(true)), t.getLine()}
+				t.unread()
+				if op, ok := t.parseOperator(); ok {
+					tokens <- Token{tOperate, op, t.getLine()}
+				} else {
+					tokens <- Token{tInvalid, op, t.getLine()}
+				}
 			}
 		}
+	}
+}
+
+func (t *Tokenizer) parseOperator() (string, bool) {
+	r := t.next(false)
+	if d := t.operatorDetect(r); d != nil {
+		op := string(r)
+		for {
+			r = t.next(false)
+			if d = d(r); d != nil {
+				op += string(r)
+			} else {
+				t.unread()
+				return op, true
+			}
+		}
+	} else {
+		return string(r), false
 	}
 }
 

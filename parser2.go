@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"github.com/hneemann/parser2/listMap"
 	"strconv"
-	"strings"
 	"unicode"
 )
 
@@ -582,18 +581,6 @@ func simpleIdentifier(r rune) (func(r rune) bool, bool) {
 	}
 }
 
-func simpleOperator(r rune) (func(r rune) bool, bool) {
-	const opStr = "+-*/&|!~<=>^%"
-
-	if strings.ContainsRune(opStr, r) {
-		return func(r rune) bool {
-			return strings.ContainsRune(opStr, r)
-		}, true
-	} else {
-		return nil, false
-	}
-}
-
 // NumberParser is used to convert a string to a number
 type NumberParser[V any] interface {
 	ParseNumber(n string) (V, error)
@@ -617,17 +604,17 @@ func (shf StringConverterFunc[V]) FromString(s string) V {
 
 // Parser is the base class of the parser
 type Parser[V any] struct {
-	operators     []string
-	unary         map[string]struct{}
-	textOperators map[string]string
-	numberParser  NumberParser[V]
-	stringHandler StringConverter[V]
-	optimizer     Optimizer
-	number        Matcher
-	constants     Constants[V]
-	identifier    Matcher
-	operator      Matcher
-	allowComments bool
+	operators      []string
+	unary          map[string]struct{}
+	textOperators  map[string]string
+	numberParser   NumberParser[V]
+	stringHandler  StringConverter[V]
+	optimizer      Optimizer
+	number         Matcher
+	constants      Constants[V]
+	identifier     Matcher
+	allowComments  bool
+	operatorDetect Detect
 }
 
 // NewParser creates a new Parser
@@ -640,11 +627,10 @@ func NewParser[V any]() *Parser[V] {
 			var zero V
 			return zero, false
 		}),
-		operator: simpleOperator,
 	}
 }
 
-// Op adds an operation to the parser
+// Op adds a operator to the parser
 // The name gives the operations name e.g."+"
 // The operation with the lowest priority needs to be added first.
 // The operation with the highest priority needs to be added last.
@@ -689,12 +675,6 @@ func (p *Parser[V]) SetIdentMatcher(ident Matcher) *Parser[V] {
 	return p
 }
 
-// SetOperatorMatcher sets the operator Matcher
-func (p *Parser[V]) SetOperatorMatcher(operator Matcher) *Parser[V] {
-	p.operator = operator
-	return p
-}
-
 // TextOperator sets a map of text aliases for operators.
 // Allows setting e.g. "plus" as an alias for "+"
 func (p *Parser[V]) TextOperator(textOperators map[string]string) *Parser[V] {
@@ -722,8 +702,18 @@ func (p *Parser[V]) AllowComments() *Parser[V] {
 
 // Parse parses the given string and returns an ast
 func (p *Parser[V]) Parse(str string) (ast AST, err error) {
+	if p.operatorDetect == nil {
+		var op []string
+		op = append(op, p.operators...)
+		op = append(op, "=", "->")
+		for u := range p.unary {
+			op = append(op, u)
+		}
+		p.operatorDetect = NewDetect(op)
+	}
+
 	tokenizer :=
-		NewTokenizer(str, p.number, p.identifier, p.operator, p.textOperators, p.allowComments)
+		NewTokenizer(str, p.number, p.identifier, p.operatorDetect, p.textOperators, p.allowComments)
 
 	ast, err = p.parseExpression(tokenizer, p.constants, true)
 	if err != nil {
