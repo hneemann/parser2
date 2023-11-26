@@ -138,7 +138,7 @@ func TestNewTokenizer(t *testing.T) {
 		},
 	}
 
-	detect := NewDetect([]string{"+", "-", "*", "/", "->", "%", "/="})
+	detect := NewOperatorDetector([]string{"+", "-", "*", "/", "->", "%", "/="})
 	for _, test := range tests {
 		test := test
 		t.Run(test.name, func(t *testing.T) {
@@ -194,7 +194,7 @@ func TestOperatorDetect(t *testing.T) {
 	for _, tt := range tests {
 		test := tt
 		t.Run(test.name, func(t *testing.T) {
-			tok := NewTokenizer(test.exp, simpleNumber, simpleIdentifier, NewDetect(test.op), map[string]string{}, true)
+			tok := NewTokenizer(test.exp, simpleNumber, simpleIdentifier, NewOperatorDetector(test.op), map[string]string{}, true)
 			for _, to := range test.want {
 				assert.EqualValues(t, to, tok.Next())
 			}
@@ -252,7 +252,7 @@ func TestNewTokenizerNoComment(t *testing.T) {
 		},
 	}
 
-	detect := NewDetect([]string{"//", "->", "/=", "-", "/"})
+	detect := NewOperatorDetector([]string{"//", "->", "/=", "-", "/"})
 	for _, test := range tests {
 		test := test
 		t.Run(test.name, func(t *testing.T) {
@@ -267,7 +267,7 @@ func TestNewTokenizerNoComment(t *testing.T) {
 }
 
 func TestPeek(t *testing.T) {
-	tok := NewTokenizer("=(a,b)", simpleNumber, simpleIdentifier, NewDetect([]string{"="}), map[string]string{}, false)
+	tok := NewTokenizer("=(a,b)", simpleNumber, simpleIdentifier, NewOperatorDetector([]string{"="}), map[string]string{}, false)
 	assert.Equal(t, "=", tok.Next().image)
 	assert.Equal(t, "(", tok.Next().image)
 	assert.Equal(t, "a", tok.Peek().image)

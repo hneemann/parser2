@@ -44,27 +44,27 @@ func (t Token) String() string {
 }
 
 type Tokenizer struct {
-	str            string
-	isLast         bool
-	last           rune
-	tok            chan Token
-	tokenAvail     int
-	token          [2]Token
-	line           Line
-	number         Matcher
-	identifier     Matcher
-	operatorDetect Detect
-	textOperators  map[string]string
-	allowComments  bool
+	str              string
+	isLast           bool
+	last             rune
+	tok              chan Token
+	tokenAvail       int
+	token            [2]Token
+	line             Line
+	number           Matcher
+	identifier       Matcher
+	operatorDetector OperatorDetector
+	textOperators    map[string]string
+	allowComments    bool
 }
 
 type Matcher func(r rune) (func(r rune) bool, bool)
 
-type Detect func(r rune) (Detect, bool)
+type OperatorDetector func(r rune) (OperatorDetector, bool)
 
-func NewDetect(operators []string) Detect {
+func NewOperatorDetector(operators []string) OperatorDetector {
 	if len(operators) == 1 && operators[0] == "" {
-		return func(r rune) (Detect, bool) {
+		return func(r rune) (OperatorDetector, bool) {
 			return nil, true
 		}
 	}
@@ -88,14 +88,14 @@ func NewDetect(operators []string) Detect {
 
 	type runeListEntry struct {
 		r rune
-		f Detect
+		f OperatorDetector
 	}
 
 	var rl []runeListEntry
 	for r, l := range m {
-		rl = append(rl, runeListEntry{r: r, f: NewDetect(*l)})
+		rl = append(rl, runeListEntry{r: r, f: NewOperatorDetector(*l)})
 	}
-	return func(r rune) (Detect, bool) {
+	return func(r rune) (OperatorDetector, bool) {
 		for _, rle := range rl {
 			if rle.r == r {
 				return rle.f, true
@@ -105,17 +105,17 @@ func NewDetect(operators []string) Detect {
 	}
 }
 
-func NewTokenizer(text string, number, identifier Matcher, operatorDetect Detect, textOp map[string]string, allowComments bool) *Tokenizer {
+func NewTokenizer(text string, number, identifier Matcher, operatorDetector OperatorDetector, textOp map[string]string, allowComments bool) *Tokenizer {
 	t := make(chan Token)
 	tok := &Tokenizer{
-		str:            text,
-		textOperators:  textOp,
-		number:         number,
-		identifier:     identifier,
-		operatorDetect: operatorDetect,
-		allowComments:  allowComments,
-		line:           1,
-		tok:            t}
+		str:              text,
+		textOperators:    textOp,
+		number:           number,
+		identifier:       identifier,
+		operatorDetector: operatorDetector,
+		allowComments:    allowComments,
+		line:             1,
+		tok:              t}
 	go tok.run(t)
 	return tok
 }
@@ -228,7 +228,7 @@ func (t *Tokenizer) run(tokens chan<- Token) {
 
 func (t *Tokenizer) parseOperator() (string, bool) {
 	r := t.next(false)
-	if d, _ := t.operatorDetect(r); d != nil {
+	if d, _ := t.operatorDetector(r); d != nil {
 		op := string(r)
 		for {
 			r = t.next(false)

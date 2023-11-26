@@ -614,7 +614,7 @@ type Parser[V any] struct {
 	constants      Constants[V]
 	identifier     Matcher
 	allowComments  bool
-	operatorDetect Detect
+	operatorDetect OperatorDetector
 }
 
 // NewParser creates a new Parser
@@ -709,7 +709,7 @@ func (p *Parser[V]) Parse(str string) (ast AST, err error) {
 		for u := range p.unary {
 			op = append(op, u)
 		}
-		p.operatorDetect = NewDetect(op)
+		p.operatorDetect = NewOperatorDetector(op)
 	}
 
 	tokenizer :=
