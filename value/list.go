@@ -10,6 +10,14 @@ import (
 	"strconv"
 )
 
+func NewListCreate[I any](conv func(I) Value, items ...I) *List {
+	l := make([]Value, len(items))
+	for i, item := range items {
+		l[i] = conv(item)
+	}
+	return NewList(l...)
+}
+
 func NewList(items ...Value) *List {
 	return &List{items: items, itemsPresent: true, iterable: func() iterator.Iterator[Value] {
 		return func(yield func(Value) bool) bool {

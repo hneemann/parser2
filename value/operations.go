@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/hneemann/iterator"
 	"math"
+	"strings"
 )
 
 func Equal(a Value, b Value) bool {
@@ -70,6 +71,11 @@ func In(a Value, b Value) Value {
 			return true
 		})
 		return Bool(found)
+	}
+	if strToLookFor, ok := a.ToString(); ok {
+		if strToLookIn, ok := b.ToString(); ok {
+			return Bool(strings.Contains(strToLookIn, strToLookFor))
+		}
 	}
 	panic(fmt.Errorf("~ not allowed on %v~%v", a, b))
 }
