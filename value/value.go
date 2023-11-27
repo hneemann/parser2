@@ -15,7 +15,7 @@ type Value interface {
 	ToMap() (Map, bool)
 	ToInt() (int, bool)
 	ToFloat() (float64, bool)
-	ToString() (string, bool)
+	String() string
 	ToBool() (bool, bool)
 	ToClosure() (funcGen.Function[Value], bool)
 	GetMethod(name string) (funcGen.Function[Value], error)
@@ -39,8 +39,8 @@ func (c Closure) ToFloat() (float64, bool) {
 	return 0, false
 }
 
-func (c Closure) ToString() (string, bool) {
-	return "", false
+func (c Closure) String() string {
+	return "<closure>"
 }
 
 func (c Closure) ToBool() (bool, bool) {
@@ -73,11 +73,11 @@ func (b Bool) ToFloat() (float64, bool) {
 	return 0, false
 }
 
-func (b Bool) ToString() (string, bool) {
+func (b Bool) String() string {
 	if b {
-		return "true", true
+		return "true"
 	}
-	return "false", true
+	return "false"
 }
 
 func (b Bool) ToClosure() (funcGen.Function[Value], bool) {
@@ -104,8 +104,8 @@ func (f Float) ToMap() (Map, bool) {
 	return Map{}, false
 }
 
-func (f Float) ToString() (string, bool) {
-	return strconv.FormatFloat(float64(f), 'g', -1, 64), true
+func (f Float) String() string {
+	return strconv.FormatFloat(float64(f), 'g', -1, 64)
 }
 
 func (f Float) ToClosure() (funcGen.Function[Value], bool) {
@@ -143,8 +143,8 @@ func (i Int) ToMap() (Map, bool) {
 	return Map{}, false
 }
 
-func (i Int) ToString() (string, bool) {
-	return strconv.Itoa(int(i)), true
+func (i Int) String() string {
+	return strconv.Itoa(int(i))
 }
 
 func (i Int) ToClosure() (funcGen.Function[Value], bool) {
@@ -368,11 +368,7 @@ func New() *funcGen.FunctionGenerator[Value] {
 		AddUnary("!", func(a Value) Value { return Not(a) }).
 		AddStaticFunction("string", funcGen.Function[Value]{
 			Func: func(st funcGen.Stack[Value], cs []Value) Value {
-				v := st.Get(0)
-				if s, ok := v.ToString(); ok {
-					return String(s)
-				}
-				panic(fmt.Errorf("string not alowed on %v", v))
+				return String(st.Get(0).String())
 			},
 			Args:   1,
 			IsPure: true,

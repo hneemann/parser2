@@ -28,8 +28,8 @@ func (e ErrValue) ToFloat() (float64, bool) {
 	return e.val, true
 }
 
-func (e ErrValue) ToString() (string, bool) {
-	return "", false
+func (e ErrValue) String() string {
+	return value.Float(e.val).String() + "±" + value.Float(e.err).String()
 }
 
 func (e ErrValue) ToBool() (bool, bool) {

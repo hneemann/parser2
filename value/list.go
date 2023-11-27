@@ -11,11 +11,16 @@ import (
 )
 
 func NewListCreate[I any](conv func(I) Value, items ...I) *List {
-	l := make([]Value, len(items))
-	for i, item := range items {
-		l[i] = conv(item)
-	}
-	return NewList(l...)
+	return NewListFromIterable(func() iterator.Iterator[Value] {
+		return func(yield func(Value) bool) bool {
+			for _, item := range items {
+				if !yield(conv(item)) {
+					return false
+				}
+			}
+			return true
+		}
+	})
 }
 
 func NewList(items ...Value) *List {
@@ -53,7 +58,7 @@ func (l *List) ToFloat() (float64, bool) {
 	return 0, false
 }
 
-func (l *List) ToString() (string, bool) {
+func (l *List) String() string {
 	var b bytes.Buffer
 	b.WriteString("[")
 	first := true
@@ -63,15 +68,11 @@ func (l *List) ToString() (string, bool) {
 		} else {
 			b.WriteString(", ")
 		}
-		if s, ok := v.ToString(); ok {
-			b.WriteString(s)
-		} else {
-			b.WriteString("?")
-		}
+		b.WriteString(v.String())
 		return true
 	})
 	b.WriteString("]")
-	return b.String(), true
+	return b.String()
 }
 
 func (l *List) ToBool() (bool, bool) {
@@ -270,11 +271,7 @@ func (l *List) GroupByString(st funcGen.Stack[Value]) *List {
 	return GroupBy(l, func(value Value) Value {
 		st.Push(value)
 		key := keyFunc.Func(st.CreateFrame(1), nil)
-		if str, ok := key.ToString(); ok {
-			return String(str)
-		} else {
-			panic("groupByString requires strings as key")
-		}
+		return String(key.String())
 	})
 }
 
@@ -368,4 +365,8 @@ func (l *List) Equals(other *List) bool {
 		}
 	}
 	return true
+}
+
+func (l *List) Iterator() iterator.Iterator[Value] {
+	return l.iterable()
 }

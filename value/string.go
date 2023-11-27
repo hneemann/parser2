@@ -31,24 +31,16 @@ func (s String) ToClosure() (funcGen.Function[Value], bool) {
 	return funcGen.Function[Value]{}, false
 }
 
-func (s String) ToString() (string, bool) {
-	return string(s), true
+func (s String) String() string {
+	return string(s)
 }
 
 func (s String) Contains(st funcGen.Stack[Value]) Value {
-	if substr, ok := st.Get(1).ToString(); ok {
-		return Bool(strings.Contains(string(s), substr))
-	} else {
-		panic("contains requires a string as argument")
-	}
+	return Bool(strings.Contains(string(s), st.Get(1).String()))
 }
 
 func (s String) IndexOf(st funcGen.Stack[Value]) Value {
-	if substr, ok := st.Get(1).ToString(); ok {
-		return Int(strings.Index(string(s), substr))
-	} else {
-		panic("contains requires a string as argument")
-	}
+	return Int(strings.Index(string(s), st.Get(1).String()))
 }
 
 var StringMethods = MethodMap{

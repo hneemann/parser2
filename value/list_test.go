@@ -1,6 +1,9 @@
 package value
 
-import "testing"
+import (
+	"github.com/stretchr/testify/assert"
+	"testing"
+)
 
 func TestList(t *testing.T) {
 	runTest(t, []testType{
@@ -63,3 +66,36 @@ const accept = `
 
   ""+events
 `
+
+func TestNewListCreate(t *testing.T) {
+	type testCase[I any] struct {
+		name  string
+		conv  func(I) Value
+		items []I
+		want  []Value
+	}
+	tests := []testCase[int]{
+		{
+			name: "empty",
+			conv: func(i int) Value {
+				return Float(i)
+			},
+			items: []int{},
+			want:  nil,
+		},
+		{
+			name: "some",
+			conv: func(i int) Value {
+				return Float(i)
+			},
+			items: []int{1, 2, 3, 4},
+			want:  []Value{Float(1), Float(2), Float(3), Float(4)},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := NewListCreate(tt.conv, tt.items...).ToSlice()
+			assert.Equalf(t, tt.want, got, "NewListCreate, %v vs. %v", tt.want, got)
+		})
+	}
+}

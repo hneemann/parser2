@@ -19,6 +19,8 @@ func TestErrValue(t *testing.T) {
 		{exp: "10+-2", res: ErrValue{10, 2}},
 		{exp: "10+-(-2)", res: ErrValue{10, 2}},
 		{exp: "10+-1+1", res: ErrValue{11, 1}},
+		{exp: "string(10+-1)", res: value.String("10±1")},
+		{exp: "string(10.5+-0.5)", res: value.String("10.5±0.5")},
 		{exp: "err(2)", res: ErrValue{0, 2}},
 		{exp: "10+err(2)", res: ErrValue{10, 2}},
 		{exp: "10+err(-2)", res: ErrValue{10, 2}},

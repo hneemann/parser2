@@ -38,6 +38,10 @@ type Map struct {
 	M MapStorage
 }
 
+func (v Map) Iter(yield func(key string, v Value) bool) bool {
+	return v.M.Iter(yield)
+}
+
 func (v Map) ToList() (*List, bool) {
 	return nil, false
 }
@@ -50,7 +54,7 @@ func (v Map) ToFloat() (float64, bool) {
 	return 0, false
 }
 
-func (v Map) ToString() (string, bool) {
+func (v Map) String() string {
 	var b bytes.Buffer
 	b.WriteString("{")
 	first := true
@@ -62,15 +66,11 @@ func (v Map) ToString() (string, bool) {
 		}
 		b.WriteString(key)
 		b.WriteString(":")
-		if s, ok := v.ToString(); ok {
-			b.WriteString(s)
-		} else {
-			b.WriteString("?")
-		}
+		b.WriteString(v.String())
 		return true
 	})
 	b.WriteString("}")
-	return b.String(), true
+	return b.String()
 }
 
 func (v Map) ToBool() (bool, bool) {

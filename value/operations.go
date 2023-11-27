@@ -72,9 +72,9 @@ func In(a Value, b Value) Value {
 		})
 		return Bool(found)
 	}
-	if strToLookFor, ok := a.ToString(); ok {
-		if strToLookIn, ok := b.ToString(); ok {
-			return Bool(strings.Contains(strToLookIn, strToLookFor))
+	if strToLookFor, ok := a.(String); ok {
+		if strToLookIn, ok := b.(String); ok {
+			return Bool(strings.Contains(string(strToLookIn), string(strToLookFor)))
 		}
 	}
 	panic(fmt.Errorf("~ not allowed on %v~%v", a, b))
@@ -112,9 +112,7 @@ func Add(a, b Value) Value {
 		}
 	}
 	if aa, ok := a.(String); ok {
-		if bb, ok := b.ToString(); ok {
-			return aa + String(bb)
-		}
+		return aa + String(b.String())
 	}
 	if aa, ok := a.(*List); ok {
 		if bb, ok := b.(*List); ok {
