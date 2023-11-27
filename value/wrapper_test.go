@@ -45,7 +45,7 @@ func TestToMap(t *testing.T) {
 	assert.Equal(t, Float(1.5), c)
 
 	is := map[string]Value{}
-	m.M.Iter(func(key string, v Value) bool {
+	m.m.Iter(func(key string, v Value) bool {
 		is[key] = v
 		return true
 	})

@@ -208,7 +208,7 @@ func (f factory) ToClosure(value Value) (funcGen.Function[Value], bool) {
 }
 
 func (f factory) FromMap(items listMap.ListMap[Value]) Value {
-	return Map{M: items}
+	return Map{m: items}
 }
 
 func (f factory) AccessMap(mapValue Value, key string) (Value, error) {

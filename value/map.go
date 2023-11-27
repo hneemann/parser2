@@ -14,6 +14,26 @@ type MapStorage interface {
 	Size() int
 }
 
+type creator struct {
+	m listMap.ListMap[Value]
+}
+
+// MapCreator is used to create a new list based map
+func MapCreator(size int) creator {
+	return creator{m: make(listMap.ListMap[Value], 0, size)}
+}
+
+// Put adds an entry to the map
+func (c creator) Put(key string, v Value) creator {
+	c.m.Put(key, v)
+	return c
+}
+
+// Map creates the map
+func (c creator) Map() Map {
+	return Map{m: c.m}
+}
+
 type RealMap map[string]Value
 
 func (s RealMap) Get(key string) (Value, bool) {
@@ -35,11 +55,11 @@ func (s RealMap) Size() int {
 }
 
 type Map struct {
-	M MapStorage
+	m MapStorage
 }
 
 func (v Map) Iter(yield func(key string, v Value) bool) bool {
-	return v.M.Iter(yield)
+	return v.m.Iter(yield)
 }
 
 func (v Map) ToList() (*List, bool) {
@@ -58,7 +78,7 @@ func (v Map) String() string {
 	var b bytes.Buffer
 	b.WriteString("{")
 	first := true
-	v.M.Iter(func(key string, v Value) bool {
+	v.m.Iter(func(key string, v Value) bool {
 		if first {
 			first = false
 		} else {
@@ -85,7 +105,7 @@ func (v Map) ToMap() (Map, bool) {
 	return v, true
 }
 func (v Map) Size() int {
-	return v.M.Size()
+	return v.m.Size()
 }
 
 func (v Map) Equals(other Map) bool {
@@ -93,7 +113,7 @@ func (v Map) Equals(other Map) bool {
 		return false
 	}
 	equal := true
-	v.M.Iter(func(key string, v Value) bool {
+	v.m.Iter(func(key string, v Value) bool {
 		if o, ok := other.Get(key); ok {
 			if !Equal(o, v) {
 				equal = false
@@ -110,8 +130,8 @@ func (v Map) Equals(other Map) bool {
 
 func (v Map) Accept(st funcGen.Stack[Value]) Map {
 	f := toFunc("accept", st, 1, 2)
-	newMap := listMap.New[Value](v.M.Size())
-	v.M.Iter(func(key string, v Value) bool {
+	newMap := listMap.New[Value](v.m.Size())
+	v.m.Iter(func(key string, v Value) bool {
 		st.Push(String(key))
 		st.Push(v)
 		if cond, ok := f.Func(st.CreateFrame(2), nil).ToBool(); ok {
@@ -123,19 +143,19 @@ func (v Map) Accept(st funcGen.Stack[Value]) Map {
 		}
 		return true
 	})
-	return Map{M: newMap}
+	return Map{m: newMap}
 }
 
 func (v Map) Map(st funcGen.Stack[Value]) Map {
 	f := toFunc("map", st, 1, 2)
-	newMap := listMap.New[Value](v.M.Size())
-	v.M.Iter(func(key string, v Value) bool {
+	newMap := listMap.New[Value](v.m.Size())
+	v.m.Iter(func(key string, v Value) bool {
 		st.Push(String(key))
 		st.Push(v)
 		newMap.Put(key, f.Func(st.CreateFrame(2), nil))
 		return true
 	})
-	return Map{M: newMap}
+	return Map{m: newMap}
 }
 
 func (v Map) Replace(st funcGen.Stack[Value]) Value {
@@ -146,7 +166,7 @@ func (v Map) Replace(st funcGen.Stack[Value]) Value {
 func (v Map) List() *List {
 	return NewListFromIterable(func() iterator.Iterator[Value] {
 		return func(yield func(Value) bool) bool {
-			v.M.Iter(func(key string, v Value) bool {
+			v.m.Iter(func(key string, v Value) bool {
 				m := listMap.New[Value](2)
 				m.Put("key", String(key))
 				m.Put("value", v)
@@ -158,12 +178,12 @@ func (v Map) List() *List {
 }
 
 func (v Map) Get(key string) (Value, bool) {
-	return v.M.Get(key)
+	return v.m.Get(key)
 }
 
 func (v Map) IsAvail(stack funcGen.Stack[Value]) Value {
 	if key, ok := stack.Get(1).(String); ok {
-		_, ok := v.M.Get(string(key))
+		_, ok := v.m.Get(string(key))
 		return Bool(ok)
 	}
 	panic("isAvail requires a string as argument")
@@ -171,7 +191,7 @@ func (v Map) IsAvail(stack funcGen.Stack[Value]) Value {
 
 func (v Map) GetM(stack funcGen.Stack[Value]) Value {
 	if key, ok := stack.Get(1).(String); ok {
-		if v, ok := v.M.Get(string(key)); ok {
+		if v, ok := v.m.Get(string(key)); ok {
 			return v
 		} else {
 			panic(fmt.Errorf("key %v not found in map", key))
@@ -209,7 +229,7 @@ func (a AppendMap) Size() int {
 func (v Map) PutM(stack funcGen.Stack[Value]) Map {
 	if key, ok := stack.Get(1).(String); ok {
 		val := stack.Get(2)
-		return Map{AppendMap{key: string(key), value: val, parent: v.M}}
+		return Map{AppendMap{key: string(key), value: val, parent: v.m}}
 	}
 	panic("get requires a string as argument")
 }

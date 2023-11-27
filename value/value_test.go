@@ -161,7 +161,7 @@ func TestOptimizer(t *testing.T) {
 		{exp: "1+2", res: Int(3)},
 		{exp: "\"test\"+\"hello\"", res: String("testhello")},
 		{exp: "[1+2,8/4]", res: NewList(Int(3), Float(2))},
-		{exp: "{a:1+2,b:8/4}", res: Map{M: *listMap.NewP[Value](3).Put("a", Int(3)).Put("b", Float(2))}},
+		{exp: "{a:1+2,b:8/4}", res: Map{m: *listMap.NewP[Value](3).Put("a", Int(3)).Put("b", Float(2))}},
 		{exp: "(1+pi)/(pi+1)", res: Float(1)},
 		{exp: "sqrt(4/2)", res: Float(math.Sqrt(2))},
 		{exp: "sqr(2)", res: Float(4)},

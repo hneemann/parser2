@@ -8,32 +8,32 @@ import (
 
 func TestMap(t *testing.T) {
 	runTest(t, []testType{
-		{exp: "{a:1,b:2,c:3}", res: Map{M: listMap.ListMap[Value]{
+		{exp: "{a:1,b:2,c:3}", res: Map{m: listMap.ListMap[Value]{
 			{Key: "a", Value: Int(1)},
 			{Key: "b", Value: Int(2)},
 			{Key: "c", Value: Int(3)},
 		}}},
 		{exp: "{a:1,b:2,c:3}.b", res: Int(2)},
 		{exp: "{a:x->x*2,b:x->x*3}.b(4)", res: Int(12)},
-		{exp: "{a:1,b:2,c:3}.map((k,v)->v*v)", res: Map{M: listMap.ListMap[Value]{
+		{exp: "{a:1,b:2,c:3}.map((k,v)->v*v)", res: Map{m: listMap.ListMap[Value]{
 			{Key: "a", Value: Int(1)},
 			{Key: "b", Value: Int(4)},
 			{Key: "c", Value: Int(9)},
 		}}},
-		{exp: "{a:1,b:2,c:3}.accept((k,v)->v>1)", res: Map{M: listMap.ListMap[Value]{
+		{exp: "{a:1,b:2,c:3}.accept((k,v)->v>1)", res: Map{m: listMap.ListMap[Value]{
 			{Key: "b", Value: Int(2)},
 			{Key: "c", Value: Int(3)},
 		}}},
 		{exp: "{a:1,b:2,c:3}.list()", res: NewList(
-			Map{M: listMap.ListMap[Value]{
+			Map{m: listMap.ListMap[Value]{
 				{Key: "key", Value: String("a")},
 				{Key: "value", Value: Int(1)},
 			}},
-			Map{M: listMap.ListMap[Value]{
+			Map{m: listMap.ListMap[Value]{
 				{Key: "key", Value: String("b")},
 				{Key: "value", Value: Int(2)},
 			}},
-			Map{M: listMap.ListMap[Value]{
+			Map{m: listMap.ListMap[Value]{
 				{Key: "key", Value: String("c")},
 				{Key: "value", Value: Int(3)},
 			}},
