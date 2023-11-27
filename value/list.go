@@ -248,6 +248,24 @@ func (l *List) Visit(st funcGen.Stack[Value]) Value {
 	return visitor
 }
 
+func (l *List) Top(st funcGen.Stack[Value]) *List {
+	if i, ok := st.Get(1).ToInt(); ok {
+		return NewListFromIterable(func() iterator.Iterator[Value] {
+			count := i
+			return func(yield func(Value) bool) bool {
+				return l.iterable()(func(value Value) bool {
+					if !yield(value) {
+						return false
+					}
+					count--
+					return count > 0
+				})
+			}
+		})
+	}
+	panic("error in top, no int given")
+}
+
 func (l *List) Reduce(st funcGen.Stack[Value]) Value {
 	f := toFunc("reduce", st, 1, 2)
 	res, ok := iterator.Reduce[Value](l.iterable, func(a, b Value) Value {
@@ -346,6 +364,7 @@ var ListMethods = MethodMap{
 	"append":        methodAtType(2, func(list *List, stack funcGen.Stack[Value]) Value { return list.Append(stack) }),
 	"iir":           methodAtType(3, func(list *List, stack funcGen.Stack[Value]) Value { return list.IIr(stack) }),
 	"visit":         methodAtType(3, func(list *List, stack funcGen.Stack[Value]) Value { return list.Visit(stack) }),
+	"top":           methodAtType(2, func(list *List, stack funcGen.Stack[Value]) Value { return list.Top(stack) }),
 	"size":          methodAtType(1, func(list *List, stack funcGen.Stack[Value]) Value { return Int(list.Size()) }),
 }
 

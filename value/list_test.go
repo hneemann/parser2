@@ -1,6 +1,8 @@
 package value
 
 import (
+	"github.com/hneemann/iterator"
+	"github.com/hneemann/parser2/funcGen"
 	"github.com/stretchr/testify/assert"
 	"testing"
 )
@@ -21,6 +23,7 @@ func TestList(t *testing.T) {
 		{exp: "[1,2,3]=[1,2,4]", res: Bool(false)},
 		{exp: "[1,2,3]=[1,2]", res: Bool(false)},
 		{exp: "[1,2,3].map(e->e*2)", res: NewList(Int(2), Int(4), Int(6))},
+		{exp: "let a=2;[1,2,3].map(e->e*a)", res: NewList(Int(2), Int(4), Int(6))},
 		{exp: "[1,2,3,4,5].reduce((a,b)->a+b)", res: Int(15)},
 		{exp: "[1,2,3].map(i->i*i)", res: NewList(Int(1), Int(4), Int(9))},
 		{exp: "[1,2,3].accept(i->i>1)", res: NewList(Int(2), Int(3))},
@@ -96,6 +99,33 @@ func TestNewListCreate(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			got := NewListCreate(tt.conv, tt.items...).ToSlice()
 			assert.Equalf(t, tt.want, got, "NewListCreate, %v vs. %v", tt.want, got)
+		})
+	}
+}
+
+func TestList_Top(t *testing.T) {
+	tests := []struct {
+		name    string
+		origLen int
+		topLen  int
+		wantLen int
+	}{
+		{name: "normal", origLen: 100, topLen: 4, wantLen: 4},
+		{name: "match", origLen: 4, topLen: 4, wantLen: 4},
+		{name: "short", origLen: 4, topLen: 10, wantLen: 4},
+	}
+	for _, tt := range tests {
+		test := tt
+		t.Run(test.name, func(t *testing.T) {
+			g := NewListFromIterable(iterator.Generate(test.origLen, func(i int) Value { return Int(i) }))
+			l := g.Top(funcGen.NewStack[Value](g, Int(test.topLen)))
+			sl := l.ToSlice()
+			assert.Equal(t, test.wantLen, len(sl))
+			for i, item := range sl {
+				li, ok := item.ToInt()
+				assert.True(t, ok)
+				assert.Equal(t, i, li)
+			}
 		})
 	}
 }
