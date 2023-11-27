@@ -10,6 +10,8 @@ import (
 	"strconv"
 )
 
+// NewListCreate creates a list from the specified elements if the elements
+// do not implement the Value interface. The specified function converts the type.
 func NewListCreate[I any](conv func(I) Value, items ...I) *List {
 	return NewListFromIterable(func() iterator.Iterator[Value] {
 		return func(yield func(Value) bool) bool {
@@ -23,6 +25,7 @@ func NewListCreate[I any](conv func(I) Value, items ...I) *List {
 	})
 }
 
+// NewList creates a new list containing the given elements
 func NewList(items ...Value) *List {
 	return &List{items: items, itemsPresent: true, iterable: func() iterator.Iterator[Value] {
 		return func(yield func(Value) bool) bool {
@@ -36,10 +39,12 @@ func NewList(items ...Value) *List {
 	}}
 }
 
+// NewListFromIterable creates a list based on the given Iterable
 func NewListFromIterable(li iterator.Iterable[Value]) *List {
 	return &List{iterable: li, itemsPresent: false}
 }
 
+// List represents a list of values
 type List struct {
 	items        []Value
 	itemsPresent bool
@@ -99,6 +104,7 @@ func (l *List) Eval() {
 	}
 }
 
+// ToSlice returns the list elements as a slice
 func (l *List) ToSlice() []Value {
 	l.Eval()
 	return l.items[0:len(l.items):len(l.items)]
