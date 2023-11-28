@@ -298,6 +298,18 @@ func (l *List) Replace(st funcGen.Stack[Value]) Value {
 	return f.Eval(st, l)
 }
 
+func (l *List) Number() *List {
+	return NewListFromIterable(func() iterator.Iterator[Value] {
+		return func(yield func(Value) bool) bool {
+			n := -1
+			return l.iterable()(func(value Value) bool {
+				n++
+				return yield(MapCreator(2).Put("n", Int(n)).Put("entry", value).Map())
+			})
+		}
+	})
+}
+
 func (l *List) GroupByString(st funcGen.Stack[Value]) *List {
 	keyFunc := toFunc("groupByString", st, 1, 1)
 	return GroupBy(l, func(value Value) Value {
@@ -411,6 +423,7 @@ var ListMethods = MethodMap{
 	"visit":         methodAtType(3, func(list *List, stack funcGen.Stack[Value]) Value { return list.Visit(stack) }),
 	"top":           methodAtType(2, func(list *List, stack funcGen.Stack[Value]) Value { return list.Top(stack) }),
 	"size":          methodAtType(1, func(list *List, stack funcGen.Stack[Value]) Value { return Int(list.Size()) }),
+	"number":        methodAtType(1, func(list *List, stack funcGen.Stack[Value]) Value { return list.Number() }),
 }
 
 func (l *List) GetMethod(name string) (funcGen.Function[Value], error) {
