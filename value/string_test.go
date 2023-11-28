@@ -11,5 +11,8 @@ func TestString(t *testing.T) {
 		{exp: "\"Hello World\".contains(\"Wo\")", res: Bool(true)},
 		{exp: "\"Hello World\".contains(\"wo\")", res: Bool(false)},
 		{exp: "\"Wo\" ~ \"Hello World\"", res: Bool(true)},
+		{exp: "\" Hello \".trim()", res: String("Hello")},
+		{exp: "\"Hello,World\".split(\",\").reduce((a,b)->a+\"|\"+b)", res: String("Hello|World")},
+		{exp: "\"Hello , World\".split(\",\").reduce((a,b)->a+\"|\"+b)", res: String("Hello | World")},
 	})
 }

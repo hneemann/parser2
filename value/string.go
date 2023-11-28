@@ -43,12 +43,18 @@ func (s String) IndexOf(st funcGen.Stack[Value]) Value {
 	return Int(strings.Index(string(s), st.Get(1).String()))
 }
 
+func (s String) Split(st funcGen.Stack[Value]) Value {
+	return NewListCreate(func(s string) Value { return String(s) }, strings.Split(string(s), st.Get(1).String())...)
+}
+
 var StringMethods = MethodMap{
 	"len":      methodAtType(1, func(str String, stack funcGen.Stack[Value]) Value { return Int(len(string(str))) }),
+	"trim":     methodAtType(1, func(str String, stack funcGen.Stack[Value]) Value { return String(strings.TrimSpace(string(str))) }),
 	"toLower":  methodAtType(1, func(str String, stack funcGen.Stack[Value]) Value { return String(strings.ToLower(string(str))) }),
 	"toUpper":  methodAtType(1, func(str String, stack funcGen.Stack[Value]) Value { return String(strings.ToUpper(string(str))) }),
 	"contains": methodAtType(2, func(str String, stack funcGen.Stack[Value]) Value { return str.Contains(stack) }),
 	"indexOf":  methodAtType(2, func(str String, stack funcGen.Stack[Value]) Value { return str.IndexOf(stack) }),
+	"split":    methodAtType(2, func(str String, stack funcGen.Stack[Value]) Value { return str.Split(stack) }),
 }
 
 func (s String) GetMethod(name string) (funcGen.Function[Value], error) {
