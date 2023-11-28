@@ -3,6 +3,7 @@
 package html
 
 import (
+	"fmt"
 	"github.com/hneemann/iterator"
 	"github.com/hneemann/parser2/funcGen"
 	"github.com/hneemann/parser2/value"
@@ -97,13 +98,24 @@ func (f format) GetMethod(name string) (funcGen.Function[value.Value], error) {
 // ToHtml creates an HTML representation of a value
 // Lists and maps are converted to a html table.
 // Everything else is converted to a string by calling the String() method.
-func ToHtml(v value.Value, maxListSize int) template.HTML {
+func ToHtml(v value.Value, maxListSize int) (res template.HTML, err error) {
+	defer func() {
+		rec := recover()
+		if rec != nil {
+			if e, ok := rec.(error); ok {
+				err = e
+			} else {
+				err = fmt.Errorf("error: %v", rec)
+			}
+			res = ""
+		}
+	}()
 	if maxListSize < 1 {
 		maxListSize = 1
 	}
 	w := xmlWriter.New()
 	toHtml(v, w, "", maxListSize)
-	return template.HTML(w.String())
+	return template.HTML(w.String()), nil
 }
 
 func toHtml(v value.Value, w *xmlWriter.XMLWriter, style string, maxListSize int) {
