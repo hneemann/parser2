@@ -10,5 +10,6 @@ func TestString(t *testing.T) {
 		{exp: "\"Hello World\".toUpper()", res: String("HELLO WORLD")},
 		{exp: "\"Hello World\".contains(\"Wo\")", res: Bool(true)},
 		{exp: "\"Hello World\".contains(\"wo\")", res: Bool(false)},
+		{exp: "\"Wo\" ~ \"Hello World\"", res: Bool(true)},
 	})
 }

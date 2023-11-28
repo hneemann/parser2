@@ -20,6 +20,8 @@ func TestList(t *testing.T) {
 		{exp: "[2,3] ~ [1,2,3]", res: Bool(true)},
 		{exp: "[1,2] ~ [1,2,3]", res: Bool(true)},
 		{exp: "[1,3] ~ [1,2,3]", res: Bool(true)},
+		{exp: "[1,2,3] ~ [1,2,3]", res: Bool(true)},
+		{exp: "[1,2,3,4] ~ [1,2,3]", res: Bool(false)},
 		{exp: "7 ~ [1,2,3]", res: Bool(false)},
 		{exp: "[2,7] ~ [1,2,3]", res: Bool(false)},
 		{exp: "[1,2,3].size()", res: Int(3)},

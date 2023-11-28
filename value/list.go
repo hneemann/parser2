@@ -110,6 +110,14 @@ func (l *List) ToSlice() []Value {
 	return l.items[0:len(l.items):len(l.items)]
 }
 
+// CopyToSlice creates a slice copy of all elements
+func (l *List) CopyToSlice() []Value {
+	l.Eval()
+	co := make([]Value, len(l.items))
+	copy(co, l.items)
+	return co
+}
+
 // Append creates a new list with a single element appended
 // The original list remains unchanged while appending element
 // by element is still efficient.
@@ -332,6 +340,37 @@ func GroupBy(list *List, keyFunc func(Value) Value) *List {
 		result = append(result, Map{entry})
 	}
 	return NewList(result...)
+}
+
+func (l *List) containsItem(item Value) bool {
+	found := false
+	l.iterable()(func(value Value) bool {
+		if Equal(item, value) {
+			found = true
+			return false
+		}
+		return true
+	})
+	return found
+}
+
+func (l *List) containsAllItems(lookForList *List) bool {
+	lookFor := lookForList.CopyToSlice()
+
+	if l.itemsPresent && len(l.items) < len(lookFor) {
+		return false
+	}
+
+	l.iterable()(func(value Value) bool {
+		for i, lf := range lookFor {
+			if Equal(lf, value) {
+				lookFor = append(lookFor[0:i], lookFor[i+1:]...)
+				break
+			}
+		}
+		return len(lookFor) > 0
+	})
+	return len(lookFor) == 0
 }
 
 func methodAtType[V Value](args int, method func(obj V, stack funcGen.Stack[Value]) Value) funcGen.Function[Value] {

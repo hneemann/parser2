@@ -63,29 +63,9 @@ func LessEqual(a Value, b Value) Value {
 func In(a Value, b Value) Value {
 	if list, ok := b.(*List); ok {
 		if search, ok := a.(*List); ok {
-			ls := list.ToSlice()
-			for _, s := range search.ToSlice() {
-				found := false
-				for _, i := range ls {
-					if Equal(s, i) {
-						found = true
-					}
-				}
-				if !found {
-					return Bool(false)
-				}
-			}
-			return Bool(true)
+			return Bool(list.containsAllItems(search))
 		} else {
-			found := false
-			list.iterable()(func(value Value) bool {
-				if Equal(a, value) {
-					found = true
-					return false
-				}
-				return true
-			})
-			return Bool(found)
+			return Bool(list.containsItem(a))
 		}
 	}
 	if strToLookFor, ok := a.(String); ok {
