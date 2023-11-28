@@ -37,7 +37,9 @@ func TestToHtml(t *testing.T) {
 	for _, tt := range tests {
 		test := tt
 		t.Run(tt.name, func(t *testing.T) {
-			assert.Equal(t, test.html, string(ToHtml(test.value, test.maxListSize)))
+			h, err := ToHtml(test.value, test.maxListSize)
+			assert.NoError(t, err)
+			assert.Equal(t, test.html, string(h))
 		})
 	}
 }
