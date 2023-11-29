@@ -47,7 +47,7 @@ func (s String) IndexOf(st funcGen.Stack[Value]) Value {
 }
 
 func (s String) Split(st funcGen.Stack[Value]) Value {
-	return NewListCreate(func(s string) Value { return String(s) }, strings.Split(string(s), st.Get(1).String())...)
+	return NewListConvert(func(s string) Value { return String(s) }, strings.Split(string(s), st.Get(1).String())...)
 }
 
 func (s String) Cut(st funcGen.Stack[Value]) Value {

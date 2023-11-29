@@ -10,9 +10,9 @@ import (
 	"strconv"
 )
 
-// NewListCreate creates a list from the specified elements if the elements
-// do not implement the Value interface. The specified function converts the type.
-func NewListCreate[I any](conv func(I) Value, items ...I) *List {
+// NewListConvert creates a list containing the given elements if the elements
+// do not implement the Value interface. The given function converts the type.
+func NewListConvert[I any](conv func(I) Value, items ...I) *List {
 	return NewListFromIterable(func() iterator.Iterator[Value] {
 		return func(yield func(Value) bool) bool {
 			for _, item := range items {
@@ -124,7 +124,9 @@ func (l *List) CopyToSlice() []Value {
 func (l *List) Append(st funcGen.Stack[Value]) *List {
 	l.Eval()
 	newList := append(l.items, st.Get(1))
-	// ensure a copy operation on the next call to append
+	// Guarantee a copy operation the next time append is called on this
+	// list, which is only a rare special case, as the new list is usually
+	// appended to.
 	if len(l.items) != cap(l.items) {
 		l.items = l.items[:len(l.items):len(l.items)]
 	}
@@ -213,18 +215,16 @@ func (l *List) IndexOf(st funcGen.Stack[Value]) Int {
 func (l *List) Order(st funcGen.Stack[Value]) *List {
 	f := toFunc("order", st, 1, 2)
 
-	items := l.ToSlice()
-	itemsCopy := make([]Value, len(items))
-	copy(itemsCopy, items)
+	items := l.CopyToSlice()
 
 	s := Sortable{
-		items: itemsCopy,
+		items: items,
 		st:    st,
 		less:  f,
 	}
 
 	sort.Sort(s)
-	return NewList(itemsCopy...)
+	return NewList(items...)
 }
 
 func (l *List) Combine(st funcGen.Stack[Value]) *List {
@@ -298,13 +298,16 @@ func (l *List) Replace(st funcGen.Stack[Value]) Value {
 	return f.Eval(st, l)
 }
 
-func (l *List) Number() *List {
+func (l *List) Number(st funcGen.Stack[Value]) *List {
+	f := toFunc("number", st, 1, 2)
 	return NewListFromIterable(func() iterator.Iterator[Value] {
 		return func(yield func(Value) bool) bool {
-			n := -1
+			n := Int(0)
 			return l.iterable()(func(value Value) bool {
+				st.Push(n)
+				st.Push(value)
 				n++
-				return yield(MapCreator(2).Put("n", Int(n)).Put("entry", value).Map())
+				return yield(f.Func(st.CreateFrame(2), nil))
 			})
 		}
 	})
@@ -422,8 +425,8 @@ var ListMethods = MethodMap{
 	"iir":           methodAtType(3, func(list *List, stack funcGen.Stack[Value]) Value { return list.IIr(stack) }),
 	"visit":         methodAtType(3, func(list *List, stack funcGen.Stack[Value]) Value { return list.Visit(stack) }),
 	"top":           methodAtType(2, func(list *List, stack funcGen.Stack[Value]) Value { return list.Top(stack) }),
+	"number":        methodAtType(2, func(list *List, stack funcGen.Stack[Value]) Value { return list.Number(stack) }),
 	"size":          methodAtType(1, func(list *List, stack funcGen.Stack[Value]) Value { return Int(list.Size()) }),
-	"number":        methodAtType(1, func(list *List, stack funcGen.Stack[Value]) Value { return list.Number() }),
 }
 
 func (l *List) GetMethod(name string) (funcGen.Function[Value], error) {
