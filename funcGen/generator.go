@@ -123,11 +123,17 @@ type Function[V any] struct {
 	IsPure bool
 }
 
+// Eval is used to evaluate a function with one argument
+// The stack [st] is used to pass the given argument [a] to the function.
+// The pushed value is removed after the function is called.
 func (f Function[V]) Eval(st Stack[V], a V) V {
 	st.Push(a)
 	return f.Func(st.CreateFrame(1), nil)
 }
 
+// EvalSt is used to evaluate a function with multiple arguments
+// The stack [st] is used to pass the given arguments to the function.
+// The pushed values are removed after the function is called.
 func (f Function[V]) EvalSt(st Stack[V], a ...V) V {
 	for _, e := range a {
 		st.Push(e)
