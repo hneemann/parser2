@@ -76,7 +76,7 @@ func (s String) Cut(st funcGen.Stack[Value]) Value {
 			return String(res.String())
 		}
 	}
-	panic("cur requires in arguments (pos,len)")
+	panic("cut requires integers as arguments (pos,len)")
 }
 
 var StringMethods = MethodMap{
