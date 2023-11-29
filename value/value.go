@@ -219,7 +219,7 @@ func (f factory) AccessMap(mapValue Value, key string) (Value, error) {
 			return nil, fmt.Errorf("key %s not found in map", key)
 		}
 	} else {
-		return nil, fmt.Errorf("not a map")
+		return nil, fmt.Errorf("'.%s' not possible; not a map", key)
 	}
 }
 
@@ -238,15 +238,15 @@ func (f factory) AccessList(list Value, index Value) (Value, error) {
 			if i < 0 {
 				return nil, fmt.Errorf("negative list index")
 			} else if i >= l.Size() {
-				return nil, fmt.Errorf("index out of bounds")
+				return nil, fmt.Errorf("index out of bounds %d>=size(%d)", i, l.Size())
 			} else {
 				return l.items[i], nil
 			}
 		} else {
-			return nil, fmt.Errorf("not an index")
+			return nil, fmt.Errorf("not an int: %v", index)
 		}
 	} else {
-		return nil, fmt.Errorf("not a list")
+		return nil, fmt.Errorf("not a list: %v", list)
 	}
 }
 
