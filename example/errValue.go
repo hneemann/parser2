@@ -41,20 +41,9 @@ func (e ErrValue) ToClosure() (funcGen.Function[value.Value], bool) {
 }
 
 var ErrValueMethods = value.MethodMap{
-	"val": funcGen.Function[value.Value]{
-		Func: func(stack funcGen.Stack[value.Value], closureStore []value.Value) value.Value {
-			return value.Float(stack.Get(0).(ErrValue).val)
-		},
-		Args:   1,
-		IsPure: true,
-	},
-	"err": funcGen.Function[value.Value]{
-		Func: func(stack funcGen.Stack[value.Value], closureStore []value.Value) value.Value {
-			return value.Float(stack.Get(0).(ErrValue).err)
-		},
-		Args:   1,
-		IsPure: true,
-	},
+	"val":    value.MethodAtType(1, func(ev ErrValue, stack funcGen.Stack[value.Value]) value.Value { return value.Float(ev.val) }),
+	"err":    value.MethodAtType(1, func(ev ErrValue, stack funcGen.Stack[value.Value]) value.Value { return value.Float(ev.err) }),
+	"string": value.MethodAtType(1, func(ev ErrValue, stack funcGen.Stack[value.Value]) value.Value { return value.String(ev.String()) }),
 }
 
 func (e ErrValue) GetMethod(name string) (funcGen.Function[value.Value], error) {

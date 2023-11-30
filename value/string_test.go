@@ -5,6 +5,7 @@ import "testing"
 func TestString(t *testing.T) {
 	runTest(t, []testType{
 		{exp: "\"Hello World\".len()", res: Int(11)},
+		{exp: "\"Hello World\".string()", res: String("Hello World")},
 		{exp: "\"Hello World\".indexOf(\"Wo\")", res: Int(6)},
 		{exp: "\"Hello World\".toLower()", res: String("hello world")},
 		{exp: "\"Hello World\".toUpper()", res: String("HELLO WORLD")},

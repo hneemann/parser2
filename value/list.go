@@ -7,7 +7,6 @@ import (
 	"github.com/hneemann/parser2/funcGen"
 	"github.com/hneemann/parser2/listMap"
 	"sort"
-	"strconv"
 )
 
 // NewListConvert creates a list containing the given elements if the elements
@@ -227,6 +226,15 @@ func (l *List) Order(st funcGen.Stack[Value]) *List {
 	return NewList(items...)
 }
 
+func (l *List) Reverse() *List {
+	items := l.CopyToSlice()
+	//reverse items
+	for i, j := 0, len(items)-1; i < j; i, j = i+1, j-1 {
+		items[i], items[j] = items[j], items[i]
+	}
+	return NewList(items...)
+}
+
 func (l *List) Combine(st funcGen.Stack[Value]) *List {
 	f := toFunc("combine", st, 1, 2)
 	return NewListFromIterable(iterator.Combine[Value, Value](l.iterable, func(a, b Value) Value {
@@ -388,45 +396,24 @@ func (l *List) containsAllItems(lookForList *List) bool {
 	return len(lookFor) == 0
 }
 
-func methodAtType[V Value](args int, method func(obj V, stack funcGen.Stack[Value]) Value) funcGen.Function[Value] {
-	return funcGen.Function[Value]{Func: func(stack funcGen.Stack[Value], closureStore []Value) Value {
-		if obj, ok := stack.Get(0).(V); ok {
-			return method(obj, stack)
-		}
-		panic("internal error: call of method on wrong type")
-	}, Args: args, IsPure: true}
-}
-
-type MethodMap map[string]funcGen.Function[Value]
-
-func (mm MethodMap) Get(name string) (funcGen.Function[Value], error) {
-	if m, ok := mm[name]; ok {
-		return m, nil
-	}
-	var l []string
-	for k, f := range mm {
-		l = append(l, k+"("+strconv.Itoa(f.Args-1)+")")
-	}
-	sort.Strings(l)
-	return funcGen.Function[Value]{}, fmt.Errorf("method '%s' not found; available are %v", name, l)
-}
-
 var ListMethods = MethodMap{
-	"accept":        methodAtType(2, func(list *List, stack funcGen.Stack[Value]) Value { return list.Accept(stack) }),
-	"map":           methodAtType(2, func(list *List, stack funcGen.Stack[Value]) Value { return list.Map(stack) }),
-	"reduce":        methodAtType(2, func(list *List, stack funcGen.Stack[Value]) Value { return list.Reduce(stack) }),
-	"replace":       methodAtType(2, func(list *List, stack funcGen.Stack[Value]) Value { return list.Replace(stack) }),
-	"combine":       methodAtType(2, func(list *List, stack funcGen.Stack[Value]) Value { return list.Combine(stack) }),
-	"indexOf":       methodAtType(2, func(list *List, stack funcGen.Stack[Value]) Value { return list.IndexOf(stack) }),
-	"groupByString": methodAtType(2, func(list *List, stack funcGen.Stack[Value]) Value { return list.GroupByString(stack) }),
-	"groupByInt":    methodAtType(2, func(list *List, stack funcGen.Stack[Value]) Value { return list.GroupByInt(stack) }),
-	"order":         methodAtType(2, func(list *List, stack funcGen.Stack[Value]) Value { return list.Order(stack) }),
-	"append":        methodAtType(2, func(list *List, stack funcGen.Stack[Value]) Value { return list.Append(stack) }),
-	"iir":           methodAtType(3, func(list *List, stack funcGen.Stack[Value]) Value { return list.IIr(stack) }),
-	"visit":         methodAtType(3, func(list *List, stack funcGen.Stack[Value]) Value { return list.Visit(stack) }),
-	"top":           methodAtType(2, func(list *List, stack funcGen.Stack[Value]) Value { return list.Top(stack) }),
-	"number":        methodAtType(2, func(list *List, stack funcGen.Stack[Value]) Value { return list.Number(stack) }),
-	"size":          methodAtType(1, func(list *List, stack funcGen.Stack[Value]) Value { return Int(list.Size()) }),
+	"accept":        MethodAtType(2, func(list *List, stack funcGen.Stack[Value]) Value { return list.Accept(stack) }),
+	"map":           MethodAtType(2, func(list *List, stack funcGen.Stack[Value]) Value { return list.Map(stack) }),
+	"reduce":        MethodAtType(2, func(list *List, stack funcGen.Stack[Value]) Value { return list.Reduce(stack) }),
+	"replace":       MethodAtType(2, func(list *List, stack funcGen.Stack[Value]) Value { return list.Replace(stack) }),
+	"combine":       MethodAtType(2, func(list *List, stack funcGen.Stack[Value]) Value { return list.Combine(stack) }),
+	"indexOf":       MethodAtType(2, func(list *List, stack funcGen.Stack[Value]) Value { return list.IndexOf(stack) }),
+	"groupByString": MethodAtType(2, func(list *List, stack funcGen.Stack[Value]) Value { return list.GroupByString(stack) }),
+	"groupByInt":    MethodAtType(2, func(list *List, stack funcGen.Stack[Value]) Value { return list.GroupByInt(stack) }),
+	"order":         MethodAtType(2, func(list *List, stack funcGen.Stack[Value]) Value { return list.Order(stack) }),
+	"reverse":       MethodAtType(1, func(list *List, stack funcGen.Stack[Value]) Value { return list.Reverse() }),
+	"append":        MethodAtType(2, func(list *List, stack funcGen.Stack[Value]) Value { return list.Append(stack) }),
+	"iir":           MethodAtType(3, func(list *List, stack funcGen.Stack[Value]) Value { return list.IIr(stack) }),
+	"visit":         MethodAtType(3, func(list *List, stack funcGen.Stack[Value]) Value { return list.Visit(stack) }),
+	"top":           MethodAtType(2, func(list *List, stack funcGen.Stack[Value]) Value { return list.Top(stack) }),
+	"number":        MethodAtType(2, func(list *List, stack funcGen.Stack[Value]) Value { return list.Number(stack) }),
+	"size":          MethodAtType(1, func(list *List, stack funcGen.Stack[Value]) Value { return Int(list.Size()) }),
+	"string":        MethodAtType(1, func(list *List, stack funcGen.Stack[Value]) Value { return String(list.String()) }),
 }
 
 func (l *List) GetMethod(name string) (funcGen.Function[Value], error) {

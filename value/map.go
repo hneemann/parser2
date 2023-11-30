@@ -235,14 +235,15 @@ func (v Map) PutM(stack funcGen.Stack[Value]) Map {
 }
 
 var MapMethods = MethodMap{
-	"accept":  methodAtType(2, func(m Map, stack funcGen.Stack[Value]) Value { return m.Accept(stack) }),
-	"map":     methodAtType(2, func(m Map, stack funcGen.Stack[Value]) Value { return m.Map(stack) }),
-	"replace": methodAtType(2, func(m Map, stack funcGen.Stack[Value]) Value { return m.Replace(stack) }),
-	"list":    methodAtType(1, func(m Map, stack funcGen.Stack[Value]) Value { return m.List() }),
-	"size":    methodAtType(1, func(m Map, stack funcGen.Stack[Value]) Value { return Int(m.Size()) }),
-	"isAvail": methodAtType(2, func(m Map, stack funcGen.Stack[Value]) Value { return m.IsAvail(stack) }),
-	"get":     methodAtType(2, func(m Map, stack funcGen.Stack[Value]) Value { return m.GetM(stack) }),
-	"put":     methodAtType(3, func(m Map, stack funcGen.Stack[Value]) Value { return m.PutM(stack) }),
+	"accept":  MethodAtType(2, func(m Map, stack funcGen.Stack[Value]) Value { return m.Accept(stack) }),
+	"map":     MethodAtType(2, func(m Map, stack funcGen.Stack[Value]) Value { return m.Map(stack) }),
+	"replace": MethodAtType(2, func(m Map, stack funcGen.Stack[Value]) Value { return m.Replace(stack) }),
+	"list":    MethodAtType(1, func(m Map, stack funcGen.Stack[Value]) Value { return m.List() }),
+	"size":    MethodAtType(1, func(m Map, stack funcGen.Stack[Value]) Value { return Int(m.Size()) }),
+	"string":  MethodAtType(1, func(m Map, stack funcGen.Stack[Value]) Value { return String(m.String()) }),
+	"isAvail": MethodAtType(2, func(m Map, stack funcGen.Stack[Value]) Value { return m.IsAvail(stack) }),
+	"get":     MethodAtType(2, func(m Map, stack funcGen.Stack[Value]) Value { return m.GetM(stack) }),
+	"put":     MethodAtType(3, func(m Map, stack funcGen.Stack[Value]) Value { return m.PutM(stack) }),
 }
 
 func (v Map) GetMethod(name string) (funcGen.Function[Value], error) {

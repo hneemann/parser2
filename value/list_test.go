@@ -49,17 +49,22 @@ func TestList(t *testing.T) {
 		{exp: "let a=[1,2].append(3);\"\"+[a.append(4), a.append(5)]", res: String("[[1, 2, 3, 4], [1, 2, 3, 5]]")},
 		{exp: "let a=[1,2].append(3);\"\"+[a.append(4), a.append(5)]", res: String("[[1, 2, 3, 4], [1, 2, 3, 5]]")},
 		{exp: "\"\"+list(20).visit([],(vis,val)->vis.append(val))", res: String("[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19]")},
-		{exp: visitAdnCollect, res: String("[9, 19, 29, 39, 49, 59, 69, 79, 89, 99]")},
+		{exp: visitAndCollect, res: String("[9, 19, 29, 39, 49, 59, 69, 79, 89, 99]")},
 		{exp: accept, res: String("[9, 19, 29, 39, 49, 59, 69, 79, 89, 99]")},
 		{exp: "\"\"+list(12).groupByString(i->\"n\"+round(i/4)).order((a,b)->a.key<b.key)",
 			res: String("[{key:n0, value:[0, 1]}, {key:n1, value:[2, 3, 4, 5]}, {key:n2, value:[6, 7, 8, 9]}, {key:n3, value:[10, 11]}]")},
 		{exp: "\"\"+list(12).groupByInt(i->round(i/4)).order((a,b)->a.key<b.key)",
 			res: String("[{key:0, value:[0, 1]}, {key:1, value:[2, 3, 4, 5]}, {key:2, value:[6, 7, 8, 9]}, {key:3, value:[10, 11]}]")},
 		{exp: "string(list(3).map(i->(i+1)*10).number((n,e)->\"\"+n+\"->\"+e))", res: String("[0->10, 1->20, 2->30]")},
+		{exp: "[].reverse().string()", res: String("[]")},
+		{exp: "[1].reverse().string()", res: String("[1]")},
+		{exp: "[1,2].reverse().string()", res: String("[2, 1]")},
+		{exp: "[1,2,3].reverse().string()", res: String("[3, 2, 1]")},
+		{exp: "[1,2,3,4].reverse().string()", res: String("[4, 3, 2, 1]")},
 	})
 }
 
-const visitAdnCollect = `
+const visitAndCollect = `
   let data=list(100).map(i->if i%10=9 then i else 0);
   
   let events=data

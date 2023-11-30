@@ -80,14 +80,15 @@ func (s String) Cut(st funcGen.Stack[Value]) Value {
 }
 
 var StringMethods = MethodMap{
-	"len":      methodAtType(1, func(str String, stack funcGen.Stack[Value]) Value { return Int(len(string(str))) }),
-	"trim":     methodAtType(1, func(str String, stack funcGen.Stack[Value]) Value { return String(strings.TrimSpace(string(str))) }),
-	"toLower":  methodAtType(1, func(str String, stack funcGen.Stack[Value]) Value { return String(strings.ToLower(string(str))) }),
-	"toUpper":  methodAtType(1, func(str String, stack funcGen.Stack[Value]) Value { return String(strings.ToUpper(string(str))) }),
-	"contains": methodAtType(2, func(str String, stack funcGen.Stack[Value]) Value { return str.Contains(stack) }),
-	"indexOf":  methodAtType(2, func(str String, stack funcGen.Stack[Value]) Value { return str.IndexOf(stack) }),
-	"split":    methodAtType(2, func(str String, stack funcGen.Stack[Value]) Value { return str.Split(stack) }),
-	"cut":      methodAtType(3, func(str String, stack funcGen.Stack[Value]) Value { return str.Cut(stack) }),
+	"len":      MethodAtType(1, func(str String, stack funcGen.Stack[Value]) Value { return Int(len(string(str))) }),
+	"string":   MethodAtType(1, func(str String, stack funcGen.Stack[Value]) Value { return str }),
+	"trim":     MethodAtType(1, func(str String, stack funcGen.Stack[Value]) Value { return String(strings.TrimSpace(string(str))) }),
+	"toLower":  MethodAtType(1, func(str String, stack funcGen.Stack[Value]) Value { return String(strings.ToLower(string(str))) }),
+	"toUpper":  MethodAtType(1, func(str String, stack funcGen.Stack[Value]) Value { return String(strings.ToUpper(string(str))) }),
+	"contains": MethodAtType(2, func(str String, stack funcGen.Stack[Value]) Value { return str.Contains(stack) }),
+	"indexOf":  MethodAtType(2, func(str String, stack funcGen.Stack[Value]) Value { return str.IndexOf(stack) }),
+	"split":    MethodAtType(2, func(str String, stack funcGen.Stack[Value]) Value { return str.Split(stack) }),
+	"cut":      MethodAtType(3, func(str String, stack funcGen.Stack[Value]) Value { return str.Cut(stack) }),
 }
 
 func (s String) GetMethod(name string) (funcGen.Function[Value], error) {

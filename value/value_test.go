@@ -8,6 +8,7 @@ import (
 	"github.com/hneemann/parser2/listMap"
 	"github.com/stretchr/testify/assert"
 	"math"
+	"strings"
 	"testing"
 	"unicode"
 )
@@ -100,9 +101,13 @@ func TestBasic(t *testing.T) {
 		{exp: "float(3.2)", res: Float(3.2)},
 		{exp: "float(3)", res: Float(3)},
 		{exp: "string(true)", res: String("true")},
+		{exp: "true.string()", res: String("true")},
 		{exp: "string(\"test\")", res: String("test")},
 		{exp: "string(3.2)", res: String("3.2")},
+		{exp: "(3.2).string()", res: String("3.2")},
 		{exp: "string(3)", res: String("3")},
+		{exp: "(3).string()", res: String("3")},
+		{exp: "(a->a*a).string()", res: String("<closure>")},
 		{exp: "let a=1;sprintf()", res: String("")},
 		{exp: "let a=1;sprintf(\"Hello World\")", res: String("Hello World")},
 		{exp: "let a=1;sprintf(\"%v->%v\",a,2)", res: String("1->2")},
@@ -234,6 +239,17 @@ const newtonRaphson = `
 
       mySqrt(a)
     `
+
+func TestMethodError(t *testing.T) {
+	valueParser := SetUpParser(New())
+	f, err := valueParser.Generate("a.notFound()", "a")
+	assert.NoError(t, err)
+	_, err = f(funcGen.NewStack[Value](Float(2)))
+	assert.Error(t, err)
+	es := err.Error()
+	assert.True(t, strings.Contains(es, "method 'notFound' not found"))
+	assert.True(t, strings.Contains(es, "string(0)"))
+}
 
 func TestSolve(t *testing.T) {
 	tests := []struct {

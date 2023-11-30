@@ -7,6 +7,7 @@ import (
 	"github.com/hneemann/parser2/funcGen"
 	"github.com/hneemann/parser2/listMap"
 	"math"
+	"sort"
 	"strconv"
 )
 
@@ -19,6 +20,29 @@ type Value interface {
 	ToBool() (bool, bool)
 	ToClosure() (funcGen.Function[Value], bool)
 	GetMethod(name string) (funcGen.Function[Value], error)
+}
+
+func MethodAtType[V Value](args int, method func(obj V, stack funcGen.Stack[Value]) Value) funcGen.Function[Value] {
+	return funcGen.Function[Value]{Func: func(stack funcGen.Stack[Value], closureStore []Value) Value {
+		if obj, ok := stack.Get(0).(V); ok {
+			return method(obj, stack)
+		}
+		panic("internal error: call of method on wrong type")
+	}, Args: args, IsPure: true}
+}
+
+type MethodMap map[string]funcGen.Function[Value]
+
+func (mm MethodMap) Get(name string) (funcGen.Function[Value], error) {
+	if m, ok := mm[name]; ok {
+		return m, nil
+	}
+	var l []string
+	for k, f := range mm {
+		l = append(l, k+"("+strconv.Itoa(f.Args-1)+")")
+	}
+	sort.Strings(l)
+	return funcGen.Function[Value]{}, fmt.Errorf("method '%s' not found; available are %v", name, l)
 }
 
 type Closure funcGen.Function[Value]
@@ -47,8 +71,12 @@ func (c Closure) ToBool() (bool, bool) {
 	return false, false
 }
 
+var ClosureMethods = MethodMap{
+	"string": MethodAtType(1, func(c Closure, stack funcGen.Stack[Value]) Value { return String(c.String()) }),
+}
+
 func (c Closure) GetMethod(name string) (funcGen.Function[Value], error) {
-	return funcGen.Function[Value]{}, fmt.Errorf("method %s for found", name)
+	return ClosureMethods.Get(name)
 }
 
 func (c Closure) ToClosure() (funcGen.Function[Value], bool) {
@@ -84,7 +112,9 @@ func (b Bool) ToClosure() (funcGen.Function[Value], bool) {
 	return funcGen.Function[Value]{}, false
 }
 
-var BoolMethods = MethodMap{}
+var BoolMethods = MethodMap{
+	"string": MethodAtType(1, func(b Bool, stack funcGen.Stack[Value]) Value { return String(b.String()) }),
+}
 
 func (b Bool) GetMethod(name string) (funcGen.Function[Value], error) {
 	return BoolMethods.Get(name)
@@ -112,7 +142,9 @@ func (f Float) ToClosure() (funcGen.Function[Value], bool) {
 	return funcGen.Function[Value]{}, false
 }
 
-var FloatMethods = MethodMap{}
+var FloatMethods = MethodMap{
+	"string": MethodAtType(1, func(f Float, stack funcGen.Stack[Value]) Value { return String(f.String()) }),
+}
 
 func (f Float) GetMethod(name string) (funcGen.Function[Value], error) {
 	return FloatMethods.Get(name)
@@ -151,7 +183,9 @@ func (i Int) ToClosure() (funcGen.Function[Value], bool) {
 	return funcGen.Function[Value]{}, false
 }
 
-var IntMethods = MethodMap{}
+var IntMethods = MethodMap{
+	"string": MethodAtType(1, func(i Int, stack funcGen.Stack[Value]) Value { return String(i.String()) }),
+}
 
 func (i Int) GetMethod(name string) (funcGen.Function[Value], error) {
 	return IntMethods.Get(name)
