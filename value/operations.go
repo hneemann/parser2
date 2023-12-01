@@ -68,6 +68,11 @@ func In(a Value, b Value) Value {
 			return Bool(list.containsItem(a))
 		}
 	}
+	if m, ok := b.(Map); ok {
+		if key, ok := a.(String); ok {
+			return m.ContainsKey(key)
+		}
+	}
 	if strToLookFor, ok := a.(String); ok {
 		if strToLookIn, ok := b.(String); ok {
 			return Bool(strings.Contains(string(strToLookIn), string(strToLookFor)))

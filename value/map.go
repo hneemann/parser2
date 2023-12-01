@@ -189,6 +189,11 @@ func (v Map) IsAvail(stack funcGen.Stack[Value]) Value {
 	panic("isAvail requires a string as argument")
 }
 
+func (v Map) ContainsKey(key String) Value {
+	_, ok := v.m.Get(string(key))
+	return Bool(ok)
+}
+
 func (v Map) GetM(stack funcGen.Stack[Value]) Value {
 	if key, ok := stack.Get(1).(String); ok {
 		if v, ok := v.m.Get(string(key)); ok {
