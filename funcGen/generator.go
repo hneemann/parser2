@@ -728,9 +728,10 @@ func (g *FunctionGenerator[V]) GenerateFunc(ast parser2.AST, gc GeneratorContext
 			}
 			return func(st Stack[V], cs []V) V {
 				mapValues := listMap.New[V](len(itemsCode))
-				for _, entry := range itemsCode {
-					mapValues = mapValues.Append(entry.Key, entry.Value(st, cs))
-				}
+				itemsCode.Iter(func(key string, value Func[V]) bool {
+					mapValues = mapValues.Append(key, value(st, cs))
+					return true
+				})
 				return g.mapHandler.FromMap(mapValues)
 			}, nil
 		}
@@ -980,17 +981,19 @@ func (f *findNonArgAccess[V]) Visit(ast parser2.AST) bool {
 	return true
 }
 
-func (g *FunctionGenerator[V]) genCodeMap(a listMap.ListMap[parser2.AST], gc GeneratorContext) (listMap.ListMap[Func[V]], error) {
-	args := listMap.New[Func[V]](len(a))
-	for _, entry := range a {
-		var err error
-		f, err := g.GenerateFunc(entry.Value, gc)
+func (g *FunctionGenerator[V]) genCodeMap(a listMap.ListMap[parser2.AST], gc GeneratorContext) (args listMap.ListMap[Func[V]], err error) {
+	args = listMap.New[Func[V]](a.Size())
+	a.Iter(func(key string, value parser2.AST) bool {
+		var f Func[V]
+		f, err = g.GenerateFunc(value, gc)
 		if err != nil {
-			return nil, err
+			args = nil
+			return false
 		}
-		args = args.Append(entry.Key, f)
-	}
-	return args, nil
+		args = args.Append(key, f)
+		return true
+	})
+	return
 }
 
 func methodByReflection[V any](value V, name string) (Function[V], error) {

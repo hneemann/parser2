@@ -1,8 +1,8 @@
 package listMap
 
 type listMapEntry[V any] struct {
-	Key   string
-	Value V
+	key   string
+	value V
 }
 
 type ListMap[V any] []listMapEntry[V]
@@ -13,8 +13,8 @@ func New[V any](size int) ListMap[V] {
 
 func (l ListMap[V]) Get(key string) (V, bool) {
 	for _, e := range l {
-		if e.Key == key {
-			return e.Value, true
+		if e.key == key {
+			return e.value, true
 		}
 	}
 	var zero V
@@ -22,18 +22,18 @@ func (l ListMap[V]) Get(key string) (V, bool) {
 }
 
 func (l ListMap[V]) Append(key string, v V) ListMap[V] {
-	for _, e := range l {
-		if e.Key == key {
-			e.Value = v
+	for i, e := range l {
+		if e.key == key {
+			l[i].value = v
 			return l
 		}
 	}
-	return append(l, listMapEntry[V]{Key: key, Value: v})
+	return append(l, listMapEntry[V]{key: key, value: v})
 }
 
 func (l ListMap[V]) Iter(yield func(key string, v V) bool) bool {
 	for _, e := range l {
-		if !yield(e.Key, e.Value) {
+		if !yield(e.key, e.value) {
 			return false
 		}
 	}

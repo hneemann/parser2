@@ -429,37 +429,40 @@ type MapLiteral struct {
 
 func (ml *MapLiteral) Traverse(visitor Visitor) {
 	if visitor.Visit(ml) {
-		for _, entry := range ml.Map {
-			entry.Value.Traverse(visitor)
-		}
+		ml.Map.Iter(func(key string, value AST) bool {
+			value.Traverse(visitor)
+			return true
+		})
 	}
 }
 
-func (ml *MapLiteral) Optimize(optimizer Optimizer) error {
-	for i, entry := range ml.Map {
-		err := opt(&entry.Value, optimizer)
+func (ml *MapLiteral) Optimize(optimizer Optimizer) (err error) {
+	ml.Map.Iter(func(key string, value AST) bool {
+		err = opt(&value, optimizer)
 		if err != nil {
-			return err
+			return false
 		}
-		ml.Map[i] = entry
-	}
-	return nil
+		ml.Map.Append(key, value)
+		return true
+	})
+	return
 }
 
 func (ml *MapLiteral) String() string {
 	b := bytes.Buffer{}
 	b.WriteString("{")
 	first := true
-	for _, entry := range ml.Map {
+	ml.Map.Iter(func(key string, value AST) bool {
 		if first {
 			first = false
 		} else {
 			b.WriteString(", ")
 		}
-		b.WriteString(entry.Key)
+		b.WriteString(key)
 		b.WriteString(":")
-		b.WriteString(entry.Value.String())
-	}
+		b.WriteString(value.String())
+		return true
+	})
 	b.WriteString("}")
 	return b.String()
 }

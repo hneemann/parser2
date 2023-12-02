@@ -60,7 +60,7 @@ func TestParser(t *testing.T) {
 		{exp: "switch a case 0:1 case 1:10 default 100", ast: "switch a case 0 : 1 case 1 : 10 default 100", opt: "switch a case 0 : 1 case 1 : 10 default 100"}, {exp: "func sqr(x) x*x; sqr(x)", ast: "let sqr=(x)->x*x; sqr(x)", opt: "let sqr=(x)->x*x; sqr(x)"},
 		{exp: "func mul(a,b) a*b; mul(1,2)", ast: "let mul=(a, b)->a*b; mul(1, 2)", opt: "let mul=(a, b)->a*b; mul(1, 2)"},
 		{exp: "-(2*2)", ast: "-(2*2)", opt: "-4"},
-		{exp: "{a:1+1}", ast: "{a:1+1}", opt: "{a:2}"},
+		{exp: "{a:1+1, b:2*2}", ast: "{a:1+1, b:2*2}", opt: "{a:2, b:4}"},
 		{exp: "a.m(1+1,2+2)", ast: "a.m(1+1, 2+2)", opt: "a.m(2, 4)"},
 	}
 

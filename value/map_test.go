@@ -9,37 +9,31 @@ import (
 func TestMap(t *testing.T) {
 	runTest(t, []testType{
 		{exp: "{a:x->x*2,b:x->x*3}.b(4)", res: Int(12)},
-		{exp: "{a:1,b:2,c:3}", res: Map{m: listMap.ListMap[Value]{
-			{Key: "a", Value: Int(1)},
-			{Key: "b", Value: Int(2)},
-			{Key: "c", Value: Int(3)},
-		}}},
+		{exp: "{a:1,b:2,c:3}", res: NewMap(listMap.New[Value](3).
+			Append("a", Int(1)).
+			Append("b", Int(2)).
+			Append("c", Int(3)))},
 		{exp: "{a:1,b:2,c:3}.b", res: Int(2)},
 		{exp: "{a:1,b:2,c:3}={a:1,b:2,c:3}", res: Bool(true)},
 		{exp: "{a:1,b:2,c:3}={a:1,b:2,c:4}", res: Bool(false)},
 		{exp: "{a:1,b:2,c:3}={a:1,b:2,d:3}", res: Bool(false)},
-		{exp: "{a:1,b:2,c:3}.map((k,v)->v*v)", res: Map{m: listMap.ListMap[Value]{
-			{Key: "a", Value: Int(1)},
-			{Key: "b", Value: Int(4)},
-			{Key: "c", Value: Int(9)},
-		}}},
-		{exp: "{a:1,b:2,c:3}.accept((k,v)->v>1)", res: Map{m: listMap.ListMap[Value]{
-			{Key: "b", Value: Int(2)},
-			{Key: "c", Value: Int(3)},
-		}}},
+		{exp: "{a:1,b:2,c:3}.map((k,v)->v*v)", res: NewMap(listMap.New[Value](3).
+			Append("a", Int(1)).
+			Append("b", Int(4)).
+			Append("c", Int(9)))},
+		{exp: "{a:1,b:2,c:3}.accept((k,v)->v>1)", res: NewMap(listMap.New[Value](2).
+			Append("b", Int(2)).
+			Append("c", Int(3)))},
 		{exp: "{a:1,b:2,c:3}.list()", res: NewList(
-			Map{m: listMap.ListMap[Value]{
-				{Key: "key", Value: String("a")},
-				{Key: "value", Value: Int(1)},
-			}},
-			Map{m: listMap.ListMap[Value]{
-				{Key: "key", Value: String("b")},
-				{Key: "value", Value: Int(2)},
-			}},
-			Map{m: listMap.ListMap[Value]{
-				{Key: "key", Value: String("c")},
-				{Key: "value", Value: Int(3)},
-			}},
+			NewMap(listMap.New[Value](2).
+				Append("key", String("a")).
+				Append("value", Int(1))),
+			NewMap(listMap.New[Value](2).
+				Append("key", String("b")).
+				Append("value", Int(2))),
+			NewMap(listMap.New[Value](2).
+				Append("key", String("c")).
+				Append("value", Int(3))),
 		)},
 		{exp: "{a:1,b:2,c:3,d:-1}.size()", res: Int(4)},
 		{exp: "{a:1,b:2}.replace(m->m.a+m.b)", res: Int(3)},
