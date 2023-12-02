@@ -14,26 +14,6 @@ type MapStorage interface {
 	Size() int
 }
 
-type creator struct {
-	m listMap.ListMap[Value]
-}
-
-// MapCreator is used to create a new list based map
-func MapCreator(size int) creator {
-	return creator{m: make(listMap.ListMap[Value], 0, size)}
-}
-
-// Put adds an entry to the map
-func (c creator) Put(key string, v Value) creator {
-	c.m.Put(key, v)
-	return c
-}
-
-// Map creates the map
-func (c creator) Map() Map {
-	return Map{m: c.m}
-}
-
 type RealMap map[string]Value
 
 func (s RealMap) Get(key string) (Value, bool) {
@@ -56,6 +36,10 @@ func (s RealMap) Size() int {
 
 type Map struct {
 	m MapStorage
+}
+
+func NewMap(m MapStorage) Map {
+	return Map{m: m}
 }
 
 func (v Map) Iter(yield func(key string, v Value) bool) bool {
@@ -136,7 +120,7 @@ func (v Map) Accept(st funcGen.Stack[Value]) Map {
 		st.Push(v)
 		if cond, ok := f.Func(st.CreateFrame(2), nil).ToBool(); ok {
 			if cond {
-				newMap.Put(key, v)
+				newMap = newMap.Append(key, v)
 			}
 		} else {
 			panic(fmt.Errorf("closure in accept does not return a bool"))
@@ -152,7 +136,7 @@ func (v Map) Map(st funcGen.Stack[Value]) Map {
 	v.m.Iter(func(key string, v Value) bool {
 		st.Push(String(key))
 		st.Push(v)
-		newMap.Put(key, f.Func(st.CreateFrame(2), nil))
+		newMap = newMap.Append(key, f.Func(st.CreateFrame(2), nil))
 		return true
 	})
 	return Map{m: newMap}
@@ -167,10 +151,9 @@ func (v Map) List() *List {
 	return NewListFromIterable(func() iterator.Iterator[Value] {
 		return func(yield func(Value) bool) bool {
 			v.m.Iter(func(key string, v Value) bool {
-				m := listMap.New[Value](2)
-				m.Put("key", String(key))
-				m.Put("value", v)
-				return yield(Map{m})
+				return yield(NewMap(listMap.New[Value](2).
+					Append("key", String(key)).
+					Append("value", v)))
 			})
 			return true
 		}

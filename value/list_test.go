@@ -1,8 +1,6 @@
 package value
 
 import (
-	"github.com/hneemann/iterator"
-	"github.com/hneemann/parser2/funcGen"
 	"github.com/stretchr/testify/assert"
 	"testing"
 )
@@ -44,6 +42,8 @@ func TestList(t *testing.T) {
 		{exp: "list(11).iir(i->0,(i,l)->(1024+l)>>1)",
 			res: NewList(Int(0), Int(512), Int(768), Int(896), Int(960), Int(992), Int(1008), Int(1016), Int(1020), Int(1022), Int(1023))},
 		{exp: "list(6).combine((a,b)->a+b)", res: NewList(Int(1), Int(3), Int(5), Int(7), Int(9))},
+		{exp: "list(6).combine3((a,b,c)->a+b+c)", res: NewList(Int(3), Int(6), Int(9), Int(12))},
+		{exp: "list(6).combineN(3,(a,l)->l[0]+l[1]+l[2])", res: NewList(Int(3), Int(6), Int(9), Int(12))},
 		{exp: "[1,2,3].size()", res: Int(3)},
 		{exp: "let a=[1,2].append(3);\"\"+[a.append(4), a.append(5)]", res: String("[[1, 2, 3, 4], [1, 2, 3, 5]]")},
 		{exp: "let a=[1,2].append(3);\"\"+[a.append(4), a.append(5)]", res: String("[[1, 2, 3, 4], [1, 2, 3, 5]]")},
@@ -61,6 +61,18 @@ func TestList(t *testing.T) {
 		{exp: "[1,2].reverse().string()", res: String("[2, 1]")},
 		{exp: "[1,2,3].reverse().string()", res: String("[3, 2, 1]")},
 		{exp: "[1,2,3,4].reverse().string()", res: String("[4, 3, 2, 1]")},
+
+		{exp: "[1,2,3].top(0).string()", res: String("[]")},
+		{exp: "[1,2,3].top(1).string()", res: String("[1]")},
+		{exp: "[1,2,3].top(2).string()", res: String("[1, 2]")},
+		{exp: "[1,2,3].top(3).string()", res: String("[1, 2, 3]")},
+		{exp: "[1,2,3].top(4).string()", res: String("[1, 2, 3]")},
+
+		{exp: "[1,2,3].skip(0).string()", res: String("[1, 2, 3]")},
+		{exp: "[1,2,3].skip(1).string()", res: String("[2, 3]")},
+		{exp: "[1,2,3].skip(2).string()", res: String("[3]")},
+		{exp: "[1,2,3].skip(3).string()", res: String("[]")},
+		{exp: "[1,2,3].skip(4).string()", res: String("[]")},
 	})
 }
 
@@ -111,33 +123,6 @@ func TestNewListCreate(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			got := NewListConvert(tt.conv, tt.items...).ToSlice()
 			assert.Equalf(t, tt.want, got, "NewListConvert, %v vs. %v", tt.want, got)
-		})
-	}
-}
-
-func TestList_Top(t *testing.T) {
-	tests := []struct {
-		name    string
-		origLen int
-		topLen  int
-		wantLen int
-	}{
-		{name: "normal", origLen: 100, topLen: 4, wantLen: 4},
-		{name: "match", origLen: 4, topLen: 4, wantLen: 4},
-		{name: "short", origLen: 4, topLen: 10, wantLen: 4},
-	}
-	for _, tt := range tests {
-		test := tt
-		t.Run(test.name, func(t *testing.T) {
-			g := NewListFromIterable(iterator.Generate(test.origLen, func(i int) Value { return Int(i) }))
-			l := g.Top(funcGen.NewStack[Value](g, Int(test.topLen)))
-			sl := l.ToSlice()
-			assert.Equal(t, test.wantLen, len(sl))
-			for i, item := range sl {
-				li, ok := item.ToInt()
-				assert.True(t, ok)
-				assert.Equal(t, i, li)
-			}
 		})
 	}
 }

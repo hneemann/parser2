@@ -11,11 +11,6 @@ func New[V any](size int) ListMap[V] {
 	return make(ListMap[V], 0, size)
 }
 
-func NewP[V any](size int) *ListMap[V] {
-	lm := make(ListMap[V], 0, size)
-	return &lm
-}
-
 func (l ListMap[V]) Get(key string) (V, bool) {
 	for _, e := range l {
 		if e.Key == key {
@@ -26,15 +21,14 @@ func (l ListMap[V]) Get(key string) (V, bool) {
 	return zero, false
 }
 
-func (l *ListMap[V]) Put(key string, v V) *ListMap[V] {
-	for _, e := range *l {
+func (l ListMap[V]) Append(key string, v V) ListMap[V] {
+	for _, e := range l {
 		if e.Key == key {
 			e.Value = v
 			return l
 		}
 	}
-	*l = append(*l, listMapEntry[V]{Key: key, Value: v})
-	return l
+	return append(l, listMapEntry[V]{Key: key, Value: v})
 }
 
 func (l ListMap[V]) Iter(yield func(key string, v V) bool) bool {

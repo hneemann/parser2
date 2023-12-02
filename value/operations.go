@@ -8,34 +8,32 @@ import (
 )
 
 func Equal(a Value, b Value) bool {
-	if aa, ok := a.(Bool); ok {
+	switch aa := a.(type) {
+	case Bool:
 		if bb, ok := b.(Bool); ok {
 			return aa == bb
 		}
-	}
-	if aa, ok := a.(Int); ok {
+	case Int:
 		if bb, ok := b.(Int); ok {
 			return aa == bb
 		}
-	}
-	if aa, ok := a.(String); ok {
+	case String:
 		if bb, ok := b.(String); ok {
 			return aa == bb
 		}
-	}
-	if aa, ok := a.(*List); ok {
+	case *List:
 		if bb, ok := b.(*List); ok {
 			return aa.Equals(bb)
 		}
-	}
-	if aa, ok := a.(Map); ok {
+	case Map:
 		if bb, ok := b.(Map); ok {
 			return aa.Equals(bb)
 		}
-	}
-	if aa, ok := a.ToFloat(); ok {
-		if bb, ok := b.ToFloat(); ok {
-			return aa == bb
+	default:
+		if aa, ok := a.ToFloat(); ok {
+			if bb, ok := b.ToFloat(); ok {
+				return aa == bb
+			}
 		}
 	}
 	return false

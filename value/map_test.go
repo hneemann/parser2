@@ -8,13 +8,16 @@ import (
 
 func TestMap(t *testing.T) {
 	runTest(t, []testType{
+		{exp: "{a:x->x*2,b:x->x*3}.b(4)", res: Int(12)},
 		{exp: "{a:1,b:2,c:3}", res: Map{m: listMap.ListMap[Value]{
 			{Key: "a", Value: Int(1)},
 			{Key: "b", Value: Int(2)},
 			{Key: "c", Value: Int(3)},
 		}}},
 		{exp: "{a:1,b:2,c:3}.b", res: Int(2)},
-		{exp: "{a:x->x*2,b:x->x*3}.b(4)", res: Int(12)},
+		{exp: "{a:1,b:2,c:3}={a:1,b:2,c:3}", res: Bool(true)},
+		{exp: "{a:1,b:2,c:3}={a:1,b:2,c:4}", res: Bool(false)},
+		{exp: "{a:1,b:2,c:3}={a:1,b:2,d:3}", res: Bool(false)},
 		{exp: "{a:1,b:2,c:3}.map((k,v)->v*v)", res: Map{m: listMap.ListMap[Value]{
 			{Key: "a", Value: Int(1)},
 			{Key: "b", Value: Int(4)},

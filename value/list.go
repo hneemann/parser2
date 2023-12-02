@@ -103,6 +103,24 @@ func (l *List) Eval() {
 	}
 }
 
+func (l *List) Equals(other *List) bool {
+	a := l.ToSlice()
+	b := other.ToSlice()
+	if len(a) != len(b) {
+		return false
+	}
+	for i, aa := range a {
+		if !Equal(aa, b[i]) {
+			return false
+		}
+	}
+	return true
+}
+
+func (l *List) Iterator() iterator.Iterator[Value] {
+	return l.iterable()
+}
+
 // ToSlice returns the list elements as a slice
 func (l *List) ToSlice() []Value {
 	l.Eval()
@@ -142,7 +160,7 @@ func toFunc(name string, st funcGen.Stack[Value], n int, args int) funcGen.Funct
 		if c.Args == args {
 			return c
 		} else {
-			panic(fmt.Errorf("%d. argument of %s needs to be a closure with %d argoments", n, name, args))
+			panic(fmt.Errorf("%d. argument of %s needs to be a closure with %d arguments", n, name, args))
 		}
 	} else {
 		panic(fmt.Errorf("%d. argument of %s needs to be a closure", n, name))
@@ -172,6 +190,21 @@ func (l *List) Map(st funcGen.Stack[Value]) *List {
 	}))
 }
 
+func (l *List) IndexOf(st funcGen.Stack[Value]) Int {
+	v := st.Get(1)
+	index := -1
+	i := 0
+	l.iterable()(func(value Value) bool {
+		if Equal(v, value) {
+			index = i
+			return false
+		}
+		i++
+		return true
+	})
+	return Int(index)
+}
+
 type Sortable struct {
 	items []Value
 	st    funcGen.Stack[Value]
@@ -194,21 +227,6 @@ func (s Sortable) Less(i, j int) bool {
 
 func (s Sortable) Swap(i, j int) {
 	s.items[i], s.items[j] = s.items[j], s.items[i]
-}
-
-func (l *List) IndexOf(st funcGen.Stack[Value]) Int {
-	v := st.Get(1)
-	index := -1
-	i := 0
-	l.iterable()(func(value Value) bool {
-		if Equal(v, value) {
-			index = i
-			return false
-		}
-		i++
-		return true
-	})
-	return Int(index)
 }
 
 func (l *List) Order(st funcGen.Stack[Value]) *List {
@@ -244,6 +262,28 @@ func (l *List) Combine(st funcGen.Stack[Value]) *List {
 	}))
 }
 
+func (l *List) Combine3(st funcGen.Stack[Value]) *List {
+	f := toFunc("combine3", st, 1, 3)
+	return NewListFromIterable(iterator.Combine3[Value, Value](l.iterable, func(a, b, c Value) Value {
+		st.Push(a)
+		st.Push(b)
+		st.Push(c)
+		return f.Func(st.CreateFrame(3), nil)
+	}))
+}
+
+func (l *List) CombineN(st funcGen.Stack[Value]) *List {
+	if n, ok := st.Get(1).ToInt(); ok {
+		f := toFunc("combineN", st, 2, 2)
+		return NewListFromIterable(iterator.CombineN[Value, Value](l.iterable, n, func(i0 int, i []Value) Value {
+			st.Push(Int(i0))
+			st.Push(NewList(i...))
+			return f.Func(st.CreateFrame(2), nil)
+		}))
+	}
+	panic("first argument in combineN needs to be an int")
+}
+
 func (l *List) IIr(st funcGen.Stack[Value]) *List {
 	initial := toFunc("iir", st, 1, 1)
 	function := toFunc("iir", st, 2, 2)
@@ -272,20 +312,16 @@ func (l *List) Visit(st funcGen.Stack[Value]) Value {
 
 func (l *List) Top(st funcGen.Stack[Value]) *List {
 	if i, ok := st.Get(1).ToInt(); ok {
-		return NewListFromIterable(func() iterator.Iterator[Value] {
-			count := i
-			return func(yield func(Value) bool) bool {
-				return l.iterable()(func(value Value) bool {
-					if !yield(value) {
-						return false
-					}
-					count--
-					return count > 0
-				})
-			}
-		})
+		return NewListFromIterable(iterator.FirstN[Value](l.iterable, i))
 	}
 	panic("error in top, no int given")
+}
+
+func (l *List) Skip(st funcGen.Stack[Value]) *List {
+	if i, ok := st.Get(1).ToInt(); ok {
+		return NewListFromIterable(iterator.Skip[Value](l.iterable, i))
+	}
+	panic("error in skip, no int given")
 }
 
 func (l *List) Reduce(st funcGen.Stack[Value]) Value {
@@ -357,10 +393,9 @@ func GroupBy(list *List, keyFunc func(Value) Value) *List {
 	})
 	var result []Value
 	for k, v := range m {
-		entry := listMap.New[Value](2)
-		entry.Put("key", k)
-		entry.Put("value", NewList(*v...))
-		result = append(result, Map{entry})
+		result = append(result, Map{listMap.New[Value](2).
+			Append("key", k).
+			Append("value", NewList(*v...))})
 	}
 	return NewList(result...)
 }
@@ -402,6 +437,8 @@ var ListMethods = MethodMap{
 	"reduce":        MethodAtType(2, func(list *List, stack funcGen.Stack[Value]) Value { return list.Reduce(stack) }),
 	"replace":       MethodAtType(2, func(list *List, stack funcGen.Stack[Value]) Value { return list.Replace(stack) }),
 	"combine":       MethodAtType(2, func(list *List, stack funcGen.Stack[Value]) Value { return list.Combine(stack) }),
+	"combine3":      MethodAtType(2, func(list *List, stack funcGen.Stack[Value]) Value { return list.Combine3(stack) }),
+	"combineN":      MethodAtType(3, func(list *List, stack funcGen.Stack[Value]) Value { return list.CombineN(stack) }),
 	"indexOf":       MethodAtType(2, func(list *List, stack funcGen.Stack[Value]) Value { return list.IndexOf(stack) }),
 	"groupByString": MethodAtType(2, func(list *List, stack funcGen.Stack[Value]) Value { return list.GroupByString(stack) }),
 	"groupByInt":    MethodAtType(2, func(list *List, stack funcGen.Stack[Value]) Value { return list.GroupByInt(stack) }),
@@ -411,6 +448,7 @@ var ListMethods = MethodMap{
 	"iir":           MethodAtType(3, func(list *List, stack funcGen.Stack[Value]) Value { return list.IIr(stack) }),
 	"visit":         MethodAtType(3, func(list *List, stack funcGen.Stack[Value]) Value { return list.Visit(stack) }),
 	"top":           MethodAtType(2, func(list *List, stack funcGen.Stack[Value]) Value { return list.Top(stack) }),
+	"skip":          MethodAtType(2, func(list *List, stack funcGen.Stack[Value]) Value { return list.Skip(stack) }),
 	"number":        MethodAtType(2, func(list *List, stack funcGen.Stack[Value]) Value { return list.Number(stack) }),
 	"size":          MethodAtType(1, func(list *List, stack funcGen.Stack[Value]) Value { return Int(list.Size()) }),
 	"string":        MethodAtType(1, func(list *List, stack funcGen.Stack[Value]) Value { return String(list.String()) }),
@@ -418,22 +456,4 @@ var ListMethods = MethodMap{
 
 func (l *List) GetMethod(name string) (funcGen.Function[Value], error) {
 	return ListMethods.Get(name)
-}
-
-func (l *List) Equals(other *List) bool {
-	a := l.ToSlice()
-	b := other.ToSlice()
-	if len(a) != len(b) {
-		return false
-	}
-	for i, aa := range a {
-		if !Equal(aa, b[i]) {
-			return false
-		}
-	}
-	return true
-}
-
-func (l *List) Iterator() iterator.Iterator[Value] {
-	return l.iterable()
 }

@@ -82,7 +82,7 @@ func (o optimizer[V]) Optimize(ast parser2.AST) (parser2.AST, error) {
 			cm := listMap.New[V](len(m.Map))
 			for _, entry := range m.Map {
 				if v, ok := o.isConst(entry.Value); ok {
-					cm.Put(entry.Key, v)
+					cm = cm.Append(entry.Key, v)
 				} else {
 					cm = nil
 					break

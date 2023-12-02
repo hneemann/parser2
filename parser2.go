@@ -1174,12 +1174,11 @@ func (p *Parser[V]) parseArgs(tokenizer *Tokenizer, closeList TokenType, constan
 }
 
 func (p *Parser[V]) parseMap(tokenizer *Tokenizer, constants Constants[V]) (*MapLiteral, error) {
-	m := MapLiteral{Map: listMap.New[AST](1)}
+	m := listMap.New[AST](1)
 	for {
 		switch t := tokenizer.Next(); t.typ {
 		case tCloseCurly:
-			m.Line = t.Line
-			return &m, nil
+			return &MapLiteral{m, t.Line}, nil
 		case tIdent:
 			if c := tokenizer.Next(); c.typ != tColon {
 				return nil, unexpected(":", c)
@@ -1188,7 +1187,7 @@ func (p *Parser[V]) parseMap(tokenizer *Tokenizer, constants Constants[V]) (*Map
 			if err != nil {
 				return nil, err
 			}
-			m.Map.Put(t.image, entryAst)
+			m = m.Append(t.image, entryAst)
 			if tokenizer.Peek().typ == tComma {
 				tokenizer.Next()
 			} else {

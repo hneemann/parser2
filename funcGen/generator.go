@@ -729,7 +729,7 @@ func (g *FunctionGenerator[V]) GenerateFunc(ast parser2.AST, gc GeneratorContext
 			return func(st Stack[V], cs []V) V {
 				mapValues := listMap.New[V](len(itemsCode))
 				for _, entry := range itemsCode {
-					mapValues.Put(entry.Key, entry.Value(st, cs))
+					mapValues = mapValues.Append(entry.Key, entry.Value(st, cs))
 				}
 				return g.mapHandler.FromMap(mapValues)
 			}, nil
@@ -988,7 +988,7 @@ func (g *FunctionGenerator[V]) genCodeMap(a listMap.ListMap[parser2.AST], gc Gen
 		if err != nil {
 			return nil, err
 		}
-		args.Put(entry.Key, f)
+		args = args.Append(entry.Key, f)
 	}
 	return args, nil
 }
