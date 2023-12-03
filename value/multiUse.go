@@ -34,31 +34,11 @@ func (l *List) MultiUse(st funcGen.Stack[Value]) Map {
 			return true
 		})
 
-		started := make(chan struct{})
-		for _, mu := range muList {
-			mu.start(started)
-		}
+		muList.runConsumerClosures()
 
-		// wait for all iterators to start
-		for i := 0; i < len(muList); i++ {
-			select {
-			case <-time.After(startTimeout * time.Second):
-				panic(muList.timeOutError())
-			case <-started:
-			}
-		}
+		go muList.runProducer(l.Iterator())
 
-		go muList.run(l.Iterator())
-
-		resultMap := listMap.New[Value](len(muList))
-		for _, mu := range muList {
-			result := <-mu.result
-			if result.err != nil {
-				panic(result.err)
-			}
-			resultMap = resultMap.Append(mu.name, result.result)
-		}
-		return NewMap(resultMap)
+		return muList.createResult()
 	} else {
 		panic("first argument in multiUse needs to be a map")
 	}
@@ -102,7 +82,7 @@ type multiUseResult struct {
 	err    error
 }
 
-func (mu *multiUseEntry) start(started chan struct{}) {
+func (mu *multiUseEntry) runConsumer(started chan struct{}) {
 	r := make(chan multiUseResult)
 	mu.result = r
 	go func() {
@@ -122,14 +102,14 @@ func (mu *multiUseEntry) start(started chan struct{}) {
 		st.Push(NewListFromIterable(mu.createIterable(started)))
 		value := mu.fu(st, nil)
 		if list, ok := value.(*List); ok {
-			// force evaluation of list
+			// force evaluation of lists
 			list.Eval()
 		}
 		r <- multiUseResult{result: value, err: nil}
 	}()
 }
 
-func (ml multiUseList) run(i iterator.Iterator[Value]) {
+func (ml multiUseList) runProducer(i iterator.Iterator[Value]) {
 	i(func(v Value) bool {
 		for _, mu := range ml {
 			if mu.writer != nil {
@@ -165,4 +145,32 @@ func (ml multiUseList) timeOutError() error {
 		}
 	}
 	return errors.New(buffer.String())
+}
+
+func (ml multiUseList) runConsumerClosures() {
+	started := make(chan struct{})
+	for _, mu := range ml {
+		mu.runConsumer(started)
+	}
+
+	// wait for all consumers to be started
+	for i := 0; i < len(ml); i++ {
+		select {
+		case <-time.After(startTimeout * time.Second):
+			panic(ml.timeOutError())
+		case <-started:
+		}
+	}
+}
+
+func (ml multiUseList) createResult() Map {
+	resultMap := listMap.New[Value](len(ml))
+	for _, mu := range ml {
+		result := <-mu.result
+		if result.err != nil {
+			panic(result.err)
+		}
+		resultMap = resultMap.Append(mu.name, result.result)
+	}
+	return NewMap(resultMap)
 }
