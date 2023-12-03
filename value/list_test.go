@@ -78,6 +78,8 @@ func TestList(t *testing.T) {
 
 		{exp: "[1,2,3,4].first()", res: Int(1)},
 		{exp: "list(100).first()", res: Int(0)},
+		{exp: "list(1e9).present(n->n>100)", res: Bool(true)},
+		{exp: "list(10).present(n->n>100)", res: Bool(false)},
 	})
 }
 

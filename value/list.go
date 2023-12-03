@@ -335,6 +335,24 @@ func (l *List) Visit(st funcGen.Stack[Value]) Value {
 	return visitor
 }
 
+func (l *List) Present(st funcGen.Stack[Value]) Value {
+	function := toFunc("present", st, 1, 1)
+	isPresent := false
+	l.iterable()(func(value Value) bool {
+		st.Push(value)
+		if pr, ok := function.Func(st.CreateFrame(1), nil).ToBool(); ok {
+			if pr {
+				isPresent = true
+				return false
+			}
+		} else {
+			panic("closure in present needs to return a bool")
+		}
+		return true
+	})
+	return Bool(isPresent)
+}
+
 func (l *List) Top(st funcGen.Stack[Value]) *List {
 	if i, ok := st.Get(1).ToInt(); ok {
 		return NewListFromIterable(iterator.FirstN[Value](l.iterable, i))
@@ -476,6 +494,7 @@ var ListMethods = MethodMap{
 	"top":           MethodAtType(2, func(list *List, stack funcGen.Stack[Value]) Value { return list.Top(stack) }),
 	"skip":          MethodAtType(2, func(list *List, stack funcGen.Stack[Value]) Value { return list.Skip(stack) }),
 	"number":        MethodAtType(2, func(list *List, stack funcGen.Stack[Value]) Value { return list.Number(stack) }),
+	"present":       MethodAtType(2, func(list *List, stack funcGen.Stack[Value]) Value { return list.Present(stack) }),
 	"size":          MethodAtType(1, func(list *List, stack funcGen.Stack[Value]) Value { return Int(list.Size()) }),
 	"first":         MethodAtType(1, func(list *List, stack funcGen.Stack[Value]) Value { return list.First() }),
 	"string":        MethodAtType(1, func(list *List, stack funcGen.Stack[Value]) Value { return String(list.String()) }),
