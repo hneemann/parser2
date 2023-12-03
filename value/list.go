@@ -26,7 +26,11 @@ func NewListConvert[I any](conv func(I) Value, items ...I) *List {
 
 // NewList creates a new list containing the given elements
 func NewList(items ...Value) *List {
-	return &List{items: items, itemsPresent: true, iterable: func() iterator.Iterator[Value] {
+	return &List{items: items, itemsPresent: true, iterable: createSliceIterable(items)}
+}
+
+func createSliceIterable(items []Value) iterator.Iterable[Value] {
+	return func() iterator.Iterator[Value] {
 		return func(yield func(Value) bool) bool {
 			for _, item := range items {
 				if !yield(item) {
@@ -35,7 +39,7 @@ func NewList(items ...Value) *List {
 			}
 			return true
 		}
-	}}
+	}
 }
 
 // NewListFromIterable creates a list based on the given Iterable
@@ -100,6 +104,7 @@ func (l *List) Eval() {
 		})
 		l.items = it
 		l.itemsPresent = true
+		l.iterable = createSliceIterable(it)
 	}
 }
 
