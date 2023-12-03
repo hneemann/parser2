@@ -15,18 +15,18 @@ import (
 
 type testType struct {
 	exp string
-	res any
+	res Value
 }
 
 func TestBasic(t *testing.T) {
 	runTest(t, []testType{
-		{exp: "1e-7", res: float64(1e-7)},
-		{exp: "1e7", res: float64(1e7)},
-		{exp: "1e+7", res: float64(1e+7)},
+		{exp: "1e-7", res: Float(1e-7)},
+		{exp: "1e7", res: Float(1e7)},
+		{exp: "1e+7", res: Float(1e+7)},
 		{exp: "1+2", res: Int(3)},
 		{exp: "2-1", res: Int(1)},
-		{exp: "1.0+2.0", res: 3.0},
-		{exp: "2.0-1.0", res: 1.0},
+		{exp: "1.0+2.0", res: Float(3.0)},
+		{exp: "2.0-1.0", res: Float(1.0)},
 		{exp: "1<<2", res: Int(4)},
 		{exp: "8>>2", res: Int(2)},
 		{exp: "1<2", res: Bool(true)},
@@ -35,10 +35,10 @@ func TestBasic(t *testing.T) {
 		{exp: "1<2", res: Bool(true)},
 		{exp: "2=2", res: Bool(true)},
 		{exp: "1=2", res: Bool(false)},
-		{exp: "1.0+2.0", res: 3.0},
-		{exp: "3.0*2.0", res: 6.0},
-		{exp: "-3.0", res: -3.0},
-		{exp: "3.0^3.0", res: 27.0},
+		{exp: "1.0+2.0", res: Float(3.0)},
+		{exp: "3.0*2.0", res: Float(6.0)},
+		{exp: "-3.0", res: Float(-3.0)},
+		{exp: "3.0^3.0", res: Float(27.0)},
 		{exp: "3^4", res: Int(81)},
 		{exp: "2^12", res: Int(4096)},
 		{exp: "1.0<2.0", res: Bool(true)},
@@ -67,13 +67,13 @@ func TestBasic(t *testing.T) {
 		{exp: "let a=2;abs(a)", res: Int(2)},
 		{exp: "let a=2;abs(-a)", res: Int(2)},
 		{exp: "let a=-2;abs(a)", res: Int(2)},
-		{exp: "let a=2.0;abs(a)", res: 2.0},
-		{exp: "let a=2.0;abs(-a)", res: 2.0},
-		{exp: "let a=-2.0;abs(a)", res: 2.0},
+		{exp: "let a=2.0;abs(a)", res: Float(2.0)},
+		{exp: "let a=2.0;abs(-a)", res: Float(2.0)},
+		{exp: "let a=-2.0;abs(a)", res: Float(2.0)},
 		{exp: "let a=5;12%a", res: Int(2)},
 		{exp: "let a=2;sqr(a)", res: Int(4)},
-		{exp: "let a=2.0;sqr(a)", res: 4.0},
-		{exp: "let a=2;let b=3;exp(b*ln(a))", res: 8.0},
+		{exp: "let a=2.0;sqr(a)", res: Float(4.0)},
+		{exp: "let a=2;let b=3;exp(b*ln(a))", res: Float(8.0)},
 		{exp: "\"a\"=\"a\"", res: Bool(true)},
 		{exp: "\"a\">=\"a\"", res: Bool(true)},
 		{exp: "\"a\"<=\"a\"", res: Bool(true)},
@@ -82,13 +82,13 @@ func TestBasic(t *testing.T) {
 		{exp: "\"a\"<\"b\"", res: Bool(true)},
 		{exp: "\"test\">\"hello\"", res: Bool(true)},
 		{exp: "\"test\"+\"hello\"", res: String("testhello")},
-		{exp: "sqrt(2)", res: math.Sqrt(2)},
-		{exp: "let x=2;sqrt(x)", res: math.Sqrt(2)},
+		{exp: "sqrt(2)", res: Float(math.Sqrt(2))},
+		{exp: "let x=2;sqrt(x)", res: Float(math.Sqrt(2))},
 		{exp: "let a=1;a", res: Int(1)},
 		{exp: "let sqr=x->x*x;sqr(2)", res: Int(4)},
 		{exp: "let x=2;sqr(2)", res: Int(4)},
-		{exp: "let x=pi;sin(x)", res: 0.0},
-		{exp: "let x=pi;cos(x/2)", res: 0.0},
+		{exp: "let x=pi;sin(x)", res: Float(0.0)},
+		{exp: "let x=pi;cos(x/2)", res: Float(0.0)},
 		{exp: "let s=3; let f=x->x*x*s;f(2)", res: Int(12)},
 		{exp: "func inv(x) -x; inv(2)", res: Int(-2)},
 		{exp: "func fib(n) if n<=2 then 1 else fib(n-1)+fib(n-2);[fib(10),fib(15)]", res: NewList(Int(55), Int(610))},
@@ -138,10 +138,10 @@ func runTest(t *testing.T, tests []testType) {
 			if fu != nil {
 				res, err := fu(funcGen.NewEmptyStack[Value]())
 				assert.NoError(t, err, test.exp)
-				if _, ok := test.res.(float64); ok {
+				if tr, ok := test.res.(Float); ok {
 					float, ok := res.(Float)
 					assert.True(t, ok)
-					assert.InDelta(t, test.res, float64(float), 1e-6, test.exp)
+					assert.InDelta(t, float64(tr), float64(float), 1e-6, test.exp)
 				} else if expList, ok := test.res.(*List); ok {
 					actList, ok := res.(*List)
 					assert.True(t, ok)

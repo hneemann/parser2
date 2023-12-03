@@ -43,6 +43,8 @@ func TestList(t *testing.T) {
 		// Low-pass Filter
 		{exp: "list(11).iir(i->0,(i,l)->(1024+l)>>1)",
 			res: NewList(Int(0), Int(512), Int(768), Int(896), Int(960), Int(992), Int(1008), Int(1016), Int(1020), Int(1022), Int(1023))},
+		// non-equidistant Low-pass Filter
+		{exp: realIir, res: Float(0.707192)},
 		{exp: "list(6).combine((a,b)->a+b)", res: NewList(Int(1), Int(3), Int(5), Int(7), Int(9))},
 		{exp: "list(6).combine3((a,b,c)->a+b+c)", res: NewList(Int(3), Int(6), Int(9), Int(12))},
 		{exp: "list(6).combineN(3,(a,l)->l[0]+l[1]+l[2])", res: NewList(Int(3), Int(6), Int(9), Int(12))},
@@ -83,6 +85,39 @@ func TestList(t *testing.T) {
 	})
 }
 
+const realIir = `
+let data=list(1000).map(i->
+	let t=i/50;
+	{t:t, s:sin(2*pi*t)});
+
+func lowPass(tau)
+	(p0,p1,y)->
+		let dt = p1.t - p0.t;
+		let a = exp(-dt / tau);
+		{t:p1.t,f:y.f*a + p1.s*(1-a)};
+
+let filtered=data.iirCombine(p->{t:p.t,f:0},lowPass(1/(2*pi)));
+
+func findMinMax(list, f)
+	list.visit(
+		{min:0,max:0},
+		(mm,val)->
+        	let x=f(val);
+        	if x<mm.min  
+			then 
+				if x>mm.max
+				then {min:x, max:x}
+				else {min:x, max:mm.max}
+			else 
+				if x>mm.max 
+        	    then {min:mm.min,max:x} 
+				else mm);
+
+let minMax=findMinMax(filtered.skip(100),p->p.f);
+
+(minMax.max-minMax.min)/2
+`
+
 const visitAndCollect = `
   let data=list(100).map(i->if i%10=9 then i else 0);
   
@@ -90,7 +125,7 @@ const visitAndCollect = `
        .visit([],(vis,i)->if i!=0 
                           then vis.append(i)
                           else vis);
-  ""+events
+  events.string()
 `
 
 const accept = `
@@ -98,7 +133,7 @@ const accept = `
   
   let events=data.accept(i->i!=0);
 
-  ""+events
+  events.string()
 `
 
 func TestNewListCreate(t *testing.T) {

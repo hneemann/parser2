@@ -323,6 +323,21 @@ func (l *List) IIr(st funcGen.Stack[Value]) *List {
 		}))
 }
 
+func (l *List) IIrCombine(st funcGen.Stack[Value]) *List {
+	initial := toFunc("iirCombine", st, 1, 1)
+	function := toFunc("iirCombine", st, 2, 3)
+	return NewListFromIterable(iterator.IirMap[Value, Value](l.iterable,
+		func(item Value) Value {
+			return initial.Eval(st, item)
+		},
+		func(item Value, lastItem Value, last Value) Value {
+			st.Push(lastItem)
+			st.Push(item)
+			st.Push(last)
+			return function.Func(st.CreateFrame(3), nil)
+		}))
+}
+
 func (l *List) Visit(st funcGen.Stack[Value]) Value {
 	visitor := st.Get(1)
 	function := toFunc("visit", st, 2, 2)
@@ -490,6 +505,7 @@ var ListMethods = MethodMap{
 	"reverse":       MethodAtType(1, func(list *List, stack funcGen.Stack[Value]) Value { return list.Reverse() }),
 	"append":        MethodAtType(2, func(list *List, stack funcGen.Stack[Value]) Value { return list.Append(stack) }),
 	"iir":           MethodAtType(3, func(list *List, stack funcGen.Stack[Value]) Value { return list.IIr(stack) }),
+	"iirCombine":    MethodAtType(3, func(list *List, stack funcGen.Stack[Value]) Value { return list.IIrCombine(stack) }),
 	"visit":         MethodAtType(3, func(list *List, stack funcGen.Stack[Value]) Value { return list.Visit(stack) }),
 	"top":           MethodAtType(2, func(list *List, stack funcGen.Stack[Value]) Value { return list.Top(stack) }),
 	"skip":          MethodAtType(2, func(list *List, stack funcGen.Stack[Value]) Value { return list.Skip(stack) }),
