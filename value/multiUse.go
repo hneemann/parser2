@@ -14,10 +14,10 @@ const startTimeout = 2 // seconds
 
 // MultiUse takes a map of closures and the list is passed to the closures. The
 // return values of the closures are returned in a map. The keys in the result
-// map are the same keys used to pass the closures. This is useful if you have to
-// use the same list multiple times and the list is both expensive to create and
-// expensive to store. This is because this method allows you to use the list
-// multiple times without having to store the list elements for later reuse.
+// map are the same keys used to pass the closures. MultiUse is useful if you
+// have to use the same list multiple times and the list is both expensive to
+// create and expensive to store. This is because MultiUse allows you to use the
+// list multiple times without having to store the list elements for later reuse.
 func (l *List) MultiUse(st funcGen.Stack[Value]) Map {
 	if m, ok := st.Get(1).ToMap(); ok {
 		var muList multiUseList
