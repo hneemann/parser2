@@ -395,6 +395,34 @@ func (l *List) Reduce(st funcGen.Stack[Value]) Value {
 	panic("error in reduce, no items in list")
 }
 
+func (l *List) MinMax(st funcGen.Stack[Value]) Value {
+	f := toFunc("minMax", st, 1, 1)
+	first := true
+	var min Value = Int(0)
+	var max Value = Int(0)
+	l.Iterator()(func(value Value) bool {
+		st.Push(value)
+		r := f.Func(st.CreateFrame(1), nil)
+		if first {
+			first = false
+			min = r
+			max = r
+		} else {
+			if c, _ := Less(r, min).(Bool); c {
+				min = r
+			}
+			if c, _ := Less(max, r).(Bool); c {
+				max = r
+			}
+		}
+		return true
+	})
+	return NewMap(listMap.New[Value](3).
+		Append("min", min).
+		Append("max", max).
+		Append("valid", Bool(!first)))
+}
+
 func (l *List) Replace(st funcGen.Stack[Value]) Value {
 	f := toFunc("replace", st, 1, 1)
 	return f.Eval(st, l)
@@ -493,6 +521,7 @@ var ListMethods = MethodMap{
 	"accept":        MethodAtType(2, func(list *List, stack funcGen.Stack[Value]) Value { return list.Accept(stack) }),
 	"map":           MethodAtType(2, func(list *List, stack funcGen.Stack[Value]) Value { return list.Map(stack) }),
 	"reduce":        MethodAtType(2, func(list *List, stack funcGen.Stack[Value]) Value { return list.Reduce(stack) }),
+	"minMax":        MethodAtType(2, func(list *List, stack funcGen.Stack[Value]) Value { return list.MinMax(stack) }),
 	"replace":       MethodAtType(2, func(list *List, stack funcGen.Stack[Value]) Value { return list.Replace(stack) }),
 	"combine":       MethodAtType(2, func(list *List, stack funcGen.Stack[Value]) Value { return list.Combine(stack) }),
 	"combine3":      MethodAtType(2, func(list *List, stack funcGen.Stack[Value]) Value { return list.Combine3(stack) }),

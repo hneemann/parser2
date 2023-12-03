@@ -82,6 +82,9 @@ func TestList(t *testing.T) {
 		{exp: "list(100).first()", res: Int(0)},
 		{exp: "list(1e9).present(n->n>100)", res: Bool(true)},
 		{exp: "list(10).present(n->n>100)", res: Bool(false)},
+
+		{exp: "[1,5,3,2,4].minMax(n->n).string()", res: String("{min:1, max:5, valid:true}")},
+		{exp: "[].minMax(n->n).string()", res: String("{min:0, max:0, valid:false}")},
 	})
 }
 
@@ -98,23 +101,7 @@ func lowPass(tau)
 
 let filtered=data.iirCombine(p->{t:p.t,f:0},lowPass(1/(2*pi)));
 
-func findMinMax(list, f)
-	list.visit(
-		{min:0,max:0},
-		(mm,val)->
-        	let x=f(val);
-        	if x<mm.min  
-			then 
-				if x>mm.max
-				then {min:x, max:x}
-				else {min:x, max:mm.max}
-			else 
-				if x>mm.max 
-        	    then {min:mm.min,max:x} 
-				else mm);
-
-let minMax=findMinMax(filtered.skip(100),p->p.f);
-
+let minMax=filtered.skip(100).minMax(p->p.f);
 (minMax.max-minMax.min)/2
 `
 
