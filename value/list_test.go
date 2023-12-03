@@ -33,6 +33,8 @@ func TestList(t *testing.T) {
 		{exp: "[1,2,3].accept(i->i>1)", res: NewList(Int(2), Int(3))},
 		{exp: "[1,2,3].accept(i->i>1)", res: NewList(Int(2), Int(3))},
 		{exp: "[1,2,3,3].reduce((a,b)->a+b)", res: Int(9)},
+		{exp: "[1,3,2,4].order((a,b)->a<b)", res: NewList(Int(1), Int(2), Int(3), Int(4))},
+		{exp: "[1,3,2,4].order((a,b)->a>b)", res: NewList(Int(4), Int(3), Int(2), Int(1))},
 		// Prefix Sum
 		{exp: "[1,2,3,4,4].iir(i->i,(i,l)->i+l)", res: NewList(Int(1), Int(3), Int(6), Int(10), Int(14))},
 		// Fibonacci Sequence
@@ -73,6 +75,14 @@ func TestList(t *testing.T) {
 		{exp: "[1,2,3].skip(2).string()", res: String("[3]")},
 		{exp: "[1,2,3].skip(3).string()", res: String("[]")},
 		{exp: "[1,2,3].skip(4).string()", res: String("[]")},
+
+		{exp: "[1,2,3,4].first()", res: Int(1)},
+		{exp: "list(100).first()", res: Int(0)},
+
+		{exp: `[1,2,3,4].multiUse({
+                    sum:   l->l.reduce((a,b)->a+b),
+                    first: l->l.first(),
+                 }).string()`, res: String("{sum:10, first:1}")},
 	})
 }
 

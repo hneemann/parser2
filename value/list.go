@@ -190,6 +190,26 @@ func (l *List) Map(st funcGen.Stack[Value]) *List {
 	}))
 }
 
+func (l *List) First() Value {
+	if l.itemsPresent {
+		if len(l.items) > 0 {
+			return l.items[0]
+		}
+	} else {
+		var first Value
+		found := false
+		l.iterable()(func(value Value) bool {
+			first = value
+			found = true
+			return false
+		})
+		if found {
+			return first
+		}
+	}
+	panic("error in first, no items in list")
+}
+
 func (l *List) IndexOf(st funcGen.Stack[Value]) Int {
 	v := st.Get(1)
 	index := -1
@@ -439,6 +459,7 @@ var ListMethods = MethodMap{
 	"combine":       MethodAtType(2, func(list *List, stack funcGen.Stack[Value]) Value { return list.Combine(stack) }),
 	"combine3":      MethodAtType(2, func(list *List, stack funcGen.Stack[Value]) Value { return list.Combine3(stack) }),
 	"combineN":      MethodAtType(3, func(list *List, stack funcGen.Stack[Value]) Value { return list.CombineN(stack) }),
+	"multiUse":      MethodAtType(2, func(list *List, stack funcGen.Stack[Value]) Value { return list.MultiUse(stack) }),
 	"indexOf":       MethodAtType(2, func(list *List, stack funcGen.Stack[Value]) Value { return list.IndexOf(stack) }),
 	"groupByString": MethodAtType(2, func(list *List, stack funcGen.Stack[Value]) Value { return list.GroupByString(stack) }),
 	"groupByInt":    MethodAtType(2, func(list *List, stack funcGen.Stack[Value]) Value { return list.GroupByInt(stack) }),
@@ -451,6 +472,7 @@ var ListMethods = MethodMap{
 	"skip":          MethodAtType(2, func(list *List, stack funcGen.Stack[Value]) Value { return list.Skip(stack) }),
 	"number":        MethodAtType(2, func(list *List, stack funcGen.Stack[Value]) Value { return list.Number(stack) }),
 	"size":          MethodAtType(1, func(list *List, stack funcGen.Stack[Value]) Value { return Int(list.Size()) }),
+	"first":         MethodAtType(1, func(list *List, stack funcGen.Stack[Value]) Value { return list.First() }),
 	"string":        MethodAtType(1, func(list *List, stack funcGen.Stack[Value]) Value { return String(list.String()) }),
 }
 
