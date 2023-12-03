@@ -23,6 +23,7 @@ func TestErrors(t *testing.T) {
 		{"list(10).multiUse({a:l->l.reduce((a,b)->a.e+b), b:l->l.reduce((a,b)->a+b)})", "not a map"},
 		{"list(10).multiUse({a:l->1, b:l->l->2})", "affected closure(s): a, b"},
 		{"list(10).multiUse({a:l->l.reduce((a,b)->a+b)+l.reduce((a,b)->a*b)})", "closure a can only be used once"},
+		{"list(10).map(e->e.e).multiUse({a:l->l.reduce((a,b)->a+b)})", "not a map"},
 	}
 
 	fg := SetUpParser(New())

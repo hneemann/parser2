@@ -36,9 +36,9 @@ func (l *List) MultiUse(st funcGen.Stack[Value]) Map {
 
 		muList.runConsumerClosures()
 
-		go muList.runProducer(l.Iterator())
+		errChan := muList.runProducer(l.Iterator())
 
-		return muList.createResult()
+		return muList.createResult(errChan)
 	} else {
 		panic("first argument in multiUse needs to be a map")
 	}
@@ -109,25 +109,38 @@ func (mu *multiUseEntry) runConsumer(started chan struct{}) {
 	}()
 }
 
-func (ml multiUseList) runProducer(i iterator.Iterator[Value]) {
-	i(func(v Value) bool {
-		for _, mu := range ml {
-			if mu.writer != nil {
-				select {
-				case mu.writer <- v:
-				case <-mu.requestClose:
+func (ml multiUseList) runProducer(i iterator.Iterator[Value]) <-chan error {
+	errChan := make(chan error)
+	go func() {
+		defer func() {
+			for _, mu := range ml {
+				if mu.writer != nil {
 					close(mu.writer)
-					mu.writer = nil
 				}
 			}
-		}
-		return true
-	})
-	for _, mu := range ml {
-		if mu.writer != nil {
-			close(mu.writer)
-		}
-	}
+			if rec := recover(); rec != nil {
+				if e, ok := rec.(error); ok {
+					errChan <- e
+				} else {
+					errChan <- fmt.Errorf("%v", rec)
+				}
+			}
+		}()
+		i(func(v Value) bool {
+			for _, mu := range ml {
+				if mu.writer != nil {
+					select {
+					case mu.writer <- v:
+					case <-mu.requestClose:
+						close(mu.writer)
+						mu.writer = nil
+					}
+				}
+			}
+			return true
+		})
+	}()
+	return errChan
 }
 
 func (ml multiUseList) timeOutError() error {
@@ -163,14 +176,18 @@ func (ml multiUseList) runConsumerClosures() {
 	}
 }
 
-func (ml multiUseList) createResult() Map {
+func (ml multiUseList) createResult(errChan <-chan error) Map {
 	resultMap := listMap.New[Value](len(ml))
 	for _, mu := range ml {
-		result := <-mu.result
-		if result.err != nil {
-			panic(result.err)
+		select {
+		case result := <-mu.result:
+			if result.err != nil {
+				panic(result.err)
+			}
+			resultMap = resultMap.Append(mu.name, result.result)
+		case err := <-errChan:
+			panic(err)
 		}
-		resultMap = resultMap.Append(mu.name, result.result)
 	}
 	return NewMap(resultMap)
 }
