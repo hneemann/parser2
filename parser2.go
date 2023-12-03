@@ -47,17 +47,19 @@ type AST interface {
 	GetLine() Line
 }
 
+func AnyToError(e any) error {
+	if err, ok := e.(error); ok {
+		return err
+	}
+	return fmt.Errorf("%v", e)
+}
+
 // Optimize uses the given optimizer to optimize the given AST.
 // If no optimization is possible, the given AST is returned unchanged.
 func Optimize(ast AST, optimizer Optimizer) (astRet AST, errRet error) {
 	defer func() {
-		rec := recover()
-		if rec != nil {
-			if err, ok := rec.(error); ok {
-				errRet = err
-			} else {
-				errRet = fmt.Errorf("%v", rec)
-			}
+		if rec := recover(); rec != nil {
+			errRet = AnyToError(rec)
 			astRet = nil
 		}
 	}()
@@ -106,13 +108,9 @@ func (l Line) Errorf(m string, a ...any) error {
 }
 
 func enhanceErrorfInternal(cause any, m string, a ...any) errorWithLine {
-	c, ok := cause.(error)
-	if !ok {
-		c = fmt.Errorf("%v", cause)
-	}
 	return errorWithLine{
 		message: fmt.Sprintf(m, a...),
-		cause:   c,
+		cause:   AnyToError(cause),
 	}
 }
 

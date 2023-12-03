@@ -3,8 +3,8 @@
 package html
 
 import (
-	"fmt"
 	"github.com/hneemann/iterator"
+	"github.com/hneemann/parser2"
 	"github.com/hneemann/parser2/funcGen"
 	"github.com/hneemann/parser2/value"
 	"github.com/hneemann/parser2/value/html/xmlWriter"
@@ -100,13 +100,8 @@ func (f format) GetMethod(name string) (funcGen.Function[value.Value], error) {
 // Everything else is converted to a string by calling the String() method.
 func ToHtml(v value.Value, maxListSize int) (res template.HTML, err error) {
 	defer func() {
-		rec := recover()
-		if rec != nil {
-			if e, ok := rec.(error); ok {
-				err = e
-			} else {
-				err = fmt.Errorf("error: %v", rec)
-			}
+		if rec := recover(); rec != nil {
+			err = parser2.AnyToError(rec)
 			res = ""
 		}
 	}()

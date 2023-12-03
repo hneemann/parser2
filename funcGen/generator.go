@@ -456,15 +456,10 @@ func (g *FunctionGenerator[V]) generateIntern(args []string, exp string, ThisNam
 	}
 	return func(st Stack[V]) (val V, err error) {
 		defer func() {
-			rec := recover()
-			if rec != nil {
+			if rec := recover(); rec != nil {
 				var zero V
 				val = zero
-				if e, ok := rec.(error); ok {
-					err = e
-				} else {
-					err = fmt.Errorf("%v", rec)
-				}
+				err = parser2.AnyToError(rec)
 			}
 		}()
 		return f(st, nil), nil
