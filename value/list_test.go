@@ -78,11 +78,6 @@ func TestList(t *testing.T) {
 
 		{exp: "[1,2,3,4].first()", res: Int(1)},
 		{exp: "list(100).first()", res: Int(0)},
-
-		{exp: `[1,2,3,4].multiUse({
-                    sum:   l->l.reduce((a,b)->a+b),
-                    first: l->l.first(),
-                 }).string()`, res: String("{sum:10, first:1}")},
 	})
 }
 

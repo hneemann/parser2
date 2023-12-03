@@ -1,0 +1,17 @@
+package value
+
+import "testing"
+
+func TestMultiUse(t *testing.T) {
+	runTest(t, []testType{
+		{exp: `[1,2,3,4].multiUse({
+                    add:  l->l.map(e->e+1),
+                    mul:  l->l.map(e->e*2)
+                 }).string()`, res: String("{add:[2, 3, 4, 5], mul:[2, 4, 6, 8]}")},
+		{exp: `[1,2,3,4].multiUse({
+		           sum:   l->l.reduce((a,b)->a+b),
+		           prod:  l->l.reduce((a,b)->a*b),
+		           first: l->l.first(),
+		        }).string()`, res: String("{sum:10, prod:24, first:1}")},
+	})
+}

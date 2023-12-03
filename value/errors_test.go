@@ -20,7 +20,9 @@ func TestErrors(t *testing.T) {
 		{"list(10).multiUse(3)", "needs to be a map"},
 		{"list(10).multiUse({a:3})", "contain closures"},
 		{"list(10).multiUse({a:(a,b)->a*b})", "one argument"},
-		{"list(10).multiUse({a:l->l.map(e->sin(e,1)), b:l->l.reduce((a,b)->a+b)})", "number of args wrong"},
+		{"list(10).multiUse({a:l->l.reduce((a,b)->a.e+b), b:l->l.reduce((a,b)->a+b)})", "not a map"},
+		{"list(10).multiUse({a:l->1, b:l->l->2})", "affected closure(s): a, b"},
+		{"list(10).multiUse({a:l->l.reduce((a,b)->a+b)+l.reduce((a,b)->a*b)})", "closure a can only be used once"},
 	}
 
 	fg := SetUpParser(New())
@@ -34,7 +36,7 @@ func TestErrors(t *testing.T) {
 			if err == nil {
 				t.Errorf("expected an error containing '%v'", test.err)
 			} else {
-				assert.True(t, strings.Contains(err.Error(), test.err), "expected error to containig '%v', got %v", test.err, err.Error())
+				assert.True(t, strings.Contains(err.Error(), test.err), "expected error containing '%v', got: %v", test.err, err.Error())
 			}
 		})
 	}
