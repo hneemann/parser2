@@ -1,3 +1,9 @@
+// Package listMap implements a map based on a list for storage. Although the
+// access to such a list is of order O(n), it is more performant than a map if
+// the number of elements is small, as the overhead when accessing a map is
+// comparatively large and is therefore only worthwhile if many elements are
+// stored in the map. This implementation should no longer be used if there are
+// more than around 20 elements.
 package listMap
 
 type listMapEntry[V any] struct {
