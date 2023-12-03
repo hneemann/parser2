@@ -6,8 +6,8 @@ type system, which requires runtime type checking.
 
 # Examples #
 
-The flder _examples_ contains some simple examples of a float based expression 
-parser and a bool base one. The package _dynType_  contain a more advanced 
+The folder _examples_ contains some simple examples of a float based expression 
+parser and a bool base one. The package _value_  contains a more advanced 
 example parser which also supports lists, maps and closures.
 
 # Structure #
