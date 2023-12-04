@@ -6,6 +6,7 @@ import (
 	"github.com/hneemann/iterator"
 	"github.com/hneemann/parser2/funcGen"
 	"github.com/hneemann/parser2/listMap"
+	"math"
 	"sort"
 )
 
@@ -297,16 +298,8 @@ func (s SortableLess) Swap(i, j int) {
 
 func (l *List) OrderLess(st funcGen.Stack[Value]) *List {
 	f := toFunc("orderLess", st, 1, 2)
-
 	items := l.CopyToSlice()
-
-	s := SortableLess{
-		items: items,
-		st:    st,
-		less:  f,
-	}
-
-	sort.Sort(s)
+	sort.Sort(SortableLess{items: items, st: st, less: f})
 	return NewList(items...)
 }
 
@@ -598,6 +591,29 @@ func unique(list *List, keyFunc func(Value) Value) *List {
 	return NewList(result...)
 }
 
+func (l *List) MovingWindow(st funcGen.Stack[Value]) *List {
+	f := toFunc("movingWindow", st, 1, 1)
+	items := l.ToSlice()
+	values := make([]float64, len(items))
+	for i, elem := range items {
+		if float, ok := f.Eval(st, elem).ToFloat(); ok {
+			values[i] = float
+		} else {
+			panic("closure in movingWindow needs to return a float")
+		}
+	}
+
+	var mainList []Value
+	startIndex := 0
+	for i, val := range values {
+		for math.Abs(val-values[startIndex]) > 1 {
+			startIndex++
+		}
+		mainList = append(mainList, NewList(items[startIndex:i+1:i+1]...))
+	}
+	return NewList(mainList...)
+}
+
 func (l *List) containsItem(item Value) bool {
 	found := false
 	l.iterable()(func(value Value) bool {
@@ -662,6 +678,7 @@ var ListMethods = MethodMap{
 	"size":          MethodAtType(1, func(list *List, stack funcGen.Stack[Value]) Value { return Int(list.Size()) }),
 	"first":         MethodAtType(1, func(list *List, stack funcGen.Stack[Value]) Value { return list.First() }),
 	"string":        MethodAtType(1, func(list *List, stack funcGen.Stack[Value]) Value { return String(list.String()) }),
+	"movingWindow":  MethodAtType(2, func(list *List, stack funcGen.Stack[Value]) Value { return list.MovingWindow(stack) }),
 }
 
 func (l *List) GetMethod(name string) (funcGen.Function[Value], error) {

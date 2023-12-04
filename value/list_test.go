@@ -98,6 +98,9 @@ func TestList(t *testing.T) {
                let b=[{n:2, s:"zwei"},{n:4, s:"vier"},{n:6, s:"sechs"}];
                a.merge(b,(a,b)->a.n<b.n).string()`,
 			res: String("[{n:1, s:eins}, {n:2, s:zwei}, {n:3, s:drei}, {n:4, s:vier}, {n:5, s:fünf}, {n:6, s:sechs}]")},
+
+		{exp: movingWindow,
+			res: String("[{t0:0, t1:0, len:1}, {t0:0, t1:0.1, len:2}, {t0:0, t1:0.2, len:3}, {t0:0, t1:0.3, len:4}, {t0:0, t1:0.4, len:5}, {t0:0, t1:0.5, len:6}, {t0:0, t1:0.6, len:7}, {t0:0, t1:0.7, len:8}, {t0:0, t1:0.8, len:9}, {t0:0, t1:0.9, len:10}, {t0:0, t1:1, len:11}, {t0:0.1, t1:1.1, len:11}, {t0:0.2, t1:1.2, len:11}, {t0:0.3, t1:1.3, len:11}, {t0:0.4, t1:1.4, len:11}, {t0:0.5, t1:1.5, len:11}, {t0:0.6, t1:1.6, len:11}, {t0:0.7, t1:1.7, len:11}, {t0:0.8, t1:1.8, len:11}, {t0:0.9, t1:1.9, len:11}]")},
 	})
 }
 
@@ -153,6 +156,12 @@ const fsm = `
   let events=data.visit({state:search, events:[]},fsm).events;
 
   events.string()
+`
+
+const movingWindow = `
+	let data=list(20).map(i->{t:i/10,v:i});
+	
+	data.movingWindow(p->p.t).map(l->{t0:l[0].t,t1:l[l.size()-1].t,len:l.size()}).string()
 `
 
 func TestNewListCreate(t *testing.T) {
