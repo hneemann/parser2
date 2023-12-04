@@ -42,6 +42,10 @@ func NewMap(m MapStorage) Map {
 	return Map{m: m}
 }
 
+func (v Map) Storage() MapStorage {
+	return v.m
+}
+
 func (v Map) Iter(yield func(key string, v Value) bool) bool {
 	return v.m.Iter(yield)
 }
@@ -113,7 +117,7 @@ func (v Map) Equals(other Map) bool {
 }
 
 func (v Map) Accept(st funcGen.Stack[Value]) Map {
-	f := toFunc("accept", st, 1, 2)
+	f := ToFunc("accept", st, 1, 2)
 	newMap := listMap.New[Value](v.m.Size())
 	v.m.Iter(func(key string, v Value) bool {
 		st.Push(String(key))
@@ -131,7 +135,7 @@ func (v Map) Accept(st funcGen.Stack[Value]) Map {
 }
 
 func (v Map) Map(st funcGen.Stack[Value]) Map {
-	f := toFunc("map", st, 1, 2)
+	f := ToFunc("map", st, 1, 2)
 	newMap := listMap.New[Value](v.m.Size())
 	v.m.Iter(func(key string, v Value) bool {
 		st.Push(String(key))
@@ -143,7 +147,7 @@ func (v Map) Map(st funcGen.Stack[Value]) Map {
 }
 
 func (v Map) Replace(st funcGen.Stack[Value]) Value {
-	f := toFunc("replace", st, 1, 1)
+	f := ToFunc("replace", st, 1, 1)
 	return f.Eval(st, v)
 }
 

@@ -58,6 +58,42 @@ func (mm MethodMap) Get(name string) (funcGen.Function[Value], error) {
 	return funcGen.Function[Value]{}, fmt.Errorf("method '%s' not found; available are:\n%s", name, b.String())
 }
 
+const NIL = nilType(0)
+
+type nilType int
+
+func (n nilType) ToList() (*List, bool) {
+	return nil, false
+}
+
+func (n nilType) ToMap() (Map, bool) {
+	return Map{}, false
+}
+
+func (n nilType) ToInt() (int, bool) {
+	return 0, false
+}
+
+func (n nilType) ToFloat() (float64, bool) {
+	return 0, false
+}
+
+func (n nilType) String() string {
+	return "nil"
+}
+
+func (n nilType) ToBool() (bool, bool) {
+	return false, false
+}
+
+func (n nilType) ToClosure() (funcGen.Function[Value], bool) {
+	return funcGen.Function[Value]{}, false
+}
+
+func (n nilType) GetMethod(name string) (funcGen.Function[Value], error) {
+	return funcGen.Function[Value]{}, fmt.Errorf("nil has no methods")
+}
+
 type Closure funcGen.Function[Value]
 
 func (c Closure) ToList() (*List, bool) {
@@ -389,6 +425,7 @@ func simpleOnlyFloatFunc(name string, f func(float64) float64) funcGen.Function[
 
 func New() *funcGen.FunctionGenerator[Value] {
 	return funcGen.New[Value]().
+		AddConstant("nil", NIL).
 		AddConstant("pi", Float(math.Pi)).
 		AddConstant("true", Bool(true)).
 		AddConstant("false", Bool(false)).
@@ -493,6 +530,16 @@ func New() *funcGen.FunctionGenerator[Value] {
 			Args:   1,
 			IsPure: true,
 		}.SetDescription("value", "Returns the value rounded to the nearest integer.")).
+		AddStaticFunction("min", funcGen.Function[Value]{
+			Func:   minFunc,
+			Args:   -1,
+			IsPure: true,
+		}.SetDescription("a", "b", "Returns the smaller of a and b.")).
+		AddStaticFunction("max", funcGen.Function[Value]{
+			Func:   maxFunc,
+			Args:   -1,
+			IsPure: true,
+		}.SetDescription("a", "b", "Returns the larger of a and b.")).
 		AddStaticFunction("list", funcGen.Function[Value]{
 			Func: func(st funcGen.Stack[Value], cs []Value) Value {
 				v := st.Get(0)
@@ -515,6 +562,36 @@ func New() *funcGen.FunctionGenerator[Value] {
 		AddStaticFunction("asin", simpleOnlyFloatFunc("asin", func(x float64) float64 { return math.Asin(x) })).
 		AddStaticFunction("acos", simpleOnlyFloatFunc("acos", func(x float64) float64 { return math.Acos(x) })).
 		AddStaticFunction("atan", simpleOnlyFloatFunc("atan", func(x float64) float64 { return math.Atan(x) }))
+}
+
+func minFunc(st funcGen.Stack[Value], cs []Value) Value {
+	var m Value
+	for i := 0; i < st.Size(); i++ {
+		v := st.Get(i)
+		if i == 0 {
+			m = v
+		} else {
+			if Less(v, m) {
+				m = v
+			}
+		}
+	}
+	return m
+}
+
+func maxFunc(st funcGen.Stack[Value], cs []Value) Value {
+	var m Value
+	for i := 0; i < st.Size(); i++ {
+		v := st.Get(i)
+		if i == 0 {
+			m = v
+		} else {
+			if Less(m, v) {
+				m = v
+			}
+		}
+	}
+	return m
 }
 
 func sprintf(st funcGen.Stack[Value], cs []Value) Value {

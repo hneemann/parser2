@@ -14,7 +14,7 @@ import (
 	"strings"
 )
 
-type format struct {
+type Format struct {
 	Value  value.Value
 	Cell   bool
 	Format string
@@ -23,7 +23,7 @@ type format struct {
 // StyleFunc can be used add a CSS style to a value
 var StyleFunc = funcGen.Function[value.Value]{
 	Func: func(st funcGen.Stack[value.Value], cs []value.Value) value.Value {
-		return format{
+		return Format{
 			Value:  st.Get(1),
 			Cell:   false,
 			Format: st.Get(0).String(),
@@ -34,11 +34,11 @@ var StyleFunc = funcGen.Function[value.Value]{
 }
 
 // StyleFuncCell can be used add a CSS stale to a value
-// If used in a table the format is applied to the cell instead of the containing value.
+// If used in a table the Format is applied to the cell instead of the containing value.
 // It is only required in rare occasions.
 var StyleFuncCell = funcGen.Function[value.Value]{
 	Func: func(st funcGen.Stack[value.Value], cs []value.Value) value.Value {
-		return format{
+		return Format{
 			Value:  st.Get(1),
 			Cell:   true,
 			Format: st.Get(0).String(),
@@ -48,35 +48,35 @@ var StyleFuncCell = funcGen.Function[value.Value]{
 	IsPure: true,
 }
 
-func (f format) ToList() (*value.List, bool) {
+func (f Format) ToList() (*value.List, bool) {
 	return f.Value.ToList()
 }
 
-func (f format) ToMap() (value.Map, bool) {
+func (f Format) ToMap() (value.Map, bool) {
 	return f.Value.ToMap()
 }
 
-func (f format) ToInt() (int, bool) {
+func (f Format) ToInt() (int, bool) {
 	return f.Value.ToInt()
 }
 
-func (f format) ToFloat() (float64, bool) {
+func (f Format) ToFloat() (float64, bool) {
 	return f.Value.ToFloat()
 }
 
-func (f format) String() string {
+func (f Format) String() string {
 	return f.Value.String()
 }
 
-func (f format) ToBool() (bool, bool) {
+func (f Format) ToBool() (bool, bool) {
 	return f.Value.ToBool()
 }
 
-func (f format) ToClosure() (funcGen.Function[value.Value], bool) {
+func (f Format) ToClosure() (funcGen.Function[value.Value], bool) {
 	return f.Value.ToClosure()
 }
 
-func (f format) GetMethod(name string) (funcGen.Function[value.Value], error) {
+func (f Format) GetMethod(name string) (funcGen.Function[value.Value], error) {
 	m, err := f.Value.GetMethod(name)
 	if err != nil {
 		return funcGen.Function[value.Value]{}, err
@@ -84,7 +84,7 @@ func (f format) GetMethod(name string) (funcGen.Function[value.Value], error) {
 	return funcGen.Function[value.Value]{
 		Func: func(st funcGen.Stack[value.Value], closureStore []value.Value) value.Value {
 			ss := st.Size()
-			st.Push((st.Get(0).(format)).Value)
+			st.Push((st.Get(0).(Format)).Value)
 			for i := 1; i < ss; i++ {
 				st.Push(st.Get(i))
 			}
@@ -115,7 +115,7 @@ func ToHtml(v value.Value, maxListSize int) (res template.HTML, err error) {
 
 func toHtml(v value.Value, w *xmlWriter.XMLWriter, style string, maxListSize int) {
 	switch t := v.(type) {
-	case format:
+	case Format:
 		toHtml(t.Value, w, t.Format, maxListSize)
 	case *value.List:
 		pit, f, ok := iterator.Peek(t.Iterator())
@@ -227,7 +227,7 @@ func tableToHtml(it iterator.Iterator[value.Value], w *xmlWriter.XMLWriter, styl
 }
 
 func toTD(d value.Value, w *xmlWriter.XMLWriter, maxListSize int) {
-	if formatted, ok := d.(format); ok {
+	if formatted, ok := d.(Format); ok {
 		if _, isList := formatted.Value.(*value.List); isList && !formatted.Cell {
 			w.Open("td")
 			toHtml(formatted.Value, w, formatted.Format, maxListSize)

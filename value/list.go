@@ -161,7 +161,7 @@ func (l *List) Size() int {
 	return len(l.items)
 }
 
-func toFunc(name string, st funcGen.Stack[Value], n int, args int) funcGen.Function[Value] {
+func ToFunc(name string, st funcGen.Stack[Value], n int, args int) funcGen.Function[Value] {
 	if c, ok := st.Get(n).ToClosure(); ok {
 		if c.Args == args {
 			return c
@@ -174,7 +174,7 @@ func toFunc(name string, st funcGen.Stack[Value], n int, args int) funcGen.Funct
 }
 
 func (l *List) Accept(st funcGen.Stack[Value]) *List {
-	f := toFunc("accept", st, 1, 1)
+	f := ToFunc("accept", st, 1, 1)
 	return NewListFromIterable(iterator.FilterAuto[Value](l.iterable, func() func(v Value) bool {
 		lst := funcGen.NewEmptyStack[Value]()
 		return func(v Value) bool {
@@ -187,7 +187,7 @@ func (l *List) Accept(st funcGen.Stack[Value]) *List {
 }
 
 func (l *List) Map(st funcGen.Stack[Value]) *List {
-	f := toFunc("map", st, 1, 1)
+	f := ToFunc("map", st, 1, 1)
 	return NewListFromIterable(iterator.MapAuto[Value, Value](l.iterable, func() func(i int, v Value) Value {
 		lst := funcGen.NewEmptyStack[Value]()
 		return func(i int, v Value) Value {
@@ -197,7 +197,7 @@ func (l *List) Map(st funcGen.Stack[Value]) *List {
 }
 
 func (l *List) Compact(st funcGen.Stack[Value]) *List {
-	f := toFunc("compact", st, 1, 1)
+	f := ToFunc("compact", st, 1, 1)
 	return NewListFromIterable(iterator.Compact[Value](l.iterable, func(a, b Value) bool {
 		aVal := f.Eval(st, a)
 		bVal := f.Eval(st, b)
@@ -207,7 +207,7 @@ func (l *List) Compact(st funcGen.Stack[Value]) *List {
 
 func (l *List) Cross(st funcGen.Stack[Value]) *List {
 	other := st.Get(1)
-	f := toFunc("cross", st, 2, 2)
+	f := ToFunc("cross", st, 2, 2)
 	if otherList, ok := other.ToList(); ok {
 		return NewListFromIterable(iterator.Cross[Value, Value](l.iterable, otherList.iterable, func(a, b Value) Value {
 			st.Push(a)
@@ -221,7 +221,7 @@ func (l *List) Cross(st funcGen.Stack[Value]) *List {
 
 func (l *List) Merge(st funcGen.Stack[Value]) *List {
 	other := st.Get(1)
-	f := toFunc("merge", st, 2, 2)
+	f := ToFunc("merge", st, 2, 2)
 	if otherList, ok := other.ToList(); ok {
 		return NewListFromIterable(iterator.Merge[Value](l.iterable, otherList.iterable, func(a, b Value) bool {
 			st.Push(a)
@@ -252,6 +252,26 @@ func (l *List) First() Value {
 		})
 		if found {
 			return first
+		}
+	}
+	panic("error in first, no items in list")
+}
+
+func (l *List) Last() Value {
+	if l.itemsPresent {
+		if len(l.items) > 0 {
+			return l.items[len(l.items)-1]
+		}
+	} else {
+		var last Value
+		found := false
+		l.iterable()(func(value Value) bool {
+			last = value
+			found = true
+			return true
+		})
+		if found {
+			return last
 		}
 	}
 	panic("error in first, no items in list")
@@ -297,7 +317,7 @@ func (s SortableLess) Swap(i, j int) {
 }
 
 func (l *List) OrderLess(st funcGen.Stack[Value]) *List {
-	f := toFunc("orderLess", st, 1, 2)
+	f := ToFunc("orderLess", st, 1, 2)
 	items := l.CopyToSlice()
 	sort.Sort(SortableLess{items: items, st: st, less: f})
 	return NewList(items...)
@@ -332,7 +352,7 @@ func (s Sortable) Swap(i, j int) {
 }
 
 func (l *List) Order(st funcGen.Stack[Value], rev bool) *List {
-	f := toFunc("order", st, 1, 1)
+	f := ToFunc("order", st, 1, 1)
 	items := l.CopyToSlice()
 	sort.Sort(Sortable{items: items, rev: rev, st: st, pickFunc: f})
 	return NewList(items...)
@@ -348,7 +368,7 @@ func (l *List) Reverse() *List {
 }
 
 func (l *List) Combine(st funcGen.Stack[Value]) *List {
-	f := toFunc("combine", st, 1, 2)
+	f := ToFunc("combine", st, 1, 2)
 	return NewListFromIterable(iterator.Combine[Value, Value](l.iterable, func(a, b Value) Value {
 		st.Push(a)
 		st.Push(b)
@@ -357,7 +377,7 @@ func (l *List) Combine(st funcGen.Stack[Value]) *List {
 }
 
 func (l *List) Combine3(st funcGen.Stack[Value]) *List {
-	f := toFunc("combine3", st, 1, 3)
+	f := ToFunc("combine3", st, 1, 3)
 	return NewListFromIterable(iterator.Combine3[Value, Value](l.iterable, func(a, b, c Value) Value {
 		st.Push(a)
 		st.Push(b)
@@ -368,7 +388,7 @@ func (l *List) Combine3(st funcGen.Stack[Value]) *List {
 
 func (l *List) CombineN(st funcGen.Stack[Value]) *List {
 	if n, ok := st.Get(1).ToInt(); ok {
-		f := toFunc("combineN", st, 2, 1)
+		f := ToFunc("combineN", st, 2, 1)
 		return NewListFromIterable(iterator.CombineN[Value, Value](l.iterable, n, func(i0 int, i []Value) Value {
 			st.Push(NewList(i...))
 			return f.Func(st.CreateFrame(1), nil)
@@ -378,8 +398,8 @@ func (l *List) CombineN(st funcGen.Stack[Value]) *List {
 }
 
 func (l *List) IIr(st funcGen.Stack[Value]) *List {
-	initial := toFunc("iir", st, 1, 1)
-	function := toFunc("iir", st, 2, 2)
+	initial := ToFunc("iir", st, 1, 1)
+	function := ToFunc("iir", st, 2, 2)
 	return NewListFromIterable(iterator.IirMap[Value, Value](l.iterable,
 		func(item Value) Value {
 			return initial.Eval(st, item)
@@ -392,8 +412,8 @@ func (l *List) IIr(st funcGen.Stack[Value]) *List {
 }
 
 func (l *List) IIrCombine(st funcGen.Stack[Value]) *List {
-	initial := toFunc("iirCombine", st, 1, 1)
-	function := toFunc("iirCombine", st, 2, 3)
+	initial := ToFunc("iirCombine", st, 1, 1)
+	function := ToFunc("iirCombine", st, 2, 3)
 	return NewListFromIterable(iterator.IirMap[Value, Value](l.iterable,
 		func(item Value) Value {
 			return initial.Eval(st, item)
@@ -408,7 +428,7 @@ func (l *List) IIrCombine(st funcGen.Stack[Value]) *List {
 
 func (l *List) Visit(st funcGen.Stack[Value]) Value {
 	visitor := st.Get(1)
-	function := toFunc("visit", st, 2, 2)
+	function := ToFunc("visit", st, 2, 2)
 	l.iterable()(func(value Value) bool {
 		st.Push(visitor)
 		st.Push(value)
@@ -419,7 +439,7 @@ func (l *List) Visit(st funcGen.Stack[Value]) Value {
 }
 
 func (l *List) Present(st funcGen.Stack[Value]) Value {
-	function := toFunc("present", st, 1, 1)
+	function := ToFunc("present", st, 1, 1)
 	isPresent := false
 	l.iterable()(func(value Value) bool {
 		st.Push(value)
@@ -451,7 +471,7 @@ func (l *List) Skip(st funcGen.Stack[Value]) *List {
 }
 
 func (l *List) Reduce(st funcGen.Stack[Value]) Value {
-	f := toFunc("reduce", st, 1, 2)
+	f := ToFunc("reduce", st, 1, 2)
 	res, ok := iterator.Reduce[Value](l.iterable, func(a, b Value) Value {
 		st.Push(a)
 		st.Push(b)
@@ -463,9 +483,22 @@ func (l *List) Reduce(st funcGen.Stack[Value]) Value {
 	panic("error in reduce, no items in list")
 }
 
+func (l *List) Sum() Value {
+	var sum Value
+	l.Iterator()(func(value Value) bool {
+		if sum == nil {
+			sum = value
+		} else {
+			sum = Add(sum, value)
+		}
+		return true
+	})
+	return sum
+}
+
 func (l *List) MapReduce(st funcGen.Stack[Value]) Value {
 	initial := st.Get(1)
-	f := toFunc("mapReduce", st, 2, 2)
+	f := ToFunc("mapReduce", st, 2, 2)
 	return iterator.MapReduce(l.iterable, initial, func(s Value, v Value) Value {
 		st.Push(s)
 		st.Push(v)
@@ -474,7 +507,7 @@ func (l *List) MapReduce(st funcGen.Stack[Value]) Value {
 }
 
 func (l *List) MinMax(st funcGen.Stack[Value]) Value {
-	f := toFunc("minMax", st, 1, 1)
+	f := ToFunc("minMax", st, 1, 1)
 	first := true
 	var minVal Value = Int(0)
 	var maxVal Value = Int(0)
@@ -502,12 +535,12 @@ func (l *List) MinMax(st funcGen.Stack[Value]) Value {
 }
 
 func (l *List) Replace(st funcGen.Stack[Value]) Value {
-	f := toFunc("replace", st, 1, 1)
+	f := ToFunc("replace", st, 1, 1)
 	return f.Eval(st, l)
 }
 
 func (l *List) Number(st funcGen.Stack[Value]) *List {
-	f := toFunc("number", st, 1, 2)
+	f := ToFunc("number", st, 1, 2)
 	return NewListFromIterable(func() iterator.Iterator[Value] {
 		return func(yield func(Value) bool) bool {
 			n := Int(0)
@@ -522,7 +555,7 @@ func (l *List) Number(st funcGen.Stack[Value]) *List {
 }
 
 func (l *List) GroupByString(st funcGen.Stack[Value]) *List {
-	keyFunc := toFunc("groupByString", st, 1, 1)
+	keyFunc := ToFunc("groupByString", st, 1, 1)
 	return groupBy(l, func(value Value) Value {
 		st.Push(value)
 		key := keyFunc.Func(st.CreateFrame(1), nil)
@@ -531,7 +564,7 @@ func (l *List) GroupByString(st funcGen.Stack[Value]) *List {
 }
 
 func (l *List) GroupByInt(st funcGen.Stack[Value]) *List {
-	keyFunc := toFunc("groupByInt", st, 1, 1)
+	keyFunc := ToFunc("groupByInt", st, 1, 1)
 	return groupBy(l, func(value Value) Value {
 		st.Push(value)
 		key := keyFunc.Func(st.CreateFrame(1), nil)
@@ -565,7 +598,7 @@ func groupBy(list *List, keyFunc func(Value) Value) *List {
 }
 
 func (l *List) UniqueString(st funcGen.Stack[Value]) *List {
-	keyFunc := toFunc("uniqueString", st, 1, 1)
+	keyFunc := ToFunc("uniqueString", st, 1, 1)
 	return unique(l, func(value Value) Value {
 		st.Push(value)
 		key := keyFunc.Func(st.CreateFrame(1), nil)
@@ -574,7 +607,7 @@ func (l *List) UniqueString(st funcGen.Stack[Value]) *List {
 }
 
 func (l *List) UniqueInt(st funcGen.Stack[Value]) *List {
-	keyFunc := toFunc("uniqueInt", st, 1, 1)
+	keyFunc := ToFunc("uniqueInt", st, 1, 1)
 	return unique(l, func(value Value) Value {
 		st.Push(value)
 		key := keyFunc.Func(st.CreateFrame(1), nil)
@@ -601,7 +634,7 @@ func unique(list *List, keyFunc func(Value) Value) *List {
 }
 
 func (l *List) MovingWindow(st funcGen.Stack[Value]) *List {
-	f := toFunc("movingWindow", st, 1, 1)
+	f := ToFunc("movingWindow", st, 1, 1)
 	items := l.ToSlice()
 	values := make([]float64, len(items))
 	for i, elem := range items {
@@ -666,6 +699,8 @@ var ListMethods = MethodMap{
 		SetMethodDescription("func(item, item) item",
 			"Reduces the list by the given function. The function is called with the first two list items, and the result "+
 				"is used as the first argument for the third item and so on."),
+	"sum": MethodAtType(0, func(list *List, stack funcGen.Stack[Value]) Value { return list.Sum() }).
+		SetMethodDescription("Returns the sum of all items in the list."),
 	"mapReduce": MethodAtType(2, func(list *List, stack funcGen.Stack[Value]) Value { return list.MapReduce(stack) }).
 		SetMethodDescription("initialSum", "func(sum, item) sum",
 			"MapReduce reduces the list to a single value. The initial value is given as the first argument. The function "+
@@ -779,6 +814,8 @@ var ListMethods = MethodMap{
 		SetMethodDescription("Returns the number of items in the list."),
 	"first": MethodAtType(0, func(list *List, stack funcGen.Stack[Value]) Value { return list.First() }).
 		SetMethodDescription("Returns the first item in the list."),
+	"last": MethodAtType(0, func(list *List, stack funcGen.Stack[Value]) Value { return list.Last() }).
+		SetMethodDescription("Returns the last item in the list."),
 	"string": MethodAtType(0, func(list *List, stack funcGen.Stack[Value]) Value { return String(list.String()) }).
 		SetMethodDescription("Returns the list as a string."),
 	"movingWindow": MethodAtType(1, func(list *List, stack funcGen.Stack[Value]) Value { return list.MovingWindow(stack) }).
