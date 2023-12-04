@@ -123,7 +123,7 @@ func (v Map) Accept(st funcGen.Stack[Value]) Map {
 				newMap = newMap.Append(key, v)
 			}
 		} else {
-			panic(fmt.Errorf("closure in accept does not return a bool"))
+			panic(fmt.Errorf("function in accept does not return a bool"))
 		}
 		return true
 	})

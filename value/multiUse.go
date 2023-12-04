@@ -27,10 +27,10 @@ func (l *List) MultiUse(st funcGen.Stack[Value]) Map {
 				if f.Args == 1 {
 					muList = append(muList, &multiUseEntry{name: key, fu: f.Func})
 				} else {
-					panic("map in multiUse needs to contain closures with one argument")
+					panic("map in multiUse needs to contain functions with one argument")
 				}
 			} else {
-				panic("map in multiUse need to contain closures")
+				panic("map in multiUse need to contain functions")
 			}
 			return true
 		})
@@ -61,7 +61,7 @@ type multiUseList []*multiUseEntry
 func (mu *multiUseEntry) createIterable(started chan<- struct{}) iterator.Iterable[Value] {
 	return func() iterator.Iterator[Value] {
 		if mu.writer != nil {
-			panic(fmt.Errorf("list passed to multiUse closure %s can only be used once", mu.name))
+			panic(fmt.Errorf("list passed to multiUse function %s can only be used once", mu.name))
 		}
 		r := make(chan Value)
 		c := make(chan struct{})
@@ -197,7 +197,7 @@ func (ml multiUseList) createResult(errChan <-chan error) Map {
 // its iterator.
 func (ml multiUseList) timeOutError() error {
 	var buffer bytes.Buffer
-	buffer.WriteString("list passed to closure is not used; affected closure(s): ")
+	buffer.WriteString("list passed to function is not used; affected function(s): ")
 	first := true
 	for _, mu := range ml {
 		if mu.writer == nil {

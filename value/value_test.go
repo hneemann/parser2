@@ -110,7 +110,7 @@ func TestBasic(t *testing.T) {
 		{exp: "(3.2).string()", res: String("3.2")},
 		{exp: "string(3)", res: String("3")},
 		{exp: "(3).string()", res: String("3")},
-		{exp: "(a->a*a).string()", res: String("<closure>")},
+		{exp: "(a->a*a).string()", res: String("<function>")},
 		{exp: "let a=1;sprintf()", res: String("")},
 		{exp: "let a=1;sprintf(\"Hello World\")", res: String("Hello World")},
 		{exp: "let a=1;sprintf(\"%v->%v\",a,2)", res: String("1->2")},
@@ -261,7 +261,6 @@ func TestMethodError(t *testing.T) {
 	assert.Error(t, err)
 	es := err.Error()
 	assert.True(t, strings.Contains(es, "method 'notFound' not found"))
-	assert.True(t, strings.Contains(es, "string(0)"))
 }
 
 func TestSolve(t *testing.T) {

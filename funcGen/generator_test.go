@@ -1,6 +1,7 @@
 package funcGen
 
 import (
+	"bytes"
 	"fmt"
 	"github.com/hneemann/parser2"
 	"github.com/stretchr/testify/assert"
@@ -31,11 +32,11 @@ func (f Float) String() string {
 type vClosure Function[Value]
 
 func (v vClosure) Float() float64 {
-	panic("a closure is not a float value")
+	panic("a function is not a float value")
 }
 
 func (v vClosure) String() string {
-	return "closure"
+	return "function"
 }
 
 type typeHandler struct{}
@@ -193,5 +194,26 @@ func BenchmarkFunc2(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		f(NewStack(argVals...))
+	}
+}
+
+func TestFunctionDescription_String(t *testing.T) {
+	tests := []struct {
+		name string
+		fu   Function[int]
+		want string
+	}{
+		{
+			name: "map",
+			fu:   Function[int]{Args: 2}.SetDescription("func([item])", "Converts  a  \nlist to a new list. The new list items are created by calling the function with the old item as argument."),
+			want: "map(func([item]))\n\tConverts a list to a new list. The new list items are created by calling\n\tthe function with the old item as argument.",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var b bytes.Buffer
+			tt.fu.Description.WriteTo(&b, tt.name)
+			assert.Equalf(t, tt.want, b.String(), "String(%v)", tt.name)
+		})
 	}
 }

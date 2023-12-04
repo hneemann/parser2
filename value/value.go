@@ -1,6 +1,7 @@
 package value
 
 import (
+	"bytes"
 	"fmt"
 	"github.com/hneemann/iterator"
 	"github.com/hneemann/parser2"
@@ -37,12 +38,24 @@ func (mm MethodMap) Get(name string) (funcGen.Function[Value], error) {
 	if m, ok := mm[name]; ok {
 		return m, nil
 	}
-	var l []string
-	for k, f := range mm {
-		l = append(l, k+"("+strconv.Itoa(f.Args-1)+")")
+
+	type fes struct {
+		name string
+		fu   funcGen.Function[Value]
 	}
-	sort.Strings(l)
-	return funcGen.Function[Value]{}, fmt.Errorf("method '%s' not found; available are %v", name, l)
+	var l []fes
+	for k, f := range mm {
+		l = append(l, fes{name: k, fu: f})
+	}
+	sort.Slice(l, func(i, j int) bool {
+		return l[i].name < l[j].name
+	})
+	var b bytes.Buffer
+	for _, fe := range l {
+		b.WriteRune('\n')
+		fe.fu.Description.WriteTo(&b, fe.name)
+	}
+	return funcGen.Function[Value]{}, fmt.Errorf("method '%s' not found; available are:\n%s", name, b.String())
 }
 
 type Closure funcGen.Function[Value]
@@ -64,7 +77,7 @@ func (c Closure) ToFloat() (float64, bool) {
 }
 
 func (c Closure) String() string {
-	return "<closure>"
+	return "<function>"
 }
 
 func (c Closure) ToBool() (bool, bool) {

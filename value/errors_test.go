@@ -18,11 +18,11 @@ func TestErrors(t *testing.T) {
 		{"[].first()", "no items"},
 		{"list(0).first()", "no items"},
 		{"list(10).multiUse(3)", "needs to be a map"},
-		{"list(10).multiUse({a:3})", "contain closures"},
+		{"list(10).multiUse({a:3})", "contain functions"},
 		{"list(10).multiUse({a:(a,b)->a*b})", "one argument"},
 		{"list(10).multiUse({a:l->l.reduce((a,b)->a.e+b), b:l->l.reduce((a,b)->a+b)})", "not a map"},
-		{"list(10).multiUse({a:l->1, b:l->l->2})", "affected closure(s): a, b"},
-		{"list(10).multiUse({a:l->l.reduce((a,b)->a+b)+l.reduce((a,b)->a*b)})", "closure a can only be used once"},
+		{"list(10).multiUse({a:l->1, b:l->l->2})", "affected function(s): a, b"},
+		{"list(10).multiUse({a:l->l.reduce((a,b)->a+b)+l.reduce((a,b)->a*b)})", "function a can only be used once"},
 		{"list(10).map(e->e.e).multiUse({a:l->l.reduce((a,b)->a+b)})", "not a map"},
 	}
 

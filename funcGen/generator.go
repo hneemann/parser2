@@ -111,6 +111,48 @@ type UnaryOperator[V any] struct {
 // accessed outer values to the function.
 type Func[V any] func(stack Stack[V], closureStore []V) V
 
+type FunctionDescription struct {
+	Args        []string
+	Description string
+}
+
+func (f *FunctionDescription) WriteTo(b *bytes.Buffer, name string) {
+	b.WriteString(name)
+	if f == nil {
+		b.WriteRune('\n')
+		return
+	}
+
+	b.WriteString("(")
+	for i, a := range f.Args {
+		if i > 0 {
+			b.WriteString(", ")
+		}
+		b.WriteString(a)
+	}
+	b.WriteString(")\n\t")
+	pos := 0
+	spaceIsPending := false
+	for _, c := range f.Description {
+		if unicode.IsSpace(c) {
+			spaceIsPending = true
+		} else {
+			if spaceIsPending {
+				if pos > 70 {
+					b.WriteString("\n\t")
+					pos = 0
+				} else {
+					b.WriteRune(' ')
+					pos++
+				}
+			}
+			b.WriteRune(c)
+			pos++
+			spaceIsPending = false
+		}
+	}
+}
+
 // Function represents a function
 type Function[V any] struct {
 	// Func is the function itself
@@ -121,6 +163,19 @@ type Function[V any] struct {
 	Args int
 	// IsPure is true if this is a pure function
 	IsPure bool
+	// Description is a description of the function
+	Description *FunctionDescription
+}
+
+func (f Function[V]) SetDescription(descr ...string) Function[V] {
+	if f.Args != len(descr) {
+		panic(fmt.Errorf("wrong number of arguments in description: %d, expected %d", len(descr), f.Args))
+	}
+	f.Description = &FunctionDescription{
+		Args:        descr[:len(descr)-1],
+		Description: descr[len(descr)-1],
+	}
+	return f
 }
 
 // Eval is used to evaluate a function with one argument
