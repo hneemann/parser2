@@ -90,6 +90,13 @@ func TestList(t *testing.T) {
 
 		{exp: "[1,5,3,2,4].minMax(n->n).string()", res: String("{min:1, max:5, valid:true}")},
 		{exp: "[].minMax(n->n).string()", res: String("{min:0, max:0, valid:false}")},
+
+		{exp: "[1,2,3].cross([10,20,30],(a,b)->a+b).string()", res: String("[11, 21, 31, 12, 22, 32, 13, 23, 33]")},
+
+		{exp: `let a=[{n:1, s:"eins"},{n:3, s:"drei"},{n:5, s:"fünf"}];
+               let b=[{n:2, s:"zwei"},{n:4, s:"vier"},{n:6, s:"sechs"}];
+               a.merge(b,(a,b)->a.n<b.n).string()`,
+			res: String("[{n:1, s:eins}, {n:2, s:zwei}, {n:3, s:drei}, {n:4, s:vier}, {n:5, s:fünf}, {n:6, s:sechs}]")},
 	})
 }
 

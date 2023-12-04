@@ -204,6 +204,38 @@ func (l *List) Compact(st funcGen.Stack[Value]) *List {
 	}))
 }
 
+func (l *List) Cross(st funcGen.Stack[Value]) *List {
+	other := st.Get(1)
+	f := toFunc("cross", st, 2, 2)
+	if otherList, ok := other.ToList(); ok {
+		return NewListFromIterable(iterator.Cross[Value, Value](l.iterable, otherList.iterable, func(a, b Value) Value {
+			st.Push(a)
+			st.Push(b)
+			return f.Func(st.CreateFrame(2), nil)
+		}))
+	} else {
+		panic("first argument in cross needs to be a list")
+	}
+}
+
+func (l *List) Merge(st funcGen.Stack[Value]) *List {
+	other := st.Get(1)
+	f := toFunc("merge", st, 2, 2)
+	if otherList, ok := other.ToList(); ok {
+		return NewListFromIterable(iterator.Merge[Value](l.iterable, otherList.iterable, func(a, b Value) bool {
+			st.Push(a)
+			st.Push(b)
+			if less, ok := f.Func(st.CreateFrame(2), nil).ToBool(); ok {
+				return less
+			} else {
+				panic("closure in merge needs to return a bool, (a<b)")
+			}
+		}))
+	} else {
+		panic("first argument in merge needs to be a list")
+	}
+}
+
 func (l *List) First() Value {
 	if l.itemsPresent {
 		if len(l.items) > 0 {
@@ -613,6 +645,8 @@ var ListMethods = MethodMap{
 	"uniqueString":  MethodAtType(2, func(list *List, stack funcGen.Stack[Value]) Value { return list.UniqueString(stack) }),
 	"uniqueInt":     MethodAtType(2, func(list *List, stack funcGen.Stack[Value]) Value { return list.UniqueInt(stack) }),
 	"compact":       MethodAtType(2, func(list *List, stack funcGen.Stack[Value]) Value { return list.Compact(stack) }),
+	"cross":         MethodAtType(3, func(list *List, stack funcGen.Stack[Value]) Value { return list.Cross(stack) }),
+	"merge":         MethodAtType(3, func(list *List, stack funcGen.Stack[Value]) Value { return list.Merge(stack) }),
 	"order":         MethodAtType(2, func(list *List, stack funcGen.Stack[Value]) Value { return list.Order(stack, false) }),
 	"orderRev":      MethodAtType(2, func(list *List, stack funcGen.Stack[Value]) Value { return list.Order(stack, true) }),
 	"orderLess":     MethodAtType(2, func(list *List, stack funcGen.Stack[Value]) Value { return list.OrderLess(stack) }),
