@@ -223,15 +223,29 @@ func (v Map) PutM(stack funcGen.Stack[Value]) Map {
 }
 
 var MapMethods = MethodMap{
-	"accept":  MethodAtType(1, func(m Map, stack funcGen.Stack[Value]) Value { return m.Accept(stack) }),
-	"map":     MethodAtType(1, func(m Map, stack funcGen.Stack[Value]) Value { return m.Map(stack) }),
-	"replace": MethodAtType(1, func(m Map, stack funcGen.Stack[Value]) Value { return m.Replace(stack) }),
-	"list":    MethodAtType(0, func(m Map, stack funcGen.Stack[Value]) Value { return m.List() }),
-	"size":    MethodAtType(0, func(m Map, stack funcGen.Stack[Value]) Value { return Int(m.Size()) }),
-	"string":  MethodAtType(0, func(m Map, stack funcGen.Stack[Value]) Value { return String(m.String()) }),
-	"isAvail": MethodAtType(1, func(m Map, stack funcGen.Stack[Value]) Value { return m.IsAvail(stack) }),
-	"get":     MethodAtType(1, func(m Map, stack funcGen.Stack[Value]) Value { return m.GetM(stack) }),
-	"put":     MethodAtType(2, func(m Map, stack funcGen.Stack[Value]) Value { return m.PutM(stack) }),
+	"accept": MethodAtType(1, func(m Map, stack funcGen.Stack[Value]) Value { return m.Accept(stack) }).
+		SetDescription("func(key, value) bool",
+			"Accept takes a function as argument and returns a new map with all entries for which the function returns true."),
+	"map": MethodAtType(1, func(m Map, stack funcGen.Stack[Value]) Value { return m.Map(stack) }).
+		SetDescription("func(key, value) value",
+			"Map takes a function as argument and returns a new map with the same keys and all values replaced by the function."),
+	"replace": MethodAtType(1, func(m Map, stack funcGen.Stack[Value]) Value { return m.Replace(stack) }).
+		SetDescription("func(map) value",
+			"Replace takes a function as argument and returns the result of the function. "+
+				"The function is called with the map as argument."),
+	"list": MethodAtType(0, func(m Map, stack funcGen.Stack[Value]) Value { return m.List() }).
+		SetDescription("Returns a list of maps with the key and value of each entry in the map."),
+	"size": MethodAtType(0, func(m Map, stack funcGen.Stack[Value]) Value { return Int(m.Size()) }).
+		SetDescription("Returns the number of entries in the map."),
+	"string": MethodAtType(0, func(m Map, stack funcGen.Stack[Value]) Value { return String(m.String()) }).
+		SetDescription("Returns a string representation of the map."),
+	"isAvail": MethodAtType(1, func(m Map, stack funcGen.Stack[Value]) Value { return m.IsAvail(stack) }).
+		SetDescription("key", "Returns true if the key is available in the map."),
+	"get": MethodAtType(1, func(m Map, stack funcGen.Stack[Value]) Value { return m.GetM(stack) }).
+		SetDescription("key", "Returns the value for the given key."),
+	"put": MethodAtType(2, func(m Map, stack funcGen.Stack[Value]) Value { return m.PutM(stack) }).
+		SetDescription("key", "value",
+			"Returns a new map with the given key and value added. The original map is not changed."),
 }
 
 func (v Map) GetMethod(name string) (funcGen.Function[Value], error) {
