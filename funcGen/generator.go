@@ -132,25 +132,30 @@ func (f *FunctionDescription) WriteTo(b *bytes.Buffer, name string) {
 	}
 	b.WriteString(")\n\t")
 	pos := 0
-	spaceIsPending := false
-	for _, c := range f.Description {
-		if unicode.IsSpace(c) {
-			spaceIsPending = true
-		} else {
-			if spaceIsPending {
-				if pos > 70 {
-					b.WriteString("\n\t")
-					pos = 0
-				} else {
+	var word bytes.Buffer
+	append := func() {
+		if word.Len() > 0 {
+			if pos+word.Len() > 70 {
+				b.WriteString("\n\t")
+				pos = 0
+			} else {
+				if pos > 0 {
 					b.WriteRune(' ')
 					pos++
 				}
 			}
-			b.WriteRune(c)
-			pos++
-			spaceIsPending = false
+			pos += word.Len()
+			word.WriteTo(b)
 		}
 	}
+	for _, c := range f.Description {
+		if unicode.IsSpace(c) {
+			append()
+		} else {
+			word.WriteRune(c)
+		}
+	}
+	append()
 }
 
 // Function represents a function

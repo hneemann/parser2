@@ -13,6 +13,7 @@ func TestErrors(t *testing.T) {
 		err string
 	}{
 		{"notFound(a)", "not found: notFound"},
+		{"[].notFound()", "method 'notFound' not found"},
 		{"sin(1,2)", "number of args wrong"},
 		{"{a:sin(1,2)}", "number of args wrong"},
 		{"[].first()", "no items"},
