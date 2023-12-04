@@ -85,7 +85,10 @@ func (c Closure) ToBool() (bool, bool) {
 }
 
 var ClosureMethods = MethodMap{
-	"string": MethodAtType(0, func(c Closure, stack funcGen.Stack[Value]) Value { return String(c.String()) }),
+	"string": MethodAtType(0, func(c Closure, stack funcGen.Stack[Value]) Value { return String(c.String()) }).
+		SetDescription("Returns the string '<function>'. Exists for compatibility with other types."),
+	"args": MethodAtType(0, func(c Closure, stack funcGen.Stack[Value]) Value { return Int(c.Args) }).
+		SetDescription("Returns the number of arguments the function takes."),
 }
 
 func (c Closure) GetMethod(name string) (funcGen.Function[Value], error) {
@@ -126,7 +129,8 @@ func (b Bool) ToClosure() (funcGen.Function[Value], bool) {
 }
 
 var BoolMethods = MethodMap{
-	"string": MethodAtType(0, func(b Bool, stack funcGen.Stack[Value]) Value { return String(b.String()) }),
+	"string": MethodAtType(0, func(b Bool, stack funcGen.Stack[Value]) Value { return String(b.String()) }).
+		SetDescription("Returns the string 'true' or 'false'."),
 }
 
 func (b Bool) GetMethod(name string) (funcGen.Function[Value], error) {
@@ -156,7 +160,8 @@ func (f Float) ToClosure() (funcGen.Function[Value], bool) {
 }
 
 var FloatMethods = MethodMap{
-	"string": MethodAtType(0, func(f Float, stack funcGen.Stack[Value]) Value { return String(f.String()) }),
+	"string": MethodAtType(0, func(f Float, stack funcGen.Stack[Value]) Value { return String(f.String()) }).
+		SetDescription("Returns a string representation of the float."),
 }
 
 func (f Float) GetMethod(name string) (funcGen.Function[Value], error) {
@@ -197,7 +202,8 @@ func (i Int) ToClosure() (funcGen.Function[Value], bool) {
 }
 
 var IntMethods = MethodMap{
-	"string": MethodAtType(0, func(i Int, stack funcGen.Stack[Value]) Value { return String(i.String()) }),
+	"string": MethodAtType(0, func(i Int, stack funcGen.Stack[Value]) Value { return String(i.String()) }).
+		SetDescription("Returns a string representation of the int."),
 }
 
 func (i Int) GetMethod(name string) (funcGen.Function[Value], error) {
