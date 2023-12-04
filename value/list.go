@@ -368,7 +368,7 @@ func (l *List) Combine3(st funcGen.Stack[Value]) *List {
 
 func (l *List) CombineN(st funcGen.Stack[Value]) *List {
 	if n, ok := st.Get(1).ToInt(); ok {
-		f := toFunc("combineN", st, 2, 2)
+		f := toFunc("combineN", st, 2, 1)
 		return NewListFromIterable(iterator.CombineN[Value, Value](l.iterable, n, func(i0 int, i []Value) Value {
 			st.Push(NewList(i...))
 			return f.Func(st.CreateFrame(1), nil)
