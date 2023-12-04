@@ -167,9 +167,20 @@ type Function[V any] struct {
 	Description *FunctionDescription
 }
 
-func (f Function[V]) SetDescription(descr ...string) Function[V] {
+func (f Function[V]) SetMethodDescription(descr ...string) Function[V] {
 	if f.Args != len(descr) {
 		panic(fmt.Errorf("wrong number of arguments in description: %d, expected %d", len(descr), f.Args))
+	}
+	f.Description = &FunctionDescription{
+		Args:        descr[:len(descr)-1],
+		Description: descr[len(descr)-1],
+	}
+	return f
+}
+
+func (f Function[V]) SetDescription(descr ...string) Function[V] {
+	if f.Args >= 0 && f.Args+1 != len(descr) {
+		panic(fmt.Errorf("wrong number of arguments in description: %d, expected %d", len(descr), f.Args+1))
 	}
 	f.Description = &FunctionDescription{
 		Args:        descr[:len(descr)-1],
@@ -820,7 +831,7 @@ func (g *FunctionGenerator[V]) GenerateFunc(ast parser2.AST, gc GeneratorContext
 		}
 		funcFunc, err := g.GenerateFunc(a.Func, gc)
 		if err != nil {
-			return nil, err
+			return nil, g.generateStaticFunctionDocu(err)
 		}
 		argsFuncList, err := g.genFuncList(a.Args, gc)
 		if err != nil {
@@ -1044,6 +1055,15 @@ func (g *FunctionGenerator[V]) genCodeMap(a listMap.ListMap[parser2.AST], gc Gen
 		return true
 	})
 	return
+}
+
+func (g *FunctionGenerator[V]) generateStaticFunctionDocu(err error) error {
+	var b bytes.Buffer
+	for n, f := range g.staticFunctions {
+		b.WriteRune('\n')
+		f.Description.WriteTo(&b, n)
+	}
+	return fmt.Errorf("%w\n\nAvailable functions are:%s", err, b.String())
 }
 
 func methodByReflection[V any](value V, name string) (Function[V], error) {

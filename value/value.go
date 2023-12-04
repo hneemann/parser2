@@ -86,9 +86,9 @@ func (c Closure) ToBool() (bool, bool) {
 
 var ClosureMethods = MethodMap{
 	"string": MethodAtType(0, func(c Closure, stack funcGen.Stack[Value]) Value { return String(c.String()) }).
-		SetDescription("Returns the string '<function>'. Exists for compatibility with other types."),
+		SetMethodDescription("Returns the string '<function>'. Exists for compatibility with other types."),
 	"args": MethodAtType(0, func(c Closure, stack funcGen.Stack[Value]) Value { return Int(c.Args) }).
-		SetDescription("Returns the number of arguments the function takes."),
+		SetMethodDescription("Returns the number of arguments the function takes."),
 }
 
 func (c Closure) GetMethod(name string) (funcGen.Function[Value], error) {
@@ -130,7 +130,7 @@ func (b Bool) ToClosure() (funcGen.Function[Value], bool) {
 
 var BoolMethods = MethodMap{
 	"string": MethodAtType(0, func(b Bool, stack funcGen.Stack[Value]) Value { return String(b.String()) }).
-		SetDescription("Returns the string 'true' or 'false'."),
+		SetMethodDescription("Returns the string 'true' or 'false'."),
 }
 
 func (b Bool) GetMethod(name string) (funcGen.Function[Value], error) {
@@ -161,7 +161,7 @@ func (f Float) ToClosure() (funcGen.Function[Value], bool) {
 
 var FloatMethods = MethodMap{
 	"string": MethodAtType(0, func(f Float, stack funcGen.Stack[Value]) Value { return String(f.String()) }).
-		SetDescription("Returns a string representation of the float."),
+		SetMethodDescription("Returns a string representation of the float."),
 }
 
 func (f Float) GetMethod(name string) (funcGen.Function[Value], error) {
@@ -203,7 +203,7 @@ func (i Int) ToClosure() (funcGen.Function[Value], bool) {
 
 var IntMethods = MethodMap{
 	"string": MethodAtType(0, func(i Int, stack funcGen.Stack[Value]) Value { return String(i.String()) }).
-		SetDescription("Returns a string representation of the int."),
+		SetMethodDescription("Returns a string representation of the int."),
 }
 
 func (i Int) GetMethod(name string) (funcGen.Function[Value], error) {
@@ -384,7 +384,7 @@ func simpleOnlyFloatFunc(name string, f func(float64) float64) funcGen.Function[
 		},
 		Args:   1,
 		IsPure: true,
-	}
+	}.SetDescription("float", "The mathematical "+name+" function.")
 }
 
 func New() *funcGen.FunctionGenerator[Value] {
@@ -425,7 +425,7 @@ func New() *funcGen.FunctionGenerator[Value] {
 			},
 			Args:   1,
 			IsPure: true,
-		}).
+		}.SetDescription("value", "Returns the string representation of the value.")).
 		AddStaticFunction("float", funcGen.Function[Value]{
 			Func: func(st funcGen.Stack[Value], cs []Value) Value {
 				v := st.Get(0)
@@ -436,7 +436,7 @@ func New() *funcGen.FunctionGenerator[Value] {
 			},
 			Args:   1,
 			IsPure: true,
-		}).
+		}.SetDescription("value", "Returns the float representation of the value.")).
 		AddStaticFunction("int", funcGen.Function[Value]{
 			Func: func(st funcGen.Stack[Value], cs []Value) Value {
 				v := st.Get(0)
@@ -447,7 +447,7 @@ func New() *funcGen.FunctionGenerator[Value] {
 			},
 			Args:   1,
 			IsPure: true,
-		}).
+		}.SetDescription("value", "Returns the int representation of the value.")).
 		AddStaticFunction("abs", funcGen.Function[Value]{
 			Func: func(st funcGen.Stack[Value], cs []Value) Value {
 				v := st.Get(0)
@@ -464,7 +464,7 @@ func New() *funcGen.FunctionGenerator[Value] {
 			},
 			Args:   1,
 			IsPure: true,
-		}).
+		}.SetDescription("value", "If value is negative, returns -value. Otherwise returns the value unchanged.")).
 		AddStaticFunction("sqr", funcGen.Function[Value]{
 			Func: func(st funcGen.Stack[Value], cs []Value) Value {
 				v := st.Get(0)
@@ -478,7 +478,7 @@ func New() *funcGen.FunctionGenerator[Value] {
 			},
 			Args:   1,
 			IsPure: true,
-		}).
+		}.SetDescription("value", "Returns the square of the value.")).
 		AddStaticFunction("round", funcGen.Function[Value]{
 			Func: func(st funcGen.Stack[Value], cs []Value) Value {
 				v := st.Get(0)
@@ -492,7 +492,7 @@ func New() *funcGen.FunctionGenerator[Value] {
 			},
 			Args:   1,
 			IsPure: true,
-		}).
+		}.SetDescription("value", "Returns the value rounded to the nearest integer.")).
 		AddStaticFunction("list", funcGen.Function[Value]{
 			Func: func(st funcGen.Stack[Value], cs []Value) Value {
 				v := st.Get(0)
@@ -503,8 +503,9 @@ func New() *funcGen.FunctionGenerator[Value] {
 			},
 			Args:   1,
 			IsPure: true,
-		}).
-		AddStaticFunction("sprintf", funcGen.Function[Value]{Func: sprintf, Args: -1, IsPure: true}).
+		}.SetDescription("n", "Returns a list with n integer values, starting with 0.")).
+		AddStaticFunction("sprintf", funcGen.Function[Value]{Func: sprintf, Args: -1, IsPure: true}.
+			SetDescription("format", "args", "the classic, well known sprintf function")).
 		AddStaticFunction("sqrt", simpleOnlyFloatFunc("sqrt", func(x float64) float64 { return math.Sqrt(x) })).
 		AddStaticFunction("ln", simpleOnlyFloatFunc("ln", func(x float64) float64 { return math.Log(x) })).
 		AddStaticFunction("exp", simpleOnlyFloatFunc("exp", func(x float64) float64 { return math.Exp(x) })).

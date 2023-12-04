@@ -42,11 +42,11 @@ func (e ErrValue) ToClosure() (funcGen.Function[value.Value], bool) {
 
 var ErrValueMethods = value.MethodMap{
 	"val": value.MethodAtType(0, func(ev ErrValue, stack funcGen.Stack[value.Value]) value.Value { return value.Float(ev.val) }).
-		SetDescription("Returns the value of the error value"),
+		SetMethodDescription("Returns the value of the error value"),
 	"err": value.MethodAtType(0, func(ev ErrValue, stack funcGen.Stack[value.Value]) value.Value { return value.Float(ev.err) }).
-		SetDescription("Returns the error of the error value"),
+		SetMethodDescription("Returns the error of the error value"),
 	"string": value.MethodAtType(0, func(ev ErrValue, stack funcGen.Stack[value.Value]) value.Value { return value.String(ev.String()) }).
-		SetDescription("Returns the string representation of the error value"),
+		SetMethodDescription("Returns the string representation of the error value"),
 }
 
 func (e ErrValue) GetMethod(name string) (funcGen.Function[value.Value], error) {
@@ -127,4 +127,4 @@ var ErrValueParser = value.SetUpParser(value.New().
 		Func:   toErr,
 		Args:   1,
 		IsPure: true,
-	}))
+	}.SetDescription("float", "Creates an error value with the given float as the error. The value is set to 0.")))

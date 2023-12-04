@@ -205,7 +205,7 @@ func TestFunctionDescription_String(t *testing.T) {
 	}{
 		{
 			name: "map",
-			fu:   Function[int]{Args: 2}.SetDescription("func([item])", "Converts  a  \nlist to a new list. The new list items are created by calling the function with the old item as argument."),
+			fu:   Function[int]{Args: 2}.SetMethodDescription("func([item])", "Converts  a  \nlist to a new list. The new list items are created by calling the function with the old item as argument."),
 			want: "map(func([item]))\n\tConverts a list to a new list. The new list items are created by calling\n\tthe function with the old item as argument.",
 		},
 	}
