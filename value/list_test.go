@@ -29,6 +29,7 @@ func TestList(t *testing.T) {
 		{exp: "[1,2,3].map(e->e*2)", res: NewList(Int(2), Int(4), Int(6))},
 		{exp: "let a=2;[1,2,3].map(e->e*a)", res: NewList(Int(2), Int(4), Int(6))},
 		{exp: "[1,2,3,4,5].reduce((a,b)->a+b)", res: Int(15)},
+		{exp: "[1,2,3,4,5].mapReduce([-1,0], (s,i)->s.append(i)).string()", res: String("[-1, 0, 1, 2, 3, 4, 5]")},
 		{exp: "[1,2,3].map(i->i*i)", res: NewList(Int(1), Int(4), Int(9))},
 		{exp: "[1,2,3].accept(i->i>1)", res: NewList(Int(2), Int(3))},
 		{exp: "[1,2,3].accept(i->i>1)", res: NewList(Int(2), Int(3))},
