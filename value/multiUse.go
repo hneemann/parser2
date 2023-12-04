@@ -104,7 +104,9 @@ func (mu *multiUseEntry) runConsumer(started chan struct{}) {
 		st.Push(NewListFromIterable(mu.createIterable(started)))
 		value := mu.fu(st, nil)
 		if list, ok := value.(*List); ok {
-			// force evaluation of lists
+			// Force evaluation of lists. Lazy evaluation is not possible here because it is
+			// not possible to iterate over a list at any time. Iteration is only possible
+			// synchronously with all iterators at the same time.
 			list.Eval()
 		}
 		r <- multiUseResult{result: value, err: nil}
