@@ -230,17 +230,17 @@ func (l *List) IndexOf(st funcGen.Stack[Value]) Int {
 	return Int(index)
 }
 
-type Sortable struct {
+type SortableLess struct {
 	items []Value
 	st    funcGen.Stack[Value]
 	less  funcGen.Function[Value]
 }
 
-func (s Sortable) Len() int {
+func (s SortableLess) Len() int {
 	return len(s.items)
 }
 
-func (s Sortable) Less(i, j int) bool {
+func (s SortableLess) Less(i, j int) bool {
 	s.st.Push(s.items[i])
 	s.st.Push(s.items[j])
 	if l, ok := s.less.Func(s.st.CreateFrame(2), nil).ToBool(); ok {
@@ -250,22 +250,59 @@ func (s Sortable) Less(i, j int) bool {
 	}
 }
 
-func (s Sortable) Swap(i, j int) {
+func (s SortableLess) Swap(i, j int) {
 	s.items[i], s.items[j] = s.items[j], s.items[i]
 }
 
-func (l *List) Order(st funcGen.Stack[Value]) *List {
-	f := toFunc("order", st, 1, 2)
+func (l *List) OrderLess(st funcGen.Stack[Value]) *List {
+	f := toFunc("orderLess", st, 1, 2)
 
 	items := l.CopyToSlice()
 
-	s := Sortable{
+	s := SortableLess{
 		items: items,
 		st:    st,
 		less:  f,
 	}
 
 	sort.Sort(s)
+	return NewList(items...)
+}
+
+type Sortable struct {
+	items    []Value
+	rev      bool
+	st       funcGen.Stack[Value]
+	pickFunc funcGen.Function[Value]
+}
+
+func (s Sortable) Len() int {
+	return len(s.items)
+}
+
+func (s Sortable) pick(i int) Value {
+	s.st.Push(s.items[i])
+	return s.pickFunc.Func(s.st.CreateFrame(1), nil)
+}
+
+func (s Sortable) Less(i, j int) bool {
+	if s.rev {
+		b, _ := Less(s.pick(j), s.pick(i)).ToBool()
+		return b
+	} else {
+		b, _ := Less(s.pick(i), s.pick(j)).ToBool()
+		return b
+	}
+}
+
+func (s Sortable) Swap(i, j int) {
+	s.items[i], s.items[j] = s.items[j], s.items[i]
+}
+
+func (l *List) Order(st funcGen.Stack[Value], rev bool) *List {
+	f := toFunc("order", st, 1, 1)
+	items := l.CopyToSlice()
+	sort.Sort(Sortable{items: items, rev: rev, st: st, pickFunc: f})
 	return NewList(items...)
 }
 
@@ -398,28 +435,28 @@ func (l *List) Reduce(st funcGen.Stack[Value]) Value {
 func (l *List) MinMax(st funcGen.Stack[Value]) Value {
 	f := toFunc("minMax", st, 1, 1)
 	first := true
-	var min Value = Int(0)
-	var max Value = Int(0)
+	var minVal Value = Int(0)
+	var maxVal Value = Int(0)
 	l.Iterator()(func(value Value) bool {
 		st.Push(value)
 		r := f.Func(st.CreateFrame(1), nil)
 		if first {
 			first = false
-			min = r
-			max = r
+			minVal = r
+			maxVal = r
 		} else {
-			if c, _ := Less(r, min).(Bool); c {
-				min = r
+			if c, _ := Less(r, minVal).(Bool); c {
+				minVal = r
 			}
-			if c, _ := Less(max, r).(Bool); c {
-				max = r
+			if c, _ := Less(maxVal, r).(Bool); c {
+				maxVal = r
 			}
 		}
 		return true
 	})
 	return NewMap(listMap.New[Value](3).
-		Append("min", min).
-		Append("max", max).
+		Append("min", minVal).
+		Append("max", maxVal).
 		Append("valid", Bool(!first)))
 }
 
@@ -530,7 +567,9 @@ var ListMethods = MethodMap{
 	"indexOf":       MethodAtType(2, func(list *List, stack funcGen.Stack[Value]) Value { return list.IndexOf(stack) }),
 	"groupByString": MethodAtType(2, func(list *List, stack funcGen.Stack[Value]) Value { return list.GroupByString(stack) }),
 	"groupByInt":    MethodAtType(2, func(list *List, stack funcGen.Stack[Value]) Value { return list.GroupByInt(stack) }),
-	"order":         MethodAtType(2, func(list *List, stack funcGen.Stack[Value]) Value { return list.Order(stack) }),
+	"order":         MethodAtType(2, func(list *List, stack funcGen.Stack[Value]) Value { return list.Order(stack, false) }),
+	"orderRev":      MethodAtType(2, func(list *List, stack funcGen.Stack[Value]) Value { return list.Order(stack, true) }),
+	"orderLess":     MethodAtType(2, func(list *List, stack funcGen.Stack[Value]) Value { return list.OrderLess(stack) }),
 	"reverse":       MethodAtType(1, func(list *List, stack funcGen.Stack[Value]) Value { return list.Reverse() }),
 	"append":        MethodAtType(2, func(list *List, stack funcGen.Stack[Value]) Value { return list.Append(stack) }),
 	"iir":           MethodAtType(3, func(list *List, stack funcGen.Stack[Value]) Value { return list.IIr(stack) }),
