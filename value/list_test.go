@@ -61,6 +61,8 @@ func TestList(t *testing.T) {
 			res: String("[{key:n0, value:[0, 1]}, {key:n1, value:[2, 3, 4, 5]}, {key:n2, value:[6, 7, 8, 9]}, {key:n3, value:[10, 11]}]")},
 		{exp: "list(12).groupByInt(i->round(i/4)).order(a->a.key).string()",
 			res: String("[{key:0, value:[0, 1]}, {key:1, value:[2, 3, 4, 5]}, {key:2, value:[6, 7, 8, 9]}, {key:3, value:[10, 11]}]")},
+		{exp: "list(12).uniqueString(i->\"n\"+round(i/4)).order(a->a).string()", res: String("[n0, n1, n2, n3]")},
+		{exp: "list(12).uniqueInt(i->round(i/4)).order(a->a).string()", res: String("[0, 1, 2, 3]")},
 		{exp: "string(list(3).map(i->(i+1)*10).number((n,e)->\"\"+n+\"->\"+e))", res: String("[0->10, 1->20, 2->30]")},
 		{exp: "[].reverse().string()", res: String("[]")},
 		{exp: "[1].reverse().string()", res: String("[1]")},

@@ -482,7 +482,7 @@ func (l *List) Number(st funcGen.Stack[Value]) *List {
 
 func (l *List) GroupByString(st funcGen.Stack[Value]) *List {
 	keyFunc := toFunc("groupByString", st, 1, 1)
-	return GroupBy(l, func(value Value) Value {
+	return groupBy(l, func(value Value) Value {
 		st.Push(value)
 		key := keyFunc.Func(st.CreateFrame(1), nil)
 		return String(key.String())
@@ -491,7 +491,7 @@ func (l *List) GroupByString(st funcGen.Stack[Value]) *List {
 
 func (l *List) GroupByInt(st funcGen.Stack[Value]) *List {
 	keyFunc := toFunc("groupByInt", st, 1, 1)
-	return GroupBy(l, func(value Value) Value {
+	return groupBy(l, func(value Value) Value {
 		st.Push(value)
 		key := keyFunc.Func(st.CreateFrame(1), nil)
 		if i, ok := key.ToInt(); ok {
@@ -502,7 +502,7 @@ func (l *List) GroupByInt(st funcGen.Stack[Value]) *List {
 	})
 }
 
-func GroupBy(list *List, keyFunc func(Value) Value) *List {
+func groupBy(list *List, keyFunc func(Value) Value) *List {
 	m := make(map[Value]*[]Value)
 	list.iterable()(func(value Value) bool {
 		key := keyFunc(value)
@@ -514,11 +514,47 @@ func GroupBy(list *List, keyFunc func(Value) Value) *List {
 		}
 		return true
 	})
-	var result []Value
+	result := make([]Value, 0, len(m))
 	for k, v := range m {
 		result = append(result, Map{listMap.New[Value](2).
 			Append("key", k).
 			Append("value", NewList(*v...))})
+	}
+	return NewList(result...)
+}
+
+func (l *List) UniqueString(st funcGen.Stack[Value]) *List {
+	keyFunc := toFunc("uniqueString", st, 1, 1)
+	return unique(l, func(value Value) Value {
+		st.Push(value)
+		key := keyFunc.Func(st.CreateFrame(1), nil)
+		return String(key.String())
+	})
+}
+
+func (l *List) UniqueInt(st funcGen.Stack[Value]) *List {
+	keyFunc := toFunc("uniqueInt", st, 1, 1)
+	return unique(l, func(value Value) Value {
+		st.Push(value)
+		key := keyFunc.Func(st.CreateFrame(1), nil)
+		if i, ok := key.ToInt(); ok {
+			return Int(i)
+		} else {
+			panic("uniqueInt requires an int as key")
+		}
+	})
+}
+
+func unique(list *List, keyFunc func(Value) Value) *List {
+	m := make(map[Value]struct{})
+	list.iterable()(func(value Value) bool {
+		key := keyFunc(value)
+		m[key] = struct{}{}
+		return true
+	})
+	result := make([]Value, 0, len(m))
+	for k := range m {
+		result = append(result, k)
 	}
 	return NewList(result...)
 }
@@ -567,6 +603,8 @@ var ListMethods = MethodMap{
 	"indexOf":       MethodAtType(2, func(list *List, stack funcGen.Stack[Value]) Value { return list.IndexOf(stack) }),
 	"groupByString": MethodAtType(2, func(list *List, stack funcGen.Stack[Value]) Value { return list.GroupByString(stack) }),
 	"groupByInt":    MethodAtType(2, func(list *List, stack funcGen.Stack[Value]) Value { return list.GroupByInt(stack) }),
+	"uniqueString":  MethodAtType(2, func(list *List, stack funcGen.Stack[Value]) Value { return list.UniqueString(stack) }),
+	"uniqueInt":     MethodAtType(2, func(list *List, stack funcGen.Stack[Value]) Value { return list.UniqueInt(stack) }),
 	"order":         MethodAtType(2, func(list *List, stack funcGen.Stack[Value]) Value { return list.Order(stack, false) }),
 	"orderRev":      MethodAtType(2, func(list *List, stack funcGen.Stack[Value]) Value { return list.Order(stack, true) }),
 	"orderLess":     MethodAtType(2, func(list *List, stack funcGen.Stack[Value]) Value { return list.OrderLess(stack) }),
