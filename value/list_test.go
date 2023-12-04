@@ -55,6 +55,7 @@ func TestList(t *testing.T) {
 		{exp: "let a=[1,2].append(3);\"\"+[a.append(4), a.append(5)]", res: String("[[1, 2, 3, 4], [1, 2, 3, 5]]")},
 		{exp: "let a=[1,2].append(3);\"\"+[a.append(4), a.append(5)]", res: String("[[1, 2, 3, 4], [1, 2, 3, 5]]")},
 		{exp: "list(20).visit([],(vis,val)->vis.append(val)).string()", res: String("[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19]")},
+		{exp: fsm, res: String("[{start:15, end:20}, {start:35, end:40}, {start:55, end:60}, {start:75, end:80}]")},
 		{exp: visitAndCollect, res: String("[9, 19, 29, 39, 49, 59, 69, 79, 89, 99]")},
 		{exp: accept, res: String("[9, 19, 29, 39, 49, 59, 69, 79, 89, 99]")},
 		{exp: "list(12).groupByString(i->\"n\"+round(i/4)).order(a->a.key).string()",
@@ -131,6 +132,25 @@ const accept = `
   let data=list(100).map(i->if i%10=9 then i else 0);
   
   let events=data.accept(i->i!=0);
+
+  events.string()
+`
+
+const fsm = `
+	let data=list(100).map(i->{t:i,v:i%20});
+
+    const search=0;
+    const inEvent=1;
+	func fsm(vis, p)
+		if vis.state=search
+        then
+			if p.v<15 then vis
+			else {state:inEvent, start:p.t, events:vis.events}
+		else
+			if p.v>=15 then vis
+			else {state:search, events:vis.events.append({start:vis.start, end:p.t})};
+
+  let events=data.visit({state:search, events:[]},fsm).events;
 
   events.string()
 `
