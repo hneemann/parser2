@@ -28,7 +28,7 @@ func MethodAtType[V Value](args int, method func(obj V, stack funcGen.Stack[Valu
 			return method(obj, stack)
 		}
 		panic("internal error: call of method on wrong type")
-	}, Args: args, IsPure: true}
+	}, Args: args + 1, IsPure: true}
 }
 
 type MethodMap map[string]funcGen.Function[Value]
@@ -72,7 +72,7 @@ func (c Closure) ToBool() (bool, bool) {
 }
 
 var ClosureMethods = MethodMap{
-	"string": MethodAtType(1, func(c Closure, stack funcGen.Stack[Value]) Value { return String(c.String()) }),
+	"string": MethodAtType(0, func(c Closure, stack funcGen.Stack[Value]) Value { return String(c.String()) }),
 }
 
 func (c Closure) GetMethod(name string) (funcGen.Function[Value], error) {
@@ -113,7 +113,7 @@ func (b Bool) ToClosure() (funcGen.Function[Value], bool) {
 }
 
 var BoolMethods = MethodMap{
-	"string": MethodAtType(1, func(b Bool, stack funcGen.Stack[Value]) Value { return String(b.String()) }),
+	"string": MethodAtType(0, func(b Bool, stack funcGen.Stack[Value]) Value { return String(b.String()) }),
 }
 
 func (b Bool) GetMethod(name string) (funcGen.Function[Value], error) {
@@ -143,7 +143,7 @@ func (f Float) ToClosure() (funcGen.Function[Value], bool) {
 }
 
 var FloatMethods = MethodMap{
-	"string": MethodAtType(1, func(f Float, stack funcGen.Stack[Value]) Value { return String(f.String()) }),
+	"string": MethodAtType(0, func(f Float, stack funcGen.Stack[Value]) Value { return String(f.String()) }),
 }
 
 func (f Float) GetMethod(name string) (funcGen.Function[Value], error) {
@@ -184,7 +184,7 @@ func (i Int) ToClosure() (funcGen.Function[Value], bool) {
 }
 
 var IntMethods = MethodMap{
-	"string": MethodAtType(1, func(i Int, stack funcGen.Stack[Value]) Value { return String(i.String()) }),
+	"string": MethodAtType(0, func(i Int, stack funcGen.Stack[Value]) Value { return String(i.String()) }),
 }
 
 func (i Int) GetMethod(name string) (funcGen.Function[Value], error) {
