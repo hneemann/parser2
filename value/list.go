@@ -195,6 +195,15 @@ func (l *List) Map(st funcGen.Stack[Value]) *List {
 	}))
 }
 
+func (l *List) Compact(st funcGen.Stack[Value]) *List {
+	f := toFunc("compact", st, 1, 1)
+	return NewListFromIterable(iterator.Compact[Value](l.iterable, func(a, b Value) bool {
+		aVal := f.Eval(st, a)
+		bVal := f.Eval(st, b)
+		return Equal(aVal, bVal)
+	}))
+}
+
 func (l *List) First() Value {
 	if l.itemsPresent {
 		if len(l.items) > 0 {
@@ -287,11 +296,9 @@ func (s Sortable) pick(i int) Value {
 
 func (s Sortable) Less(i, j int) bool {
 	if s.rev {
-		b, _ := Less(s.pick(j), s.pick(i)).ToBool()
-		return b
+		return Less(s.pick(j), s.pick(i))
 	} else {
-		b, _ := Less(s.pick(i), s.pick(j)).ToBool()
-		return b
+		return Less(s.pick(i), s.pick(j))
 	}
 }
 
@@ -445,10 +452,10 @@ func (l *List) MinMax(st funcGen.Stack[Value]) Value {
 			minVal = r
 			maxVal = r
 		} else {
-			if c, _ := Less(r, minVal).(Bool); c {
+			if Less(r, minVal) {
 				minVal = r
 			}
-			if c, _ := Less(maxVal, r).(Bool); c {
+			if Less(maxVal, r) {
 				maxVal = r
 			}
 		}
@@ -605,6 +612,7 @@ var ListMethods = MethodMap{
 	"groupByInt":    MethodAtType(2, func(list *List, stack funcGen.Stack[Value]) Value { return list.GroupByInt(stack) }),
 	"uniqueString":  MethodAtType(2, func(list *List, stack funcGen.Stack[Value]) Value { return list.UniqueString(stack) }),
 	"uniqueInt":     MethodAtType(2, func(list *List, stack funcGen.Stack[Value]) Value { return list.UniqueInt(stack) }),
+	"compact":       MethodAtType(2, func(list *List, stack funcGen.Stack[Value]) Value { return list.Compact(stack) }),
 	"order":         MethodAtType(2, func(list *List, stack funcGen.Stack[Value]) Value { return list.Order(stack, false) }),
 	"orderRev":      MethodAtType(2, func(list *List, stack funcGen.Stack[Value]) Value { return list.Order(stack, true) }),
 	"orderLess":     MethodAtType(2, func(list *List, stack funcGen.Stack[Value]) Value { return list.OrderLess(stack) }),

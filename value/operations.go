@@ -79,20 +79,20 @@ func In(a Value, b Value) Value {
 	panic(fmt.Errorf("~ not allowed on %v~%v", a, b))
 }
 
-func Less(a Value, b Value) Value {
+func Less(a Value, b Value) bool {
 	if aa, ok := a.(Int); ok {
 		if bb, ok := b.(Int); ok {
-			return Bool(aa < bb)
+			return aa < bb
 		}
 	}
 	if aa, ok := a.(String); ok {
 		if bb, ok := b.(String); ok {
-			return Bool(aa < bb)
+			return aa < bb
 		}
 	}
 	if aa, ok := a.ToFloat(); ok {
 		if bb, ok := b.ToFloat(); ok {
-			return Bool(aa < bb)
+			return aa < bb
 		}
 	}
 	panic(fmt.Errorf("less not allowed on %v<%v", a, b))

@@ -386,8 +386,8 @@ func New() *funcGen.FunctionGenerator[Value] {
 		AddOp("=", true, func(a Value, b Value) Value { return Bool(Equal(a, b)) }).
 		AddOp("!=", true, func(a, b Value) Value { return Bool(!Equal(a, b)) }).
 		AddOp("~", false, In).
-		AddOp("<", false, Less).
-		AddOp(">", false, Swap(Less)).
+		AddOp("<", false, func(a Value, b Value) Value { return Bool(Less(a, b)) }).
+		AddOp(">", false, func(a Value, b Value) Value { return Bool(Less(b, a)) }).
 		AddOp("<=", false, LessEqual).
 		AddOp(">=", false, Swap(LessEqual)).
 		AddOp("+", false, Add).
