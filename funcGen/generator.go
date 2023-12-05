@@ -133,7 +133,7 @@ func (f *FunctionDescription) WriteTo(b *bytes.Buffer, name string) {
 	b.WriteString(")\n\t")
 	pos := 0
 	var word bytes.Buffer
-	append := func() {
+	appendWord := func() {
 		if word.Len() > 0 {
 			if pos+word.Len() > 70 {
 				b.WriteString("\n\t")
@@ -150,12 +150,12 @@ func (f *FunctionDescription) WriteTo(b *bytes.Buffer, name string) {
 	}
 	for _, c := range f.Description {
 		if unicode.IsSpace(c) {
-			append()
+			appendWord()
 		} else {
 			word.WriteRune(c)
 		}
 	}
-	append()
+	appendWord()
 }
 
 // Function represents a function
@@ -173,7 +173,7 @@ type Function[V any] struct {
 }
 
 func (f Function[V]) SetMethodDescription(descr ...string) Function[V] {
-	if f.Args != len(descr) {
+	if f.Args > 0 && f.Args != len(descr) {
 		panic(fmt.Errorf("wrong number of arguments in description: %d, expected %d", len(descr), f.Args))
 	}
 	f.Description = &FunctionDescription{
@@ -885,7 +885,7 @@ func (g *FunctionGenerator[V]) GenerateFunc(ast parser2.AST, gc GeneratorContext
 				if err != nil {
 					panic(a.EnhanceErrorf(err, "error accessing method %s", name))
 				}
-				if me.Args != len(argsFuncList)+1 {
+				if me.Args > 0 && me.Args != len(argsFuncList)+1 {
 					panic(a.Errorf("wrong number of arguments at call of %s, required %d, found %d", name, me.Args-1, len(argsFuncList)))
 				}
 				st.Push(value)
