@@ -349,10 +349,17 @@ func (g *FunctionGenerator[V]) AddUnary(operator string, impl func(a V) V) *Func
 	if g.parser != nil {
 		panic("parser already created")
 	}
-	g.unary = append(g.unary, UnaryOperator[V]{
+	uni := UnaryOperator[V]{
 		Operator: operator,
 		Impl:     impl,
-	})
+	}
+	for i, u := range g.unary {
+		if u.Operator == operator {
+			g.unary[i] = uni
+			return g
+		}
+	}
+	g.unary = append(g.unary, uni)
 	return g
 }
 
