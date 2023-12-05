@@ -26,6 +26,7 @@ func TestErrors(t *testing.T) {
 		{"list(10).multiUse({a:l->l.reduce((a,b)->a+b)+l.reduce((a,b)->a*b)})", "function a can only be used once"},
 		{"list(10).map(e->e.e).multiUse({a:l->l.reduce((a,b)->a+b)})", "not a map"},
 		{"list(10).multiUse({a:l->l.mapReduce(0,(s,i)->s+i), b:l->l.notFound(i->i+1)})", "notFound"},
+		{"list(10).multiUse({a:l->l.notFound(0,(s,i)->s+i), b:l->l.notFound(i->i+1)})", "notFound"},
 	}
 
 	fg := SetUpParser(New())
