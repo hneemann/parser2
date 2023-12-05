@@ -816,6 +816,8 @@ var ListMethods = MethodMap{
 		SetMethodDescription("Returns the first item in the list."),
 	"last": MethodAtType(0, func(list *List, stack funcGen.Stack[Value]) Value { return list.Last() }).
 		SetMethodDescription("Returns the last item in the list."),
+	"eval": MethodAtType(0, func(list *List, stack funcGen.Stack[Value]) Value { list.Eval(); return list }).
+		SetMethodDescription("Evaluates the list and stores all items in memory."),
 	"string": MethodAtType(0, func(list *List, stack funcGen.Stack[Value]) Value { return String(list.String()) }).
 		SetMethodDescription("Returns the list as a string."),
 	"movingWindow": MethodAtType(1, func(list *List, stack funcGen.Stack[Value]) Value { return list.MovingWindow(stack) }).
