@@ -121,7 +121,7 @@ var ErrValueParser = value.SetUpParser(value.New().
 				return ErrValue{v, math.Abs(e)}
 			}
 		}
-		panic(fmt.Errorf("+- not allowed on %v/%v", a, b))
+		panic(fmt.Errorf("+- not allowed on %v+-%v", a, b))
 	}).
 	AddStaticFunction("err", funcGen.Function[value.Value]{
 		Func:   toErr,
