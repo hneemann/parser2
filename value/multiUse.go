@@ -96,6 +96,9 @@ func (mu *multiUseEntry) runConsumer(started chan struct{}) {
 	go func() {
 		defer func() {
 			if rec := recover(); rec != nil {
+				// stop waiting for the other consumers to be started
+				close(started)
+				// send error message to the result channel
 				r <- multiUseResult{result: nil, err: parser2.AnyToError(rec)}
 			}
 			close(r)
