@@ -46,11 +46,12 @@ func (l *List) MultiUse(st funcGen.Stack[Value]) Map {
 }
 
 type multiUseEntry struct {
-	name         string
-	fu           funcGen.Func[Value]
-	writer       chan<- Value
-	requestClose <-chan struct{}
-	result       <-chan multiUseResult
+	name            string
+	fu              funcGen.Func[Value]
+	writer          chan<- Value
+	requestClose    chan struct{}
+	requestIsClosed bool
+	result          <-chan multiUseResult
 }
 
 type multiUseList []*multiUseEntry
@@ -64,20 +65,26 @@ func (mu *multiUseEntry) createIterable(started chan<- struct{}) iterator.Iterab
 			panic(fmt.Errorf("list passed to multiUse function %s can only be used once", mu.name))
 		}
 		r := make(chan Value)
-		c := make(chan struct{})
 		mu.writer = r
-		mu.requestClose = c
+		mu.requestClose = make(chan struct{})
 		started <- struct{}{}
 		return func(yield func(Value) bool) bool {
 			for v := range r {
 				if !yield(v) {
-					close(c)
+					mu.stopWriter()
 					return false
 				}
 			}
-			close(c)
+			mu.stopWriter()
 			return true
 		}
+	}
+}
+
+func (mu *multiUseEntry) stopWriter() {
+	if !mu.requestIsClosed && mu.requestClose != nil {
+		close(mu.requestClose)
+		mu.requestIsClosed = true
 	}
 }
 
@@ -95,8 +102,10 @@ func (mu *multiUseEntry) runConsumer(started chan struct{}) {
 	mu.result = r
 	go func() {
 		defer func() {
+			mu.stopWriter()
 			if rec := recover(); rec != nil {
-				// if start is not reported yet, do now
+				// If start is not reported yet, do now. This happens if evaluation of function
+				// fails before the iterator has even started.
 				if mu.writer == nil {
 					started <- struct{}{}
 				}
@@ -184,16 +193,21 @@ func (ml multiUseList) runConsumerClosures() {
 // part that does not run in its own goroutine.
 func (ml multiUseList) createResult(errChan <-chan error) Map {
 	resultMap := listMap.New[Value](len(ml))
+	var reportedErr error
 	for _, mu := range ml {
 		select {
 		case result := <-mu.result:
 			if result.err != nil {
-				panic(result.err)
+				reportedErr = result.err
+			} else {
+				resultMap = resultMap.Append(mu.name, result.result)
 			}
-			resultMap = resultMap.Append(mu.name, result.result)
 		case err := <-errChan:
 			panic(err)
 		}
+	}
+	if reportedErr != nil {
+		panic(reportedErr)
 	}
 	return NewMap(resultMap)
 }
