@@ -169,11 +169,17 @@ func (v Map) Get(key string) (Value, bool) {
 }
 
 func (v Map) IsAvail(stack funcGen.Stack[Value]) Value {
-	if key, ok := stack.Get(1).(String); ok {
-		_, ok := v.m.Get(string(key))
-		return Bool(ok)
+	for i := 1; i < stack.Size(); i++ {
+		if key, ok := stack.Get(i).(String); ok {
+			_, ok := v.m.Get(string(key))
+			if !ok {
+				return Bool(false)
+			}
+		} else {
+			panic("isAvail requires a string as argument")
+		}
 	}
-	panic("isAvail requires a string as argument")
+	return Bool(true)
 }
 
 func (v Map) ContainsKey(key String) Value {
@@ -243,7 +249,7 @@ var MapMethods = MethodMap{
 		SetMethodDescription("Returns the number of entries in the map."),
 	"string": MethodAtType(0, func(m Map, stack funcGen.Stack[Value]) Value { return String(m.String()) }).
 		SetMethodDescription("Returns a string representation of the map."),
-	"isAvail": MethodAtType(1, func(m Map, stack funcGen.Stack[Value]) Value { return m.IsAvail(stack) }).
+	"isAvail": MethodAtType(-1, func(m Map, stack funcGen.Stack[Value]) Value { return m.IsAvail(stack) }).
 		SetMethodDescription("key", "Returns true if the key is available in the map."),
 	"get": MethodAtType(1, func(m Map, stack funcGen.Stack[Value]) Value { return m.GetM(stack) }).
 		SetMethodDescription("key", "Returns the value for the given key."),
