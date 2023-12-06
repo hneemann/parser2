@@ -54,10 +54,10 @@ func (e ErrValue) GetMethod(name string) (funcGen.Function[value.Value], error) 
 }
 
 func errOperation(name string,
-	def func(a value.Value, b value.Value) value.Value,
-	f func(a, b ErrValue) ErrValue) func(a value.Value, b value.Value) value.Value {
+	def func(a value.Value, b value.Value) (value.Value, error),
+	f func(a, b ErrValue) (ErrValue, error)) func(a value.Value, b value.Value) (value.Value, error) {
 
-	return func(a value.Value, b value.Value) value.Value {
+	return func(a value.Value, b value.Value) (value.Value, error) {
 		if ae, ok := a.(ErrValue); ok {
 			if be, ok := b.(ErrValue); ok {
 				// both are error values
@@ -86,42 +86,42 @@ func errOperation(name string,
 	}
 }
 
-func toErr(stack funcGen.Stack[value.Value], store []value.Value) value.Value {
+func toErr(stack funcGen.Stack[value.Value], store []value.Value) (value.Value, error) {
 	if err, ok := stack.Get(0).ToFloat(); ok {
-		return ErrValue{err: math.Abs(err)}
+		return ErrValue{err: math.Abs(err)}, nil
 	}
-	panic("err requires a float value")
+	return nil, fmt.Errorf("err requires a float value")
 }
 
 var ErrValueParser = value.SetUpParser(value.New().
 	AddOp("+", false, errOperation("+", value.Add,
-		func(a, b ErrValue) ErrValue {
-			return ErrValue{a.val + b.val, a.err + b.err}
+		func(a, b ErrValue) (ErrValue, error) {
+			return ErrValue{a.val + b.val, a.err + b.err}, nil
 		}),
 	).
 	AddOp("-", false, errOperation("-", value.Sub,
-		func(a, b ErrValue) ErrValue {
-			return ErrValue{a.val - b.val, a.err + b.err}
+		func(a, b ErrValue) (ErrValue, error) {
+			return ErrValue{a.val - b.val, a.err + b.err}, nil
 		}),
 	).
 	AddOp("*", true, errOperation("*", value.Mul,
-		func(a, b ErrValue) ErrValue {
-			return ErrValue{a.val * b.val, math.Abs(a.val*b.err) + math.Abs(b.val*a.err) + b.err*a.err}
+		func(a, b ErrValue) (ErrValue, error) {
+			return ErrValue{a.val * b.val, math.Abs(a.val*b.err) + math.Abs(b.val*a.err) + b.err*a.err}, nil
 		}),
 	).
 	AddOp("/", true, errOperation("/", value.Div,
-		func(a, b ErrValue) ErrValue {
+		func(a, b ErrValue) (ErrValue, error) {
 			val := a.val / b.val
-			return ErrValue{val, (math.Abs(a.val)+a.err)/(math.Abs(b.val)-b.err) - math.Abs(val)}
+			return ErrValue{val, (math.Abs(a.val)+a.err)/(math.Abs(b.val)-b.err) - math.Abs(val)}, nil
 		}),
 	).
-	AddOp("+-", false, func(a value.Value, b value.Value) value.Value {
+	AddOp("+-", false, func(a value.Value, b value.Value) (value.Value, error) {
 		if v, ok := a.ToFloat(); ok {
 			if e, ok := b.ToFloat(); ok {
-				return ErrValue{v, math.Abs(e)}
+				return ErrValue{v, math.Abs(e)}, nil
 			}
 		}
-		panic(fmt.Errorf("+- not allowed on %v+-%v", a, b))
+		return nil, fmt.Errorf("+- not allowed on %v+-%v", a, b)
 	}).
 	AddStaticFunction("err", funcGen.Function[value.Value]{
 		Func:   toErr,

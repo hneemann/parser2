@@ -11,15 +11,15 @@ import (
 // see test cases for usage example
 var minimal = funcGen.New[float64]().
 	AddConstant("pi", math.Pi).
-	AddOp("=", true, func(a, b float64) float64 { return fromBool(a == b) }).
-	AddOp("<", false, func(a, b float64) float64 { return fromBool(a < b) }).
-	AddOp(">", false, func(a, b float64) float64 { return fromBool(a > b) }).
-	AddOp("+", true, func(a, b float64) float64 { return a + b }).
-	AddOp("-", false, func(a, b float64) float64 { return a - b }).
-	AddOp("*", true, func(a, b float64) float64 { return a * b }).
-	AddOp("/", false, func(a, b float64) float64 { return a / b }).
-	AddOp("^", false, func(a, b float64) float64 { return math.Pow(a, b) }).
-	AddUnary("-", func(a float64) float64 { return -a }).
+	AddOp("=", true, func(a, b float64) (float64, error) { return fromBool(a == b), nil }).
+	AddOp("<", false, func(a, b float64) (float64, error) { return fromBool(a < b), nil }).
+	AddOp(">", false, func(a, b float64) (float64, error) { return fromBool(a > b), nil }).
+	AddOp("+", true, func(a, b float64) (float64, error) { return a + b, nil }).
+	AddOp("-", false, func(a, b float64) (float64, error) { return a - b, nil }).
+	AddOp("*", true, func(a, b float64) (float64, error) { return a * b, nil }).
+	AddOp("/", false, func(a, b float64) (float64, error) { return a / b, nil }).
+	AddOp("^", false, func(a, b float64) (float64, error) { return math.Pow(a, b), nil }).
+	AddUnary("-", func(a float64) (float64, error) { return -a, nil }).
 	AddSimpleFunction("sin", math.Sin).
 	AddSimpleFunction("sqrt", math.Sqrt).
 	SetToBool(func(c float64) (bool, bool) { return c != 0, true }).

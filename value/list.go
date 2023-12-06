@@ -161,28 +161,31 @@ func (l *List) Size() int {
 	return len(l.items)
 }
 
-func ToFunc(name string, st funcGen.Stack[Value], n int, args int) funcGen.Function[Value] {
+func ToFunc(name string, st funcGen.Stack[Value], n int, args int) (funcGen.Function[Value], error) {
 	if c, ok := st.Get(n).ToClosure(); ok {
 		if c.Args == args {
-			return c
+			return c, nil
 		} else {
-			panic(fmt.Errorf("%d. argument of %s needs to be a function with %d arguments", n, name, args))
+			return funcGen.Function[Value]{}, fmt.Errorf("%d. argument of %s needs to be a function with %d arguments", n, name, args)
 		}
 	} else {
-		panic(fmt.Errorf("%d. argument of %s needs to be a function", n, name))
+		return funcGen.Function[Value]{}, fmt.Errorf("%d. argument of %s needs to be a function", n, name)
 	}
 }
 
-func ToFloat(name string, st funcGen.Stack[Value], n int) float64 {
+func ToFloat(name string, st funcGen.Stack[Value], n int) (float64, error) {
 	if c, ok := st.Get(n).ToFloat(); ok {
-		return c
+		return c, nil
 	} else {
-		panic(fmt.Errorf("%d. argument of %s needs to be a float", n, name))
+		return 0, fmt.Errorf("%d. argument of %s needs to be a float", n, name)
 	}
 }
 
-func (l *List) Accept(st funcGen.Stack[Value]) *List {
-	f := ToFunc("accept", st, 1, 1)
+func (l *List) Accept(st funcGen.Stack[Value]) (*List, error) {
+	f, err := ToFunc("accept", st, 1, 1)
+	if err != nil {
+		return nil, err
+	}
 	return NewListFromIterable(iterator.FilterAuto[Value](l.iterable, func() func(v Value) bool {
 		lst := funcGen.NewEmptyStack[Value]()
 		return func(v Value) bool {
@@ -191,7 +194,7 @@ func (l *List) Accept(st funcGen.Stack[Value]) *List {
 			}
 			panic(fmt.Errorf("function in accept does not return a bool"))
 		}
-	}))
+	})), nil
 }
 
 func (l *List) Map(st funcGen.Stack[Value]) *List {

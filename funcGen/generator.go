@@ -88,7 +88,7 @@ type Operator[V any] struct {
 	// Operator is the operator as a string like "+"
 	Operator string
 	// Impl is the implementation of the operation
-	Impl func(a, b V) V
+	Impl func(a, b V) (V, error)
 	// IsPure is true if the result of the operation depends only on the operands.
 	// This is usually the case, there are only special corner cases where it is not.
 	// So IsPure is usually true.
@@ -102,14 +102,14 @@ type UnaryOperator[V any] struct {
 	// Operator is the operator as a string like "+"
 	Operator string
 	// Impl is the implementation of the operation
-	Impl func(a V) V
+	Impl func(a V) (V, error)
 }
 
 // Func is the signature of the go closures created to build the
 // generated function. The stack is used to store arguments and local
 // variables created by let, and the closureStore is used to pass the
 // accessed outer values to the function.
-type Func[V any] func(stack Stack[V], closureStore []V) V
+type Func[V any] func(stack Stack[V], closureStore []V) (V, error)
 
 type FunctionDescription struct {
 	Args        []string
@@ -197,7 +197,7 @@ func (f Function[V]) SetDescription(descr ...string) Function[V] {
 // Eval is used to evaluate a function with one argument
 // The stack [st] is used to pass the given argument [a] to the function.
 // The pushed value is removed after the function is called.
-func (f Function[V]) Eval(st Stack[V], a V) V {
+func (f Function[V]) Eval(st Stack[V], a V) (V, error) {
 	st.Push(a)
 	return f.Func(st.CreateFrame(1), nil)
 }
@@ -205,7 +205,7 @@ func (f Function[V]) Eval(st Stack[V], a V) V {
 // EvalSt is used to evaluate a function with multiple arguments
 // The stack [st] is used to pass the given arguments to the function.
 // The pushed values are removed after the function is called.
-func (f Function[V]) EvalSt(st Stack[V], a ...V) V {
+func (f Function[V]) EvalSt(st Stack[V], a ...V) (V, error) {
 	for _, e := range a {
 		st.Push(e)
 	}
@@ -345,7 +345,7 @@ func (g *FunctionGenerator[V]) SetIsEqual(isEqual IsEqual[V]) *FunctionGenerator
 	return g
 }
 
-func (g *FunctionGenerator[V]) AddUnary(operator string, impl func(a V) V) *FunctionGenerator[V] {
+func (g *FunctionGenerator[V]) AddUnary(operator string, impl func(a V) (V, error)) *FunctionGenerator[V] {
 	if g.parser != nil {
 		panic("parser already created")
 	}
@@ -367,14 +367,14 @@ func (g *FunctionGenerator[V]) AddUnary(operator string, impl func(a V) V) *Func
 // The Operation needs to be pure.
 // The operation with the lowest priority needs to be added first.
 // The operation with the highest priority needs to be added last.
-func (g *FunctionGenerator[V]) AddOp(operator string, isCommutative bool, impl func(a V, b V) V) *FunctionGenerator[V] {
+func (g *FunctionGenerator[V]) AddOp(operator string, isCommutative bool, impl func(a V, b V) (V, error)) *FunctionGenerator[V] {
 	return g.AddOpPure(operator, isCommutative, impl, true)
 }
 
 // AddOpPure adds an operation to the generator.
 // The operation with the lowest priority needs to be added first.
 // The operation with the highest priority needs to be added last.
-func (g *FunctionGenerator[V]) AddOpPure(operator string, isCommutative bool, impl func(a V, b V) V, isPure bool) *FunctionGenerator[V] {
+func (g *FunctionGenerator[V]) AddOpPure(operator string, isCommutative bool, impl func(a V, b V) (V, error), isPure bool) *FunctionGenerator[V] {
 	if g.parser != nil {
 		panic("parser already created")
 	}
@@ -403,15 +403,15 @@ func (g *FunctionGenerator[V]) AddConstant(n string, c V) *FunctionGenerator[V] 
 
 func (g *FunctionGenerator[V]) AddSimpleFunction(name string, f func(V) V) *FunctionGenerator[V] {
 	return g.AddStaticFunction(name, Function[V]{
-		Func:   func(st Stack[V], cs []V) V { return f(st.Get(0)) },
+		Func:   func(st Stack[V], cs []V) (V, error) { return f(st.Get(0)), nil },
 		Args:   1,
 		IsPure: true,
 	})
 }
 
-func (g *FunctionGenerator[V]) AddGoFunction(name string, args int, f func(a ...V) V) *FunctionGenerator[V] {
+func (g *FunctionGenerator[V]) AddGoFunction(name string, args int, f func(a ...V) (V, error)) *FunctionGenerator[V] {
 	return g.AddStaticFunction(name, Function[V]{
-		Func:   func(st Stack[V], cs []V) V { return f(st.ToSlice()...) },
+		Func:   func(st Stack[V], cs []V) (V, error) { return f(st.ToSlice()...) },
 		Args:   args,
 		IsPure: true,
 	})
@@ -540,7 +540,7 @@ func (g *FunctionGenerator[V]) generateIntern(args []string, exp string, ThisNam
 				err = parser2.AnyToError(rec)
 			}
 		}()
-		return f(st, nil), nil
+		return f(st, nil)
 	}, nil
 }
 
@@ -563,6 +563,7 @@ func (g *FunctionGenerator[V]) CreateAst(exp string) (parser2.AST, error) {
 }
 
 func (g *FunctionGenerator[V]) GenerateFunc(ast parser2.AST, gc GeneratorContext) (Func[V], error) {
+	var zero V
 	if g.customGenerator != nil {
 		c, err := g.customGenerator.Generate(ast, gc, g)
 		if err != nil {
@@ -574,28 +575,29 @@ func (g *FunctionGenerator[V]) GenerateFunc(ast parser2.AST, gc GeneratorContext
 	}
 	switch a := ast.(type) {
 	case *parser2.Const[V]:
-		return func(st Stack[V], cs []V) V {
-			return a.Value
+		return func(st Stack[V], cs []V) (V, error) {
+			return a.Value, nil
 		}, nil
 	case *parser2.Ident:
 		if index, ok := gc.am[a.Name]; ok {
-			return func(st Stack[V], cs []V) V {
-				return st.Get(index)
+			return func(st Stack[V], cs []V) (V, error) {
+				return st.Get(index), nil
 			}, nil
 		} else {
 			if index, ok := gc.cm[a.Name]; ok {
-				return func(st Stack[V], cs []V) V {
-					return cs[index]
+				return func(st Stack[V], cs []V) (V, error) {
+					return cs[index], nil
 				}, nil
 			} else {
 				if gc.ThisName != "" && g.mapHandler != nil {
 					if index, ok := gc.am[gc.ThisName]; ok {
-						return func(st Stack[V], cs []V) V {
+						return func(st Stack[V], cs []V) (V, error) {
 							this := st.Get(index)
 							if v, err := g.mapHandler.AccessMap(this, a.Name); err == nil {
-								return v
+								return v, nil
 							} else {
-								panic(a.EnhanceErrorf(err, "Map error"))
+								var zero V
+								return zero, a.EnhanceErrorf(err, "Map error")
 							}
 						}, nil
 					}
@@ -637,8 +639,11 @@ func (g *FunctionGenerator[V]) GenerateFunc(ast parser2.AST, gc GeneratorContext
 		if err != nil {
 			return nil, err
 		}
-		return func(st Stack[V], cs []V) V {
-			va := valFunc(st, cs)
+		return func(st Stack[V], cs []V) (V, error) {
+			va, err := valFunc(st, cs)
+			if err != nil {
+				return zero, a.EnhanceErrorf(err, "error in let")
+			}
 			st.Push(va)
 			return mainFunc(st, cs)
 		}, nil
@@ -656,15 +661,19 @@ func (g *FunctionGenerator[V]) GenerateFunc(ast parser2.AST, gc GeneratorContext
 			if err != nil {
 				return nil, err
 			}
-			return func(st Stack[V], cs []V) V {
-				if cond, ok := g.toBool(condFunc(st, cs)); ok {
+			return func(st Stack[V], cs []V) (V, error) {
+				condVal, err := condFunc(st, cs)
+				if err != nil {
+					return zero, a.EnhanceErrorf(err, "error in if")
+				}
+				if cond, ok := g.toBool(condVal); ok {
 					if cond {
 						return thenFunc(st, cs)
 					} else {
 						return elseFunc(st, cs)
 					}
 				} else {
-					panic("if condition is not a bool")
+					return zero, a.Errorf("if condition is not a bool")
 				}
 			}, nil
 		}
@@ -698,10 +707,17 @@ func (g *FunctionGenerator[V]) GenerateFunc(ast parser2.AST, gc GeneratorContext
 					resultFunc: resultFunc,
 				})
 			}
-			return func(st Stack[V], cs []V) V {
-				val := switchValueFunc(st, cs)
+			return func(st Stack[V], cs []V) (V, error) {
+				val, err := switchValueFunc(st, cs)
+				if err != nil {
+					return zero, a.EnhanceErrorf(err, "error in switch")
+				}
 				for _, c := range cases {
-					if g.isEqual(val, c.constFunc(st, cs)) {
+					constval, err := c.constFunc(st, cs)
+					if err != nil {
+						return zero, a.EnhanceErrorf(err, "error in switch-case")
+					}
+					if g.isEqual(val, constval) {
 						return c.resultFunc(st, cs)
 					}
 				}
@@ -714,10 +730,13 @@ func (g *FunctionGenerator[V]) GenerateFunc(ast parser2.AST, gc GeneratorContext
 			return nil, err
 		}
 		op := g.uMap[a.Operator].Impl
-		return func(st Stack[V], cs []V) V {
-			return op(valFunc(st, cs))
+		return func(st Stack[V], cs []V) (V, error) {
+			v, err := valFunc(st, cs)
+			if err != nil {
+				return zero, a.EnhanceErrorf(err, "error in unary %v", a.Operator)
+			}
+			return op(v)
 		}, nil
-
 	case *parser2.Operate:
 		aFunc, err := g.GenerateFunc(a.A, gc)
 		if err != nil {
@@ -728,8 +747,16 @@ func (g *FunctionGenerator[V]) GenerateFunc(ast parser2.AST, gc GeneratorContext
 			return nil, err
 		}
 		op := g.opMap[a.Operator].Impl
-		return func(st Stack[V], cs []V) V {
-			return op(aFunc(st, cs), bFunc(st, cs))
+		return func(st Stack[V], cs []V) (V, error) {
+			aVal, err := aFunc(st, cs)
+			if err != nil {
+				return zero, a.EnhanceErrorf(err, "error in operation %v", a.Operator)
+			}
+			bVal, err := bFunc(st, cs)
+			if err != nil {
+				return zero, a.EnhanceErrorf(err, "error in operation %v", a.Operator)
+			}
+			return op(aVal, bVal)
 		}, nil
 	case *parser2.ClosureLiteral:
 		funcArgs := argsMap{}
@@ -746,11 +773,11 @@ func (g *FunctionGenerator[V]) GenerateFunc(ast parser2.AST, gc GeneratorContext
 			if err != nil {
 				return nil, err
 			}
-			return func(st Stack[V], cs []V) V {
+			return func(st Stack[V], cs []V) (V, error) {
 				return g.closureHandler.FromClosure(Function[V]{
 					Func: closureFunc,
 					Args: len(a.Names),
-				})
+				}), nil
 			}, nil
 		} else {
 			// is a real closure
@@ -765,12 +792,16 @@ func (g *FunctionGenerator[V]) GenerateFunc(ast parser2.AST, gc GeneratorContext
 			if err != nil {
 				return nil, err
 			}
-			return func(st Stack[V], cs []V) V {
+			return func(st Stack[V], cs []V) (V, error) {
 				itemValues := make([]V, len(itemFuncs))
 				for i, itemFunc := range itemFuncs {
-					itemValues[i] = itemFunc(st, cs)
+					v, err := itemFunc(st, cs)
+					if err != nil {
+						return zero, a.EnhanceErrorf(err, "List literal error")
+					}
+					itemValues[i] = v
 				}
-				return g.listHandler.FromList(itemValues)
+				return g.listHandler.FromList(itemValues), nil
 			}, nil
 		}
 	case *parser2.ListAccess:
@@ -783,14 +814,16 @@ func (g *FunctionGenerator[V]) GenerateFunc(ast parser2.AST, gc GeneratorContext
 			if err != nil {
 				return nil, err
 			}
-			return func(st Stack[V], cs []V) V {
-				i := indexFunc(st, cs)
-				l := listFunc(st, cs)
-				if v, err := g.listHandler.AccessList(l, i); err == nil {
-					return v
-				} else {
-					panic(a.EnhanceErrorf(err, "List error"))
+			return func(st Stack[V], cs []V) (V, error) {
+				i, err := indexFunc(st, cs)
+				if err != nil {
+					return zero, a.EnhanceErrorf(err, "error in list index")
 				}
+				l, err := listFunc(st, cs)
+				if err != nil {
+					return zero, a.EnhanceErrorf(err, "error in getting list")
+				}
+				return g.listHandler.AccessList(l, i)
 			}, nil
 		}
 	case *parser2.MapLiteral:
@@ -799,13 +832,22 @@ func (g *FunctionGenerator[V]) GenerateFunc(ast parser2.AST, gc GeneratorContext
 			if err != nil {
 				return nil, err
 			}
-			return func(st Stack[V], cs []V) V {
+			return func(st Stack[V], cs []V) (V, error) {
 				mapValues := listMap.New[V](len(itemsCode))
+				var innerError error
 				itemsCode.Iter(func(key string, value Func[V]) bool {
-					mapValues = mapValues.Append(key, value(st, cs))
+					var v V
+					v, innerError = value(st, cs)
+					if innerError != nil {
+						return false
+					}
+					mapValues = mapValues.Append(key, v)
 					return true
 				})
-				return g.mapHandler.FromMap(mapValues)
+				if innerError != nil {
+					return zero, a.EnhanceErrorf(innerError, "Map literal error")
+				}
+				return g.mapHandler.FromMap(mapValues), nil
 			}, nil
 		}
 	case *parser2.MapAccess:
@@ -814,13 +856,12 @@ func (g *FunctionGenerator[V]) GenerateFunc(ast parser2.AST, gc GeneratorContext
 			if err != nil {
 				return nil, err
 			}
-			return func(st Stack[V], cs []V) V {
-				l := mapFunc(st, cs)
-				if v, err := g.mapHandler.AccessMap(l, a.Key); err == nil {
-					return v
-				} else {
-					panic(a.EnhanceErrorf(err, "Map error"))
+			return func(st Stack[V], cs []V) (V, error) {
+				l, err := mapFunc(st, cs)
+				if err != nil {
+					return zero, a.EnhanceErrorf(err, "error in getting map")
 				}
+				return g.mapHandler.AccessMap(l, a.Key)
 			}, nil
 		}
 	case *parser2.FunctionCall:
@@ -833,9 +874,13 @@ func (g *FunctionGenerator[V]) GenerateFunc(ast parser2.AST, gc GeneratorContext
 				if err != nil {
 					return nil, err
 				}
-				return func(st Stack[V], cs []V) V {
+				return func(st Stack[V], cs []V) (V, error) {
 					for _, argFunc := range argsFuncList {
-						st.Push(argFunc(st, cs))
+						v, err := argFunc(st, cs)
+						if err != nil {
+							return zero, a.EnhanceErrorf(err, "error in function call to %s", id.Name)
+						}
+						st.Push(v)
 					}
 					return fun.Func(st.CreateFrame(len(argsFuncList)), nil)
 				}, nil
@@ -849,17 +894,24 @@ func (g *FunctionGenerator[V]) GenerateFunc(ast parser2.AST, gc GeneratorContext
 		if err != nil {
 			return nil, err
 		}
-		return func(st Stack[V], cs []V) V {
-			funcVal := funcFunc(st, cs)
+		return func(st Stack[V], cs []V) (V, error) {
+			funcVal, err := funcFunc(st, cs)
+			if err != nil {
+				return zero, a.EnhanceErrorf(err, "error in getting function")
+			}
 			theFunc, ok := g.extractFunction(funcVal)
 			if !ok {
-				panic(a.Errorf("not a function: %v", a.Func))
+				return zero, a.Errorf("not a function: %v", a.Func)
 			}
 			if theFunc.Args >= 0 && theFunc.Args != len(a.Args) {
-				panic(a.Errorf("wrong number of arguments at call of %v, required %d, found %d", a.Func, theFunc.Args, len(a.Args)))
+				return zero, a.Errorf("wrong number of arguments at call of %v, required %d, found %d", a.Func, theFunc.Args, len(a.Args))
 			}
 			for _, argFunc := range argsFuncList {
-				st.Push(argFunc(st, cs))
+				v, err := argFunc(st, cs)
+				if err != nil {
+					return zero, a.EnhanceErrorf(err, "error in arguments in function call to %v", a.Func)
+				}
+				st.Push(v)
 			}
 			return theFunc.Func(st.CreateFrame(len(argsFuncList)), cs)
 		}, nil
@@ -873,15 +925,22 @@ func (g *FunctionGenerator[V]) GenerateFunc(ast parser2.AST, gc GeneratorContext
 		if err != nil {
 			return nil, err
 		}
-		return func(st Stack[V], cs []V) V {
-			value := valFunc(st, cs)
+		return func(st Stack[V], cs []V) (V, error) {
+			value, err := valFunc(st, cs)
+			if err != nil {
+				return zero, a.EnhanceErrorf(err, "error in method call to %s", name)
+			}
 			// name could be a method, but it could also be the name of a field which stores a closure
 			// If it is a closure field, this should be a map access!
 			if g.mapHandler != nil && g.mapHandler.IsMap(value) {
 				if va, err := g.mapHandler.AccessMap(value, name); err == nil {
 					if theFunc, ok := g.extractFunction(va); ok {
 						for _, argFunc := range argsFuncList {
-							st.Push(argFunc(st, cs))
+							v, err := argFunc(st, cs)
+							if err != nil {
+								return zero, a.EnhanceErrorf(err, "error in arguments in method call to %s", name)
+							}
+							st.Push(v)
 						}
 						return theFunc.Func(st.CreateFrame(len(argsFuncList)), cs)
 					}
@@ -893,15 +952,19 @@ func (g *FunctionGenerator[V]) GenerateFunc(ast parser2.AST, gc GeneratorContext
 					panic(a.EnhanceErrorf(err, "error accessing method %s", name))
 				}
 				if me.Args > 0 && me.Args != len(argsFuncList)+1 {
-					panic(a.Errorf("wrong number of arguments at call of %s, required %d, found %d", name, me.Args-1, len(argsFuncList)))
+					return zero, a.Errorf("wrong number of arguments at call of %s, required %d, found %d", name, me.Args-1, len(argsFuncList))
 				}
 				st.Push(value)
 				for _, arg := range argsFuncList {
-					st.Push(arg(st, cs))
+					v, err := arg(st, cs)
+					if err != nil {
+						return zero, a.EnhanceErrorf(err, "error in arguments in method call to %s", name)
+					}
+					st.Push(v)
 				}
 				return me.Func(st.CreateFrame(len(argsFuncList)+1), nil)
 			}
-			panic(a.Errorf("method %s not found", name))
+			return zero, a.Errorf("method %s not found", name)
 		}, nil
 	}
 	return nil, ast.GetLine().Errorf("not supported: %v", ast)
@@ -948,10 +1011,10 @@ func (g *FunctionGenerator[V]) createClosureLiteralFunc(a *parser2.ClosureLitera
 			}
 		}
 	}
-	return func(st Stack[V], cs []V) V {
+	return func(st Stack[V], cs []V) (V, error) {
 		closureStore := make([]V, len(copyActions))
 		cl := g.closureHandler.FromClosure(Function[V]{
-			Func: func(st Stack[V], cs []V) V {
+			Func: func(st Stack[V], cs []V) (V, error) {
 				return closureFunc(st, closureStore)
 			},
 			Args: len(a.Names),
@@ -966,7 +1029,7 @@ func (g *FunctionGenerator[V]) createClosureLiteralFunc(a *parser2.ClosureLitera
 				closureStore[i] = cl
 			}
 		}
-		return cl
+		return cl, nil
 	}, nil
 }
 
@@ -1088,7 +1151,7 @@ func methodByReflection[V any](value V, name string) (Function[V], error) {
 		}
 
 		return Function[V]{
-			Func: func(st Stack[V], cs []V) V {
+			Func: func(st Stack[V], cs []V) (V, error) {
 				argsValues := make([]reflect.Value, st.Size())
 				for i := 0; i < st.Size(); i++ {
 					argsValues[i] = reflect.ValueOf(st.Get(i))
@@ -1096,9 +1159,10 @@ func methodByReflection[V any](value V, name string) (Function[V], error) {
 
 				res := m.Func.Call(argsValues)
 				if v, ok := res[0].Interface().(V); ok {
-					return v
+					return v, nil
 				} else {
-					panic(fmt.Errorf("result of method %s is not a value. It is: %v", name, res[0]))
+					var zero V
+					return zero, fmt.Errorf("result of method %s is not a value. It is: %v", name, res[0])
 				}
 			},
 			Args:   m.Type.NumIn(),

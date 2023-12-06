@@ -116,37 +116,56 @@ func (v Map) Equals(other Map) bool {
 	return equal
 }
 
-func (v Map) Accept(st funcGen.Stack[Value]) Map {
+func (v Map) Accept(st funcGen.Stack[Value]) (Map, error) {
 	f := ToFunc("accept", st, 1, 2)
 	newMap := listMap.New[Value](v.m.Size())
+	var innerErr error
 	v.m.Iter(func(key string, v Value) bool {
 		st.Push(String(key))
 		st.Push(v)
-		if cond, ok := f.Func(st.CreateFrame(2), nil).ToBool(); ok {
+		var value Value
+		value, innerErr = f.Func(st.CreateFrame(2), nil)
+		if innerErr != nil {
+			return false
+		}
+		if cond, ok := value.ToBool(); ok {
 			if cond {
 				newMap = newMap.Append(key, v)
 			}
 		} else {
-			panic(fmt.Errorf("function in accept does not return a bool"))
+			innerErr = fmt.Errorf("function in accept does not return a bool")
+			return false
 		}
 		return true
 	})
-	return Map{m: newMap}
+	if innerErr != nil {
+		return Map{}, innerErr
+	}
+	return Map{m: newMap}, nil
 }
 
-func (v Map) Map(st funcGen.Stack[Value]) Map {
+func (v Map) Map(st funcGen.Stack[Value]) (Map, error) {
 	f := ToFunc("map", st, 1, 2)
 	newMap := listMap.New[Value](v.m.Size())
+	var innerErr error
 	v.m.Iter(func(key string, v Value) bool {
 		st.Push(String(key))
 		st.Push(v)
-		newMap = newMap.Append(key, f.Func(st.CreateFrame(2), nil))
+		var value Value
+		value, innerErr = f.Func(st.CreateFrame(2), nil)
+		if innerErr != nil {
+			return false
+		}
+		newMap = newMap.Append(key, value)
 		return true
 	})
-	return Map{m: newMap}
+	if innerErr != nil {
+		return Map{}, innerErr
+	}
+	return Map{m: newMap}, nil
 }
 
-func (v Map) Replace(st funcGen.Stack[Value]) Value {
+func (v Map) Replace(st funcGen.Stack[Value]) (Value, error) {
 	f := ToFunc("replace", st, 1, 1)
 	return f.Eval(st, v)
 }
@@ -168,18 +187,18 @@ func (v Map) Get(key string) (Value, bool) {
 	return v.m.Get(key)
 }
 
-func (v Map) IsAvail(stack funcGen.Stack[Value]) Value {
+func (v Map) IsAvail(stack funcGen.Stack[Value]) (Value, error) {
 	for i := 1; i < stack.Size(); i++ {
 		if key, ok := stack.Get(i).(String); ok {
 			_, ok := v.m.Get(string(key))
 			if !ok {
-				return Bool(false)
+				return Bool(false), nil
 			}
 		} else {
-			panic("isAvail requires a string as argument")
+			return nil, fmt.Errorf("isAvail requires a string as argument")
 		}
 	}
-	return Bool(true)
+	return Bool(true), nil
 }
 
 func (v Map) ContainsKey(key String) Value {
@@ -187,15 +206,15 @@ func (v Map) ContainsKey(key String) Value {
 	return Bool(ok)
 }
 
-func (v Map) GetM(stack funcGen.Stack[Value]) Value {
+func (v Map) GetM(stack funcGen.Stack[Value]) (Value, error) {
 	if key, ok := stack.Get(1).(String); ok {
 		if v, ok := v.m.Get(string(key)); ok {
-			return v
+			return v, nil
 		} else {
-			panic(fmt.Errorf("key %v not found in map", key))
+			return nil, fmt.Errorf("key %v not found in map", key)
 		}
 	}
-	panic("get requires a string as argument")
+	return nil, fmt.Errorf("get requires a string as argument")
 }
 
 type AppendMap struct {
@@ -224,36 +243,36 @@ func (a AppendMap) Size() int {
 	return a.parent.Size() + 1
 }
 
-func (v Map) PutM(stack funcGen.Stack[Value]) Map {
+func (v Map) PutM(stack funcGen.Stack[Value]) (Map, error) {
 	if key, ok := stack.Get(1).(String); ok {
 		val := stack.Get(2)
-		return Map{AppendMap{key: string(key), value: val, parent: v.m}}
+		return Map{AppendMap{key: string(key), value: val, parent: v.m}}, nil
 	}
-	panic("get requires a string as argument")
+	return Map{}, fmt.Errorf("get requires a string as argument")
 }
 
 var MapMethods = MethodMap{
-	"accept": MethodAtType(1, func(m Map, stack funcGen.Stack[Value]) Value { return m.Accept(stack) }).
+	"accept": MethodAtType(1, func(m Map, stack funcGen.Stack[Value]) (Value, error) { return m.Accept(stack) }).
 		SetMethodDescription("func(key, value) bool",
 			"Accept takes a function as argument and returns a new map with all entries for which the function returns true."),
-	"map": MethodAtType(1, func(m Map, stack funcGen.Stack[Value]) Value { return m.Map(stack) }).
+	"map": MethodAtType(1, func(m Map, stack funcGen.Stack[Value]) (Value, error) { return m.Map(stack) }).
 		SetMethodDescription("func(key, value) value",
 			"Map takes a function as argument and returns a new map with the same keys and all values replaced by the function."),
-	"replace": MethodAtType(1, func(m Map, stack funcGen.Stack[Value]) Value { return m.Replace(stack) }).
+	"replace": MethodAtType(1, func(m Map, stack funcGen.Stack[Value]) (Value, error) { return m.Replace(stack) }).
 		SetMethodDescription("func(map) value",
 			"Replace takes a function as argument and returns the result of the function. "+
 				"The function is called with the map as argument."),
-	"list": MethodAtType(0, func(m Map, stack funcGen.Stack[Value]) Value { return m.List() }).
+	"list": MethodAtType(0, func(m Map, stack funcGen.Stack[Value]) (Value, error) { return m.List(), nil }).
 		SetMethodDescription("Returns a list of maps with the key and value of each entry in the map."),
-	"size": MethodAtType(0, func(m Map, stack funcGen.Stack[Value]) Value { return Int(m.Size()) }).
+	"size": MethodAtType(0, func(m Map, stack funcGen.Stack[Value]) (Value, error) { return Int(m.Size()), nil }).
 		SetMethodDescription("Returns the number of entries in the map."),
-	"string": MethodAtType(0, func(m Map, stack funcGen.Stack[Value]) Value { return String(m.String()) }).
+	"string": MethodAtType(0, func(m Map, stack funcGen.Stack[Value]) (Value, error) { return String(m.String()), nil }).
 		SetMethodDescription("Returns a string representation of the map."),
-	"isAvail": MethodAtType(-1, func(m Map, stack funcGen.Stack[Value]) Value { return m.IsAvail(stack) }).
+	"isAvail": MethodAtType(-1, func(m Map, stack funcGen.Stack[Value]) (Value, error) { return m.IsAvail(stack) }).
 		SetMethodDescription("key", "Returns true if the key is available in the map."),
-	"get": MethodAtType(1, func(m Map, stack funcGen.Stack[Value]) Value { return m.GetM(stack) }).
+	"get": MethodAtType(1, func(m Map, stack funcGen.Stack[Value]) (Value, error) { return m.GetM(stack) }).
 		SetMethodDescription("key", "Returns the value for the given key."),
-	"put": MethodAtType(2, func(m Map, stack funcGen.Stack[Value]) Value { return m.PutM(stack) }).
+	"put": MethodAtType(2, func(m Map, stack funcGen.Stack[Value]) (Value, error) { return m.PutM(stack) }).
 		SetMethodDescription("key", "value",
 			"Returns a new map with the given key and value added. The original map is not changed."),
 }
