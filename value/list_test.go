@@ -49,6 +49,8 @@ func TestList(t *testing.T) {
 			res: NewList(Int(0), Int(512), Int(768), Int(896), Int(960), Int(992), Int(1008), Int(1016), Int(1020), Int(1022), Int(1023))},
 		// non-equidistant Low-pass Filter
 		{exp: realIir, res: Float(0.707192)},
+		{exp: realIirBuiltin, res: Float(0.707192)},
+		{exp: realIirApply, res: Float(0.707192)},
 		{exp: "list(6).combine((a,b)->a+b)", res: NewList(Int(1), Int(3), Int(5), Int(7), Int(9))},
 		{exp: "list(6).combine3((a,b,c)->a+b+c)", res: NewList(Int(3), Int(6), Int(9), Int(12))},
 		{exp: "list(6).combineN(3,l->l[0]+l[1]+l[2])", res: NewList(Int(3), Int(6), Int(9), Int(12))},
@@ -120,6 +122,30 @@ func lowPass(tau)
 		{t:p1.t,f:y.f*a + p1.s*(1-a)};
 
 let filtered=data.iirCombine(p->{t:p.t,f:0},lowPass(1/(2*pi)));
+
+let minMax=filtered.skip(100).minMax(p->p.f);
+(minMax.max-minMax.min)/2
+`
+
+const realIirBuiltin = `
+let data=list(1000).map(i->
+	let t=i/50;
+	{t:t, s:sin(2*pi*t)});
+
+let lp=createLowPass("f",p->p.t,p->p.s,1/(2*pi));
+
+let filtered=data.iirCombine(lp.initial,lp.filter);
+
+let minMax=filtered.skip(100).minMax(p->p.f);
+(minMax.max-minMax.min)/2
+`
+
+const realIirApply = `
+let data=list(1000).map(i->
+	let t=i/50;
+	{t:t, s:sin(2*pi*t)});
+
+let filtered=data.iirApply(createLowPass("f",p->p.t,p->p.s,1/(2*pi)));
 
 let minMax=filtered.skip(100).minMax(p->p.f);
 (minMax.max-minMax.min)/2

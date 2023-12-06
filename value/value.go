@@ -540,6 +540,11 @@ func New() *funcGen.FunctionGenerator[Value] {
 			Args:   -1,
 			IsPure: true,
 		}.SetDescription("a", "b", "Returns the larger of a and b.")).
+		AddStaticFunction("createLowPass", funcGen.Function[Value]{
+			Func:   createLowPass,
+			Args:   4,
+			IsPure: true,
+		}.SetDescription("name", "func(p) float", "func(p) float", "tau", "Returns a low pass filter creating signal [name]")).
 		AddStaticFunction("list", funcGen.Function[Value]{
 			Func: func(st funcGen.Stack[Value], cs []Value) Value {
 				v := st.Get(0)
@@ -611,4 +616,48 @@ func sprintf(st funcGen.Stack[Value], cs []Value) Value {
 			panic("sprintf requires string as first argument")
 		}
 	}
+}
+
+func createLowPass(st funcGen.Stack[Value], store []Value) Value {
+	name := st.Get(0).String()
+	t := ToFunc("createLowPass", st, 1, 1)
+	xf := ToFunc("createLowPass", st, 2, 1)
+	tau := ToFloat("createLowPass", st, 3)
+	lp := Closure(funcGen.Function[Value]{
+		Func: func(st funcGen.Stack[Value], cs []Value) Value {
+			p0 := st.Get(0)
+			p1 := st.Get(1)
+			ol, _ := st.Get(2).ToMap()
+			yv, _ := ol.Get(name)
+			t0 := MustFloat(t.Eval(st, p0))
+			t1 := MustFloat(t.Eval(st, p1))
+			x := MustFloat(xf.Eval(st, p1))
+			y := MustFloat(yv)
+			dt := t1 - t0
+			a := math.Exp(-dt / tau)
+			yn := y*a + x*(1-a)
+			m, _ := p1.ToMap()
+			return NewMap(AppendMap{key: name, value: Float(yn), parent: m})
+		},
+		Args:   3,
+		IsPure: true,
+	})
+	in := Closure(funcGen.Function[Value]{
+		Func: func(st funcGen.Stack[Value], cs []Value) Value {
+			p0 := st.Get(0)
+			x := xf.Eval(st, p0)
+			m, _ := p0.ToMap()
+			return NewMap(AppendMap{key: name, value: x, parent: m})
+		},
+		Args:   1,
+		IsPure: true,
+	})
+	return NewMap(listMap.New[Value](2).Append("filter", lp).Append("initial", in))
+}
+
+func MustFloat(v Value) float64 {
+	if f, ok := v.ToFloat(); ok {
+		return f
+	}
+	panic(fmt.Errorf("not a float: %v", v))
 }

@@ -173,6 +173,14 @@ func ToFunc(name string, st funcGen.Stack[Value], n int, args int) funcGen.Funct
 	}
 }
 
+func ToFloat(name string, st funcGen.Stack[Value], n int) float64 {
+	if c, ok := st.Get(n).ToFloat(); ok {
+		return c
+	} else {
+		panic(fmt.Errorf("%d. argument of %s needs to be a float", n, name))
+	}
+}
+
 func (l *List) Accept(st funcGen.Stack[Value]) *List {
 	f := ToFunc("accept", st, 1, 1)
 	return NewListFromIterable(iterator.FilterAuto[Value](l.iterable, func() func(v Value) bool {
@@ -424,6 +432,41 @@ func (l *List) IIrCombine(st funcGen.Stack[Value]) *List {
 			st.Push(last)
 			return function.Func(st.CreateFrame(3), nil)
 		}))
+}
+
+func (l *List) IIrApply(st funcGen.Stack[Value]) *List {
+	if m, ok := st.Get(1).ToMap(); ok {
+		initial := funcFromMap(m, "initial", 1)
+		function := funcFromMap(m, "filter", 3)
+		return NewListFromIterable(iterator.IirMap[Value, Value](l.iterable,
+			func(item Value) Value {
+				return initial.Eval(st, item)
+			},
+			func(item Value, lastItem Value, last Value) Value {
+				st.Push(lastItem)
+				st.Push(item)
+				st.Push(last)
+				return function.Func(st.CreateFrame(3), nil)
+			}))
+	} else {
+		panic("first argument in iirApply needs to be a map")
+	}
+}
+
+func funcFromMap(m Map, key string, args int) funcGen.Function[Value] {
+	if f, ok := m.Get(key); ok {
+		if ff, ok := f.ToClosure(); ok {
+			if ff.Args == args {
+				return ff
+			} else {
+				panic(fmt.Errorf("function in %s needs to have %d arguments", key, args))
+			}
+		} else {
+			panic(fmt.Errorf("value in %s needs to be a function", key))
+		}
+	} else {
+		panic(fmt.Errorf("function %s is missing", key))
+	}
 }
 
 func (l *List) Visit(st funcGen.Stack[Value]) Value {
@@ -796,6 +839,10 @@ var ListMethods = MethodMap{
 				"The second function is called with the remaining pairs of items in the list as the first two arguments, and the last new item. "+
 				"For each subsequent item, the function is called with the the pair of items and the result of the previous call. "+
 				"The item i0 is the item in front of i1."),
+	"iirApply": MethodAtType(1, func(list *List, stack funcGen.Stack[Value]) Value { return list.IIrApply(stack) }).
+		SetMethodDescription("map",
+			"Returns a new list with the given filter applied to the items in the list. "+
+				"Works the same as 'iirCombine' except the required functions are taken from the map, stored in the keys 'initial' and 'filter'."),
 	"visit": MethodAtType(2, func(list *List, stack funcGen.Stack[Value]) Value { return list.Visit(stack) }).
 		SetMethodDescription("initial_visitor", "func(visitor, item) visitor",
 			"Visits each item in the list with the given function. The function is called with the visitor and the item. "+
