@@ -189,7 +189,11 @@ func (l *List) Accept(st funcGen.Stack[Value]) (*List, error) {
 	return NewListFromIterable(iterator.FilterAuto[Value](l.iterable, func() func(v Value) bool {
 		lst := funcGen.NewEmptyStack[Value]()
 		return func(v Value) bool {
-			if accept, ok := f.Eval(lst, v).ToBool(); ok {
+			eval, err := f.Eval(lst, v)
+			if err != nil {
+				panic(err)
+			}
+			if accept, ok := eval.ToBool(); ok {
 				return accept
 			}
 			panic(fmt.Errorf("function in accept does not return a bool"))
@@ -734,143 +738,143 @@ func (l *List) containsAllItems(lookForList *List) bool {
 }
 
 var ListMethods = MethodMap{
-	"accept": MethodAtType(1, func(list *List, stack funcGen.Stack[Value]) Value { return list.Accept(stack) }).
+	"accept": MethodAtType(1, func(list *List, stack funcGen.Stack[Value]) (Value, error) { return list.Accept(stack) }).
 		SetMethodDescription("func(item) bool",
 			"Filters the list by the given function. If the function returns true, the item is accepted, otherwise it is skipped."),
-	"map": MethodAtType(1, func(list *List, stack funcGen.Stack[Value]) Value { return list.Map(stack) }).
+	"map": MethodAtType(1, func(list *List, stack funcGen.Stack[Value]) (Value, error) { return list.Map(stack) }).
 		SetMethodDescription("func(item) newItem",
 			"Maps the list by the given function. The function is called for each item in the list and the result is "+
 				"added to the new list."),
-	"reduce": MethodAtType(1, func(list *List, stack funcGen.Stack[Value]) Value { return list.Reduce(stack) }).
+	"reduce": MethodAtType(1, func(list *List, stack funcGen.Stack[Value]) (Value, error) { return list.Reduce(stack) }).
 		SetMethodDescription("func(item, item) item",
 			"Reduces the list by the given function. The function is called with the first two list items, and the result "+
 				"is used as the first argument for the third item and so on."),
-	"sum": MethodAtType(0, func(list *List, stack funcGen.Stack[Value]) Value { return list.Sum() }).
+	"sum": MethodAtType(0, func(list *List, stack funcGen.Stack[Value]) (Value, error) { return list.Sum() }).
 		SetMethodDescription("Returns the sum of all items in the list."),
-	"mapReduce": MethodAtType(2, func(list *List, stack funcGen.Stack[Value]) Value { return list.MapReduce(stack) }).
+	"mapReduce": MethodAtType(2, func(list *List, stack funcGen.Stack[Value]) (Value, error) { return list.MapReduce(stack) }).
 		SetMethodDescription("initialSum", "func(sum, item) sum",
 			"MapReduce reduces the list to a single value. The initial value is given as the first argument. The function "+
 				"is called with the initial value and the first item, and the result is used as the first argument for the "+
 				"second item and so on."),
-	"minMax": MethodAtType(1, func(list *List, stack funcGen.Stack[Value]) Value { return list.MinMax(stack) }).
+	"minMax": MethodAtType(1, func(list *List, stack funcGen.Stack[Value]) (Value, error) { return list.MinMax(stack) }).
 		SetMethodDescription("func(item) value",
 			"Returns the minimum and maximum value of the list. The function is called for each item in the list and the "+
 				"result is compared to the previous minimum and maximum."),
-	"replace": MethodAtType(1, func(list *List, stack funcGen.Stack[Value]) Value { return list.Replace(stack) }).
+	"replace": MethodAtType(1, func(list *List, stack funcGen.Stack[Value]) (Value, error) { return list.Replace(stack) }).
 		SetMethodDescription("func(list) newItem",
 			"Replaces the list by the result of the given function. The function is called with the list as argument."),
-	"combine": MethodAtType(1, func(list *List, stack funcGen.Stack[Value]) Value { return list.Combine(stack) }).
+	"combine": MethodAtType(1, func(list *List, stack funcGen.Stack[Value]) (Value, error) { return list.Combine(stack) }).
 		SetMethodDescription("func(item, item) newItem",
 			"Combines the list by the given function. The function is called for each pair of items in the list and the "+
 				"result is added to the new list. "+
 				"The resulting list is one item shorter than the original list."),
-	"combine3": MethodAtType(1, func(list *List, stack funcGen.Stack[Value]) Value { return list.Combine3(stack) }).
+	"combine3": MethodAtType(1, func(list *List, stack funcGen.Stack[Value]) (Value, error) { return list.Combine3(stack) }).
 		SetMethodDescription("func(item, item, item) newItem",
 			"Combines the list by the given function. The function is called for each triplet of items in the list and "+
 				"the result is added to the new list. "+
 				"The resulting list is two items shorter than the original list."),
-	"combineN": MethodAtType(2, func(list *List, stack funcGen.Stack[Value]) Value { return list.CombineN(stack) }).
+	"combineN": MethodAtType(2, func(list *List, stack funcGen.Stack[Value]) (Value, error) { return list.CombineN(stack) }).
 		SetMethodDescription("n", "func([item...]) newItem",
 			"Combines the list by the given function. The function is called for each group of n items in the list and "+
 				"the result is added to the new list. "+
 				"The resulting list is n-1 items shorter than the original list."),
-	"multiUse": MethodAtType(1, func(list *List, stack funcGen.Stack[Value]) Value { return list.MultiUse(stack) }).
+	"multiUse": MethodAtType(1, func(list *List, stack funcGen.Stack[Value]) (Value, error) { return list.MultiUse(stack) }).
 		SetMethodDescription("{name: func(item) newItem...}",
 			"MultiUse allows to use the list multiple times without storing or recomputing its elements. The first argument "+
 				"is a map of functions. "+
 				"All the functions are called with the list as argument and the result is returned in a map. "+
 				"The keys in the result map are the same keys used to pass the functions."),
-	"indexOf": MethodAtType(1, func(list *List, stack funcGen.Stack[Value]) Value { return list.IndexOf(stack) }).
+	"indexOf": MethodAtType(1, func(list *List, stack funcGen.Stack[Value]) (Value, error) { return list.IndexOf(stack) }).
 		SetMethodDescription("item",
 			"Returns the index of the first occurrence of the given item in the list. If the item is not found, -1 is returned."),
-	"groupByString": MethodAtType(1, func(list *List, stack funcGen.Stack[Value]) Value { return list.GroupByString(stack) }).
+	"groupByString": MethodAtType(1, func(list *List, stack funcGen.Stack[Value]) (Value, error) { return list.GroupByString(stack) }).
 		SetMethodDescription("func(item) string", "Returns a list of lists grouped by the given function. "+
 			"The function is called for each item in the list and the returned string is used as the key for the group. "+
 			"The result is a list of maps with the keys 'key' and 'values'. The 'key' contains the string returned by the function "+
 			"and 'values' contains a list of items that have the same key."),
-	"groupByInt": MethodAtType(1, func(list *List, stack funcGen.Stack[Value]) Value { return list.GroupByInt(stack) }).
+	"groupByInt": MethodAtType(1, func(list *List, stack funcGen.Stack[Value]) (Value, error) { return list.GroupByInt(stack) }).
 		SetMethodDescription("func(item) int", "Returns a list of lists grouped by the given function. "+
 			"The function is called for each item in the list and the returned integer is used as the key for the group. "+
 			"The result is a list of maps with the keys 'key' and 'values'. The 'key' contains the integer returned by the function "+
 			"and 'values' contains a list of items that have the same key."),
-	"uniqueString": MethodAtType(1, func(list *List, stack funcGen.Stack[Value]) Value { return list.UniqueString(stack) }).
+	"uniqueString": MethodAtType(1, func(list *List, stack funcGen.Stack[Value]) (Value, error) { return list.UniqueString(stack) }).
 		SetMethodDescription("func(item) string", "Returns a list of unique strings returned by the given function."),
-	"uniqueInt": MethodAtType(1, func(list *List, stack funcGen.Stack[Value]) Value { return list.UniqueInt(stack) }).
+	"uniqueInt": MethodAtType(1, func(list *List, stack funcGen.Stack[Value]) (Value, error) { return list.UniqueInt(stack) }).
 		SetMethodDescription("func(item) int", "Returns a list of unique integers returned by the given function."),
-	"compact": MethodAtType(1, func(list *List, stack funcGen.Stack[Value]) Value { return list.Compact(stack) }).
+	"compact": MethodAtType(1, func(list *List, stack funcGen.Stack[Value]) (Value, error) { return list.Compact(stack) }).
 		SetMethodDescription("func(a,b) bool", "Returns a new list with the items compacted. "+
 			"The function is called for each pair of items in the list and needs to return true if a=b holds."+
 			"Compacting means that an item is removed if the function returns true for the item and the previous item."),
-	"cross": MethodAtType(2, func(list *List, stack funcGen.Stack[Value]) Value { return list.Cross(stack) }).
+	"cross": MethodAtType(2, func(list *List, stack funcGen.Stack[Value]) (Value, error) { return list.Cross(stack) }).
 		SetMethodDescription("other_list", "func(a,b) newItem",
 			"Returns a new list with the given function applied to each pair of items in the list and the given list. "+
 				"The function is called with an item from the first list and an item from the second list. "+
 				"The length of the resulting list is the product of the lengths of the two lists."),
-	"merge": MethodAtType(2, func(list *List, stack funcGen.Stack[Value]) Value { return list.Merge(stack) }).
+	"merge": MethodAtType(2, func(list *List, stack funcGen.Stack[Value]) (Value, error) { return list.Merge(stack) }).
 		SetMethodDescription("other_list", "func(a,b) bool",
 			"Returns a new list with the items of both lists combined. "+
 				"The given function is called for the pair of the first, non processed items in both lists. If the "+
 				"return value is true the value of the original list is taken, otherwise the item from the other list. "+
 				"The is repeated until all items of both lists are processed. "+
 				"If the function returns true if a<b holds and both lists are ordered, also the new list is ordered."),
-	"order": MethodAtType(1, func(list *List, stack funcGen.Stack[Value]) Value { return list.Order(stack, false) }).
+	"order": MethodAtType(1, func(list *List, stack funcGen.Stack[Value]) (Value, error) { return list.Order(stack, false) }).
 		SetMethodDescription("func(item) value",
 			"Returns a new list with the items sorted in the order of the values returned by the given function. "+
 				"The function is called for each item in the list and the returned values determine the order."),
-	"orderRev": MethodAtType(1, func(list *List, stack funcGen.Stack[Value]) Value { return list.Order(stack, true) }).
+	"orderRev": MethodAtType(1, func(list *List, stack funcGen.Stack[Value]) (Value, error) { return list.Order(stack, true) }).
 		SetMethodDescription("func(item) value",
 			"Returns a new list with the items sorted in the reverse order of the values returned by the given function. "+
 				"The function is called for each item in the list and the returned values determine the order."),
-	"orderLess": MethodAtType(1, func(list *List, stack funcGen.Stack[Value]) Value { return list.OrderLess(stack) }).
+	"orderLess": MethodAtType(1, func(list *List, stack funcGen.Stack[Value]) (Value, error) { return list.OrderLess(stack) }).
 		SetMethodDescription("func(a, a) bool",
 			"Returns a new list with the items sorted by the given function. "+
 				"The function is called for pairs of items in the list and the returned bool needs to be true if a<b holds."),
-	"reverse": MethodAtType(0, func(list *List, stack funcGen.Stack[Value]) Value { return list.Reverse() }).
+	"reverse": MethodAtType(0, func(list *List, stack funcGen.Stack[Value]) (Value, error) { return list.Reverse() }).
 		SetMethodDescription("Returns the list in reverse order."),
-	"append": MethodAtType(1, func(list *List, stack funcGen.Stack[Value]) Value { return list.Append(stack) }).
+	"append": MethodAtType(1, func(list *List, stack funcGen.Stack[Value]) (Value, error) { return list.Append(stack) }).
 		SetMethodDescription("item", "Returns a new list with the given item appended."),
-	"iir": MethodAtType(2, func(list *List, stack funcGen.Stack[Value]) Value { return list.IIr(stack) }).
+	"iir": MethodAtType(2, func(list *List, stack funcGen.Stack[Value]) (Value, error) { return list.IIr(stack) }).
 		SetMethodDescription("func(first_item) first_new_item", "func(item, last_new_item) new_item",
 			"Returns a new list with the given functions applied to the items in the list. "+
 				"The first function is called with the first item in the list and returns the first item in the new list. "+
 				"The second function is called with the remaining items in the list as the first argument, and the last new item. "+
 				"For each subsequent item, the function is called with the item and the result of the previous call."),
-	"iirCombine": MethodAtType(2, func(list *List, stack funcGen.Stack[Value]) Value { return list.IIrCombine(stack) }).
+	"iirCombine": MethodAtType(2, func(list *List, stack funcGen.Stack[Value]) (Value, error) { return list.IIrCombine(stack) }).
 		SetMethodDescription("func(first_item) first_new_item", "func(i0, i1, last_new_item) new_item",
 			"Returns a new list with the given functions applied to the items in the list. "+
 				"The first function is called with the first item in the list and returns the first item in the new list. "+
 				"The second function is called with the remaining pairs of items in the list as the first two arguments, and the last new item. "+
 				"For each subsequent item, the function is called with the the pair of items and the result of the previous call. "+
 				"The item i0 is the item in front of i1."),
-	"iirApply": MethodAtType(1, func(list *List, stack funcGen.Stack[Value]) Value { return list.IIrApply(stack) }).
+	"iirApply": MethodAtType(1, func(list *List, stack funcGen.Stack[Value]) (Value, error) { return list.IIrApply(stack) }).
 		SetMethodDescription("map",
 			"Returns a new list with the given filter applied to the items in the list. "+
 				"Works the same as 'iirCombine' except the required functions are taken from the map, stored in the keys 'initial' and 'filter'."),
-	"visit": MethodAtType(2, func(list *List, stack funcGen.Stack[Value]) Value { return list.Visit(stack) }).
+	"visit": MethodAtType(2, func(list *List, stack funcGen.Stack[Value]) (Value, error) { return list.Visit(stack) }).
 		SetMethodDescription("initial_visitor", "func(visitor, item) visitor",
 			"Visits each item in the list with the given function. The function is called with the visitor and the item. "+
 				"An initial visitor is given as the first argument. The return value of the function is used as the new visitor "),
-	"top": MethodAtType(1, func(list *List, stack funcGen.Stack[Value]) Value { return list.Top(stack) }).
+	"top": MethodAtType(1, func(list *List, stack funcGen.Stack[Value]) (Value, error) { return list.Top(stack) }).
 		SetMethodDescription("n", "Returns the first n items of the list."),
-	"skip": MethodAtType(1, func(list *List, stack funcGen.Stack[Value]) Value { return list.Skip(stack) }).
+	"skip": MethodAtType(1, func(list *List, stack funcGen.Stack[Value]) (Value, error) { return list.Skip(stack) }).
 		SetMethodDescription("n", "Returns a list without the first n items."),
-	"number": MethodAtType(1, func(list *List, stack funcGen.Stack[Value]) Value { return list.Number(stack) }).
+	"number": MethodAtType(1, func(list *List, stack funcGen.Stack[Value]) (Value, error) { return list.Number(stack) }).
 		SetMethodDescription("func(n,item) item",
 			"Returns a list with the given function applied to each item in the list. "+
 				"The function is called with the index of the item and the item itself."),
-	"present": MethodAtType(1, func(list *List, stack funcGen.Stack[Value]) Value { return list.Present(stack) }).
+	"present": MethodAtType(1, func(list *List, stack funcGen.Stack[Value]) (Value, error) { return list.Present(stack) }).
 		SetMethodDescription("func(item) bool", "Returns true if the given function returns true for any item in the list."),
-	"size": MethodAtType(0, func(list *List, stack funcGen.Stack[Value]) Value { return Int(list.Size()) }).
+	"size": MethodAtType(0, func(list *List, stack funcGen.Stack[Value]) (Value, error) { return Int(list.Size()) }).
 		SetMethodDescription("Returns the number of items in the list."),
-	"first": MethodAtType(0, func(list *List, stack funcGen.Stack[Value]) Value { return list.First() }).
+	"first": MethodAtType(0, func(list *List, stack funcGen.Stack[Value]) (Value, error) { return list.First() }).
 		SetMethodDescription("Returns the first item in the list."),
-	"last": MethodAtType(0, func(list *List, stack funcGen.Stack[Value]) Value { return list.Last() }).
+	"last": MethodAtType(0, func(list *List, stack funcGen.Stack[Value]) (Value, error) { return list.Last() }).
 		SetMethodDescription("Returns the last item in the list."),
-	"eval": MethodAtType(0, func(list *List, stack funcGen.Stack[Value]) Value { list.Eval(); return list }).
+	"eval": MethodAtType(0, func(list *List, stack funcGen.Stack[Value]) (Value, error) { list.Eval(); return list, nil }).
 		SetMethodDescription("Evaluates the list and stores all items in memory."),
-	"string": MethodAtType(0, func(list *List, stack funcGen.Stack[Value]) Value { return String(list.String()) }).
+	"string": MethodAtType(0, func(list *List, stack funcGen.Stack[Value]) (Value, error) { return String(list.String()), nil }).
 		SetMethodDescription("Returns the list as a string."),
-	"movingWindow": MethodAtType(1, func(list *List, stack funcGen.Stack[Value]) Value { return list.MovingWindow(stack) }).
+	"movingWindow": MethodAtType(1, func(list *List, stack funcGen.Stack[Value]) (Value, error) { return list.MovingWindow(stack) }).
 		SetMethodDescription("func(item) float", "Returns a list of lists. "+
 			"The inner lists contain all items that are close to each other. "+
 			"Two items are close to each other if the given function returns a similar value for both items. "+
