@@ -198,13 +198,47 @@ func (v Map) GetM(stack funcGen.Stack[Value]) Value {
 	panic("get requires a string as argument")
 }
 
-type AppendMap struct {
+type mergeMap struct {
+	a, b MapStorage
+}
+
+func (m mergeMap) Get(key string) (Value, bool) {
+	if v, ok := m.a.Get(key); ok {
+		return v, true
+	} else {
+		return m.b.Get(key)
+	}
+}
+
+func (m mergeMap) Iter(yield func(key string, v Value) bool) bool {
+	if m.a.Iter(yield) {
+		return m.b.Iter(yield)
+	} else {
+		return false
+	}
+}
+
+func (m mergeMap) Size() int {
+	return m.a.Size() + m.b.Size()
+}
+
+func MergeMaps(a, b Map) Map {
+	b.Iter(func(key string, v Value) bool {
+		if _, ok := a.m.Get(key); ok {
+			panic(fmt.Errorf("key %v already present in first map", key))
+		}
+		return true
+	})
+	return Map{mergeMap{a.m, b.m}}
+}
+
+type appendMap struct {
 	key    string
 	value  Value
 	parent MapStorage
 }
 
-func (a AppendMap) Get(key string) (Value, bool) {
+func (a appendMap) Get(key string) (Value, bool) {
 	if key == a.key {
 		return a.value, true
 	} else {
@@ -212,7 +246,7 @@ func (a AppendMap) Get(key string) (Value, bool) {
 	}
 }
 
-func (a AppendMap) Iter(yield func(key string, v Value) bool) bool {
+func (a appendMap) Iter(yield func(key string, v Value) bool) bool {
 	if !yield(a.key, a.value) {
 		return false
 	} else {
@@ -220,16 +254,22 @@ func (a AppendMap) Iter(yield func(key string, v Value) bool) bool {
 	}
 }
 
-func (a AppendMap) Size() int {
+func (a appendMap) Size() int {
 	return a.parent.Size() + 1
 }
 
-func (v Map) PutM(stack funcGen.Stack[Value]) Map {
+func (v Map) AppendM(stack funcGen.Stack[Value]) Map {
 	if key, ok := stack.Get(1).(String); ok {
-		val := stack.Get(2)
-		return Map{AppendMap{key: string(key), value: val, parent: v.m}}
+		return v.Append(string(key), stack.Get(2))
 	}
-	panic("get requires a string as argument")
+	panic("append requires a string as argument")
+}
+
+func (v Map) Append(key string, value Value) Map {
+	if _, found := v.m.Get(string(key)); found {
+		panic(fmt.Errorf("key %v already present in map", key))
+	}
+	return Map{appendMap{key: string(key), value: value, parent: v.m}}
 }
 
 var MapMethods = MethodMap{
@@ -253,7 +293,7 @@ var MapMethods = MethodMap{
 		SetMethodDescription("key", "Returns true if the key is available in the map."),
 	"get": MethodAtType(1, func(m Map, stack funcGen.Stack[Value]) Value { return m.GetM(stack) }).
 		SetMethodDescription("key", "Returns the value for the given key."),
-	"put": MethodAtType(2, func(m Map, stack funcGen.Stack[Value]) Value { return m.PutM(stack) }).
+	"append": MethodAtType(2, func(m Map, stack funcGen.Stack[Value]) Value { return m.AppendM(stack) }).
 		SetMethodDescription("key", "value",
 			"Returns a new map with the given key and value added. The original map is not changed."),
 }

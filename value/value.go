@@ -637,7 +637,7 @@ func createLowPass(st funcGen.Stack[Value], store []Value) Value {
 			a := math.Exp(-dt / tau)
 			yn := y*a + x*(1-a)
 			m, _ := p1.ToMap()
-			return NewMap(AppendMap{key: name, value: Float(yn), parent: m})
+			return m.Append(name, Float(yn))
 		},
 		Args:   3,
 		IsPure: true,
@@ -647,7 +647,7 @@ func createLowPass(st funcGen.Stack[Value], store []Value) Value {
 			p0 := st.Get(0)
 			x := xf.Eval(st, p0)
 			m, _ := p0.ToMap()
-			return NewMap(AppendMap{key: name, value: x, parent: m})
+			return m.Append(name, x)
 		},
 		Args:   1,
 		IsPure: true,
