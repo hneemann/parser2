@@ -7,19 +7,19 @@ import (
 	"strings"
 )
 
-func Equal(a Value, b Value) bool {
+func Equal(a Value, b Value) (bool, error) {
 	switch aa := a.(type) {
 	case Bool:
 		if bb, ok := b.(Bool); ok {
-			return aa == bb
+			return aa == bb, nil
 		}
 	case Int:
 		if bb, ok := b.(Int); ok {
-			return aa == bb
+			return aa == bb, nil
 		}
 	case String:
 		if bb, ok := b.(String); ok {
-			return aa == bb
+			return aa == bb, nil
 		}
 	case *List:
 		if bb, ok := b.(*List); ok {
@@ -32,11 +32,11 @@ func Equal(a Value, b Value) bool {
 	default:
 		if aa, ok := a.ToFloat(); ok {
 			if bb, ok := b.ToFloat(); ok {
-				return aa == bb
+				return aa == bb, nil
 			}
 		}
 	}
-	return false
+	return false, nil
 }
 
 func LessEqual(a Value, b Value) (Value, error) {
@@ -61,9 +61,11 @@ func LessEqual(a Value, b Value) (Value, error) {
 func In(a Value, b Value) (Value, error) {
 	if list, ok := b.(*List); ok {
 		if search, ok := a.(*List); ok {
-			return Bool(list.containsAllItems(search)), nil
+			items, err := list.containsAllItems(search)
+			return Bool(items), err
 		} else {
-			return Bool(list.containsItem(a)), nil
+			item, err := list.containsItem(a)
+			return Bool(item), err
 		}
 	}
 	if m, ok := b.(Map); ok {

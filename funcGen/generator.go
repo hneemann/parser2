@@ -259,7 +259,7 @@ type Generator[V any] interface {
 
 type ToBool[V any] func(c V) (bool, bool)
 
-type IsEqual[V any] func(a, b V) bool
+type IsEqual[V any] func(a, b V) (bool, error)
 
 type constMap[V any] map[string]V
 
@@ -717,7 +717,11 @@ func (g *FunctionGenerator[V]) GenerateFunc(ast parser2.AST, gc GeneratorContext
 					if err != nil {
 						return zero, a.EnhanceErrorf(err, "error in switch-case")
 					}
-					if g.isEqual(val, constval) {
+					equal, err := g.isEqual(val, constval)
+					if err != nil {
+						return zero, a.EnhanceErrorf(err, "error in switch-case")
+					}
+					if equal {
 						return c.resultFunc(st, cs)
 					}
 				}

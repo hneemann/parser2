@@ -19,7 +19,7 @@ const startTimeout = 2 // seconds
 // have to use the same list multiple times and the list is both expensive to
 // create and expensive to store. This is because MultiUse allows you to use the
 // list multiple times without having to store the list elements for later reuse.
-func (l *List) MultiUse(st funcGen.Stack[Value]) Map {
+func (l *List) MultiUse(st funcGen.Stack[Value]) (Map, error) {
 	if m, ok := st.Get(1).ToMap(); ok {
 		var muList multiUseList
 		m.Iter(func(key string, value Value) bool {

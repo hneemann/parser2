@@ -96,14 +96,20 @@ func (v Map) Size() int {
 	return v.m.Size()
 }
 
-func (v Map) Equals(other Map) bool {
+func (v Map) Equals(other Map) (bool, error) {
 	if v.Size() != other.Size() {
-		return false
+		return false, nil
 	}
 	equal := true
+	var innerErr error
 	v.m.Iter(func(key string, v Value) bool {
 		if o, ok := other.Get(key); ok {
-			if !Equal(o, v) {
+			b, err := Equal(o, v)
+			if err != nil {
+				innerErr = err
+				return false
+			}
+			if !b {
 				equal = false
 				return false
 			}
@@ -113,11 +119,14 @@ func (v Map) Equals(other Map) bool {
 		}
 		return true
 	})
-	return equal
+	return equal, innerErr
 }
 
 func (v Map) Accept(st funcGen.Stack[Value]) (Map, error) {
-	f := ToFunc("accept", st, 1, 2)
+	f, err := ToFunc("accept", st, 1, 2)
+	if err != nil {
+		return Map{}, err
+	}
 	newMap := listMap.New[Value](v.m.Size())
 	var innerErr error
 	v.m.Iter(func(key string, v Value) bool {
@@ -145,7 +154,10 @@ func (v Map) Accept(st funcGen.Stack[Value]) (Map, error) {
 }
 
 func (v Map) Map(st funcGen.Stack[Value]) (Map, error) {
-	f := ToFunc("map", st, 1, 2)
+	f, err := ToFunc("map", st, 1, 2)
+	if err != nil {
+		return Map{}, err
+	}
 	newMap := listMap.New[Value](v.m.Size())
 	var innerErr error
 	v.m.Iter(func(key string, v Value) bool {
@@ -166,19 +178,22 @@ func (v Map) Map(st funcGen.Stack[Value]) (Map, error) {
 }
 
 func (v Map) Replace(st funcGen.Stack[Value]) (Value, error) {
-	f := ToFunc("replace", st, 1, 1)
+	f, err := ToFunc("replace", st, 1, 1)
+	if err != nil {
+		return nil, err
+	}
 	return f.Eval(st, v)
 }
 
 func (v Map) List() *List {
 	return NewListFromIterable(func() iterator.Iterator[Value] {
-		return func(yield func(Value) bool) bool {
+		return func(yield func(Value) bool) (bool, error) {
 			v.m.Iter(func(key string, v Value) bool {
 				return yield(NewMap(listMap.New[Value](2).
 					Append("key", String(key)).
 					Append("value", v)))
 			})
-			return true
+			return true, nil
 		}
 	})
 }

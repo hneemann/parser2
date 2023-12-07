@@ -2,6 +2,7 @@ package value
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"github.com/hneemann/iterator"
 	"github.com/hneemann/parser2/funcGen"
@@ -14,13 +15,13 @@ import (
 // do not implement the Value interface. The given function converts the type.
 func NewListConvert[I any](conv func(I) Value, items ...I) *List {
 	return NewListFromIterable(func() iterator.Iterator[Value] {
-		return func(yield func(Value) bool) bool {
+		return func(yield func(Value) bool) (bool, error) {
 			for _, item := range items {
 				if !yield(conv(item)) {
-					return false
+					return false, nil
 				}
 			}
-			return true
+			return true, nil
 		}
 	})
 }
@@ -32,13 +33,13 @@ func NewList(items ...Value) *List {
 
 func createSliceIterable(items []Value) iterator.Iterable[Value] {
 	return func() iterator.Iterator[Value] {
-		return func(yield func(Value) bool) bool {
+		return func(yield func(Value) bool) (bool, error) {
 			for _, item := range items {
 				if !yield(item) {
-					return false
+					return false, nil
 				}
 			}
-			return true
+			return true, nil
 		}
 	}
 }
@@ -96,31 +97,45 @@ func (l *List) ToList() (*List, bool) {
 	return l, true
 }
 
-func (l *List) Eval() {
+func (l *List) Eval() error {
 	if !l.itemsPresent {
 		var it []Value
-		l.iterable()(func(value Value) bool {
+		_, err := l.iterable()(func(value Value) bool {
 			it = append(it, value)
 			return true
 		})
+		if err != nil {
+			return err
+		}
 		l.items = it
 		l.itemsPresent = true
 		l.iterable = createSliceIterable(it)
 	}
+	return nil
 }
 
-func (l *List) Equals(other *List) bool {
-	a := l.ToSlice()
-	b := other.ToSlice()
+func (l *List) Equals(other *List) (bool, error) {
+	a, aErr := l.ToSlice()
+	if aErr != nil {
+		return false, aErr
+	}
+	b, bErr := other.ToSlice()
+	if bErr != nil {
+		return false, bErr
+	}
 	if len(a) != len(b) {
-		return false
+		return false, nil
 	}
 	for i, aa := range a {
-		if !Equal(aa, b[i]) {
-			return false
+		equal, err := Equal(aa, b[i])
+		if err != nil {
+			return false, err
+		}
+		if !equal {
+			return false, nil
 		}
 	}
-	return true
+	return true, nil
 }
 
 func (l *List) Iterator() iterator.Iterator[Value] {
@@ -128,17 +143,23 @@ func (l *List) Iterator() iterator.Iterator[Value] {
 }
 
 // ToSlice returns the list elements as a slice
-func (l *List) ToSlice() []Value {
-	l.Eval()
-	return l.items[0:len(l.items):len(l.items)]
+func (l *List) ToSlice() ([]Value, error) {
+	err := l.Eval()
+	if err != nil {
+		return nil, err
+	}
+	return l.items[0:len(l.items):len(l.items)], nil
 }
 
 // CopyToSlice creates a slice copy of all elements
-func (l *List) CopyToSlice() []Value {
-	l.Eval()
+func (l *List) CopyToSlice() ([]Value, error) {
+	err := l.Eval()
+	if err != nil {
+		return nil, err
+	}
 	co := make([]Value, len(l.items))
 	copy(co, l.items)
-	return co
+	return co, nil
 }
 
 // Append creates a new list with a single element appended
@@ -186,131 +207,172 @@ func (l *List) Accept(st funcGen.Stack[Value]) (*List, error) {
 	if err != nil {
 		return nil, err
 	}
-	return NewListFromIterable(iterator.FilterAuto[Value](l.iterable, func() func(v Value) bool {
+	return NewListFromIterable(iterator.FilterAuto[Value](l.iterable, func() func(v Value) (bool, error) {
 		lst := funcGen.NewEmptyStack[Value]()
-		return func(v Value) bool {
+		return func(v Value) (bool, error) {
 			eval, err := f.Eval(lst, v)
 			if err != nil {
-				panic(err)
+				return false, err
 			}
 			if accept, ok := eval.ToBool(); ok {
-				return accept
+				return accept, nil
 			}
-			panic(fmt.Errorf("function in accept does not return a bool"))
+			return false, fmt.Errorf("function in accept does not return a bool")
 		}
 	})), nil
 }
 
-func (l *List) Map(st funcGen.Stack[Value]) *List {
-	f := ToFunc("map", st, 1, 1)
-	return NewListFromIterable(iterator.MapAuto[Value, Value](l.iterable, func() func(i int, v Value) Value {
+func (l *List) Map(st funcGen.Stack[Value]) (*List, error) {
+	f, err := ToFunc("map", st, 1, 1)
+	if err != nil {
+		return nil, err
+	}
+	return NewListFromIterable(iterator.MapAuto[Value, Value](l.iterable, func() func(i int, v Value) (Value, error) {
 		lst := funcGen.NewEmptyStack[Value]()
-		return func(i int, v Value) Value {
+		return func(i int, v Value) (Value, error) {
 			return f.Eval(lst, v)
 		}
-	}))
+	})), nil
 }
 
-func (l *List) Compact(st funcGen.Stack[Value]) *List {
-	f := ToFunc("compact", st, 1, 1)
-	return NewListFromIterable(iterator.Compact[Value](l.iterable, func(a, b Value) bool {
-		aVal := f.Eval(st, a)
-		bVal := f.Eval(st, b)
+func (l *List) Compact(st funcGen.Stack[Value]) (*List, error) {
+	f, err := ToFunc("compact", st, 1, 1)
+	if err != nil {
+		return nil, err
+	}
+	return NewListFromIterable(iterator.Compact[Value](l.iterable, func(a, b Value) (bool, error) {
+		aVal, err := f.Eval(st, a)
+		if err != nil {
+			return false, err
+		}
+		bVal, err := f.Eval(st, b)
+		if err != nil {
+			return false, err
+		}
 		return Equal(aVal, bVal)
-	}))
+	})), nil
 }
 
-func (l *List) Cross(st funcGen.Stack[Value]) *List {
+func (l *List) Cross(st funcGen.Stack[Value]) (*List, error) {
 	other := st.Get(1)
-	f := ToFunc("cross", st, 2, 2)
+	f, err := ToFunc("cross", st, 2, 2)
+	if err != nil {
+		return nil, err
+	}
 	if otherList, ok := other.ToList(); ok {
-		return NewListFromIterable(iterator.Cross[Value, Value](l.iterable, otherList.iterable, func(a, b Value) Value {
+		return NewListFromIterable(iterator.Cross[Value, Value](l.iterable, otherList.iterable, func(a, b Value) (Value, error) {
 			st.Push(a)
 			st.Push(b)
 			return f.Func(st.CreateFrame(2), nil)
-		}))
+		})), nil
 	} else {
-		panic("first argument in cross needs to be a list")
+		return nil, errors.New("first argument in cross needs to be a list")
 	}
 }
 
-func (l *List) Merge(st funcGen.Stack[Value]) *List {
+func (l *List) Merge(st funcGen.Stack[Value]) (*List, error) {
 	other := st.Get(1)
-	f := ToFunc("merge", st, 2, 2)
+	f, err := ToFunc("merge", st, 2, 2)
+	if err != nil {
+		return nil, err
+	}
 	if otherList, ok := other.ToList(); ok {
-		return NewListFromIterable(iterator.Merge[Value](l.iterable, otherList.iterable, func(a, b Value) bool {
+		return NewListFromIterable(iterator.Merge[Value](l.iterable, otherList.iterable, func(a, b Value) (bool, error) {
 			st.Push(a)
 			st.Push(b)
-			if less, ok := f.Func(st.CreateFrame(2), nil).ToBool(); ok {
-				return less
-			} else {
-				panic("function in merge needs to return a bool, (a<b)")
+			value, err2 := f.Func(st.CreateFrame(2), nil)
+			if err2 != nil {
+				return false, err2
 			}
-		}))
+			if less, ok := value.ToBool(); ok {
+				return less, nil
+			} else {
+				return false, errors.New("function in merge needs to return a bool, (a<b)")
+			}
+		})), nil
 	} else {
-		panic("first argument in merge needs to be a list")
+		return nil, errors.New("first argument in merge needs to be a list")
 	}
 }
 
-func (l *List) First() Value {
+func (l *List) First() (Value, error) {
 	if l.itemsPresent {
 		if len(l.items) > 0 {
-			return l.items[0]
+			return l.items[0], nil
 		}
 	} else {
 		var first Value
 		found := false
-		l.iterable()(func(value Value) bool {
+		_, err := l.iterable()(func(value Value) bool {
 			first = value
 			found = true
 			return false
 		})
+		if err != nil {
+			return nil, err
+		}
 		if found {
-			return first
+			return first, nil
 		}
 	}
-	panic("error in first, no items in list")
+	return nil, errors.New("error in first, no items in list")
 }
 
-func (l *List) Last() Value {
+func (l *List) Last() (Value, error) {
 	if l.itemsPresent {
 		if len(l.items) > 0 {
-			return l.items[len(l.items)-1]
+			return l.items[len(l.items)-1], nil
 		}
 	} else {
 		var last Value
 		found := false
-		l.iterable()(func(value Value) bool {
+		_, err := l.iterable()(func(value Value) bool {
 			last = value
 			found = true
 			return true
 		})
+		if err != nil {
+			return nil, err
+		}
 		if found {
-			return last
+			return last, nil
 		}
 	}
-	panic("error in first, no items in list")
+	return nil, errors.New("error in first, no items in list")
 }
 
-func (l *List) IndexOf(st funcGen.Stack[Value]) Int {
+func (l *List) IndexOf(st funcGen.Stack[Value]) (Int, error) {
 	v := st.Get(1)
 	index := -1
 	i := 0
-	l.iterable()(func(value Value) bool {
-		if Equal(v, value) {
+	var innerErr error
+	_, err := l.iterable()(func(value Value) bool {
+		equal, err := Equal(v, value)
+		if err != nil {
+			innerErr = err
+			return false
+		}
+		if equal {
 			index = i
 			return false
 		}
 		i++
 		return true
 	})
-	return Int(index)
+	if innerErr != nil {
+		return 0, innerErr
+	}
+	if err != nil {
+		return 0, err
+	}
+	return Int(index), nil
 }
 
 type SortableLess struct {
 	items []Value
 	st    funcGen.Stack[Value]
 	less  funcGen.Function[Value]
+	err   error
 }
 
 func (s SortableLess) Len() int {
@@ -320,10 +382,19 @@ func (s SortableLess) Len() int {
 func (s SortableLess) Less(i, j int) bool {
 	s.st.Push(s.items[i])
 	s.st.Push(s.items[j])
-	if l, ok := s.less.Func(s.st.CreateFrame(2), nil).ToBool(); ok {
+	value, err := s.less.Func(s.st.CreateFrame(2), nil)
+	if err != nil {
+		if s.err == nil {
+			s.err = err
+		}
+	}
+	if l, ok := value.ToBool(); ok {
 		return l
 	} else {
-		panic("function in order needs to return a bool")
+		if s.err == nil {
+			s.err = errors.New("function in orderLess needs to return a bool")
+		}
+		return false
 	}
 }
 
@@ -331,11 +402,18 @@ func (s SortableLess) Swap(i, j int) {
 	s.items[i], s.items[j] = s.items[j], s.items[i]
 }
 
-func (l *List) OrderLess(st funcGen.Stack[Value]) *List {
-	f := ToFunc("orderLess", st, 1, 2)
-	items := l.CopyToSlice()
-	sort.Sort(SortableLess{items: items, st: st, less: f})
-	return NewList(items...)
+func (l *List) OrderLess(st funcGen.Stack[Value]) (*List, error) {
+	f, err := ToFunc("orderLess", st, 1, 2)
+	if err != nil {
+		return nil, err
+	}
+	items, err := l.CopyToSlice()
+	if err != nil {
+		return nil, err
+	}
+	s := SortableLess{items: items, st: st, less: f}
+	sort.Sort(s)
+	return NewList(items...), s.err
 }
 
 type Sortable struct {
@@ -343,293 +421,441 @@ type Sortable struct {
 	rev      bool
 	st       funcGen.Stack[Value]
 	pickFunc funcGen.Function[Value]
+	err      error
 }
 
-func (s Sortable) Len() int {
+func (s *Sortable) Len() int {
 	return len(s.items)
 }
 
-func (s Sortable) pick(i int) Value {
-	s.st.Push(s.items[i])
-	return s.pickFunc.Func(s.st.CreateFrame(1), nil)
-}
-
-func (s Sortable) Less(i, j int) bool {
-	if s.rev {
-		return Less(s.pick(j), s.pick(i))
-	} else {
-		return Less(s.pick(i), s.pick(j))
+func (s *Sortable) registerError(err error) {
+	if s.err == nil {
+		s.err = err
 	}
 }
 
-func (s Sortable) Swap(i, j int) {
+func (s *Sortable) pick(i int) (Value, bool) {
+	s.st.Push(s.items[i])
+	value, err := s.pickFunc.Func(s.st.CreateFrame(1), nil)
+	s.registerError(err)
+	return value, err != nil
+}
+
+func (s *Sortable) Less(i, j int) bool {
+	pi, oki := s.pick(i)
+	pj, okj := s.pick(j)
+	if oki && okj {
+		if s.rev {
+			less, err := Less(pj, pi)
+			s.registerError(err)
+			return less
+		} else {
+			less, err := Less(pi, pj)
+			s.registerError(err)
+			return less
+		}
+	} else {
+		return false
+	}
+}
+
+func (s *Sortable) Swap(i, j int) {
 	s.items[i], s.items[j] = s.items[j], s.items[i]
 }
 
-func (l *List) Order(st funcGen.Stack[Value], rev bool) *List {
-	f := ToFunc("order", st, 1, 1)
-	items := l.CopyToSlice()
-	sort.Sort(Sortable{items: items, rev: rev, st: st, pickFunc: f})
-	return NewList(items...)
+func (l *List) Order(st funcGen.Stack[Value], rev bool) (*List, error) {
+	f, err := ToFunc("order", st, 1, 1)
+	if err != nil {
+		return nil, err
+	}
+	items, err := l.CopyToSlice()
+	if err != nil {
+		return nil, err
+	}
+	s := Sortable{items: items, rev: rev, st: st, pickFunc: f}
+	sort.Sort(&s)
+	return NewList(items...), s.err
 }
 
-func (l *List) Reverse() *List {
-	items := l.CopyToSlice()
+func (l *List) Reverse() (*List, error) {
+	items, err := l.CopyToSlice()
+	if err != nil {
+		return nil, err
+	}
 	//reverse items
 	for i, j := 0, len(items)-1; i < j; i, j = i+1, j-1 {
 		items[i], items[j] = items[j], items[i]
 	}
-	return NewList(items...)
+	return NewList(items...), nil
 }
 
-func (l *List) Combine(st funcGen.Stack[Value]) *List {
-	f := ToFunc("combine", st, 1, 2)
-	return NewListFromIterable(iterator.Combine[Value, Value](l.iterable, func(a, b Value) Value {
+func (l *List) Combine(st funcGen.Stack[Value]) (*List, error) {
+	f, err := ToFunc("combine", st, 1, 2)
+	if err != nil {
+		return nil, err
+	}
+	return NewListFromIterable(iterator.Combine[Value, Value](l.iterable, func(a, b Value) (Value, error) {
 		st.Push(a)
 		st.Push(b)
 		return f.Func(st.CreateFrame(2), nil)
-	}))
+	})), nil
 }
 
-func (l *List) Combine3(st funcGen.Stack[Value]) *List {
-	f := ToFunc("combine3", st, 1, 3)
-	return NewListFromIterable(iterator.Combine3[Value, Value](l.iterable, func(a, b, c Value) Value {
+func (l *List) Combine3(st funcGen.Stack[Value]) (*List, error) {
+	f, err := ToFunc("combine3", st, 1, 3)
+	if err != nil {
+		return nil, err
+	}
+	return NewListFromIterable(iterator.Combine3[Value, Value](l.iterable, func(a, b, c Value) (Value, error) {
 		st.Push(a)
 		st.Push(b)
 		st.Push(c)
 		return f.Func(st.CreateFrame(3), nil)
-	}))
+	})), nil
 }
 
-func (l *List) CombineN(st funcGen.Stack[Value]) *List {
+func (l *List) CombineN(st funcGen.Stack[Value]) (*List, error) {
 	if n, ok := st.Get(1).ToInt(); ok {
-		f := ToFunc("combineN", st, 2, 1)
-		return NewListFromIterable(iterator.CombineN[Value, Value](l.iterable, n, func(i0 int, i []Value) Value {
+		f, err := ToFunc("combineN", st, 2, 1)
+		if err != nil {
+			return nil, err
+		}
+		return NewListFromIterable(iterator.CombineN[Value, Value](l.iterable, n, func(i0 int, i []Value) (Value, error) {
 			st.Push(NewList(i...))
 			return f.Func(st.CreateFrame(1), nil)
-		}))
+		})), nil
 	}
-	panic("first argument in combineN needs to be an int")
+	return nil, errors.New("first argument in combineN needs to be an int")
 }
 
-func (l *List) IIr(st funcGen.Stack[Value]) *List {
-	initial := ToFunc("iir", st, 1, 1)
-	function := ToFunc("iir", st, 2, 2)
+func (l *List) IIr(st funcGen.Stack[Value]) (*List, error) {
+	initial, err := ToFunc("iir", st, 1, 1)
+	if err != nil {
+		return nil, err
+	}
+	function, err := ToFunc("iir", st, 2, 2)
 	return NewListFromIterable(iterator.IirMap[Value, Value](l.iterable,
-		func(item Value) Value {
+		func(item Value) (Value, error) {
 			return initial.Eval(st, item)
 		},
-		func(item Value, lastItem Value, last Value) Value {
+		func(item Value, lastItem Value, last Value) (Value, error) {
 			st.Push(item)
 			st.Push(last)
 			return function.Func(st.CreateFrame(2), nil)
-		}))
+		})), nil
 }
 
-func (l *List) IIrCombine(st funcGen.Stack[Value]) *List {
-	initial := ToFunc("iirCombine", st, 1, 1)
-	function := ToFunc("iirCombine", st, 2, 3)
+func (l *List) IIrCombine(st funcGen.Stack[Value]) (*List, error) {
+	initial, err := ToFunc("iirCombine", st, 1, 1)
+	if err != nil {
+		return nil, err
+	}
+	function, err := ToFunc("iirCombine", st, 2, 3)
+	if err != nil {
+		return nil, err
+	}
 	return NewListFromIterable(iterator.IirMap[Value, Value](l.iterable,
-		func(item Value) Value {
+		func(item Value) (Value, error) {
 			return initial.Eval(st, item)
 		},
-		func(item Value, lastItem Value, last Value) Value {
+		func(item Value, lastItem Value, last Value) (Value, error) {
 			st.Push(lastItem)
 			st.Push(item)
 			st.Push(last)
 			return function.Func(st.CreateFrame(3), nil)
-		}))
+		})), nil
 }
 
-func (l *List) IIrApply(st funcGen.Stack[Value]) *List {
+func (l *List) IIrApply(st funcGen.Stack[Value]) (*List, error) {
 	if m, ok := st.Get(1).ToMap(); ok {
-		initial := funcFromMap(m, "initial", 1)
-		function := funcFromMap(m, "filter", 3)
+		initial, err := funcFromMap(m, "initial", 1)
+		if err != nil {
+			return nil, err
+		}
+		function, err := funcFromMap(m, "filter", 3)
 		return NewListFromIterable(iterator.IirMap[Value, Value](l.iterable,
-			func(item Value) Value {
+			func(item Value) (Value, error) {
 				return initial.Eval(st, item)
 			},
-			func(item Value, lastItem Value, last Value) Value {
+			func(item Value, lastItem Value, last Value) (Value, error) {
 				st.Push(lastItem)
 				st.Push(item)
 				st.Push(last)
 				return function.Func(st.CreateFrame(3), nil)
-			}))
+			})), nil
 	} else {
-		panic("first argument in iirApply needs to be a map")
+		return nil, errors.New("first argument in iirApply needs to be a map")
 	}
 }
 
-func funcFromMap(m Map, key string, args int) funcGen.Function[Value] {
+func funcFromMap(m Map, key string, args int) (funcGen.Function[Value], error) {
 	if f, ok := m.Get(key); ok {
 		if ff, ok := f.ToClosure(); ok {
 			if ff.Args == args {
-				return ff
+				return ff, nil
 			} else {
-				panic(fmt.Errorf("function in %s needs to have %d arguments", key, args))
+				return funcGen.Function[Value]{}, fmt.Errorf("function in %s needs to have %d arguments", key, args)
 			}
 		} else {
-			panic(fmt.Errorf("value in %s needs to be a function", key))
+			return funcGen.Function[Value]{}, fmt.Errorf("value in %s needs to be a function", key)
 		}
 	} else {
-		panic(fmt.Errorf("function %s is missing", key))
+		return funcGen.Function[Value]{}, fmt.Errorf("function %s is missing", key)
 	}
 }
 
-func (l *List) Visit(st funcGen.Stack[Value]) Value {
+func (l *List) Visit(st funcGen.Stack[Value]) (Value, error) {
 	visitor := st.Get(1)
-	function := ToFunc("visit", st, 2, 2)
-	l.iterable()(func(value Value) bool {
+	function, err := ToFunc("visit", st, 2, 2)
+	if err != nil {
+		return nil, err
+	}
+	var innerErr error
+	_, err = l.iterable()(func(value Value) bool {
 		st.Push(visitor)
 		st.Push(value)
-		visitor = function.Func(st.CreateFrame(2), nil)
+		visitor, err = function.Func(st.CreateFrame(2), nil)
+		if err != nil {
+			innerErr = err
+			return false
+		}
 		return true
 	})
-	return visitor
+	if innerErr != nil {
+		return nil, innerErr
+	}
+	return visitor, err
 }
 
-func (l *List) Present(st funcGen.Stack[Value]) Value {
-	function := ToFunc("present", st, 1, 1)
+func (l *List) Present(st funcGen.Stack[Value]) (Value, error) {
+	function, err := ToFunc("present", st, 1, 1)
+	if err != nil {
+		return nil, err
+	}
 	isPresent := false
-	l.iterable()(func(value Value) bool {
+	var innerErr error
+	_, err = l.iterable()(func(value Value) bool {
 		st.Push(value)
-		if pr, ok := function.Func(st.CreateFrame(1), nil).ToBool(); ok {
+		v, err2 := function.Func(st.CreateFrame(1), nil)
+		if err2 != nil {
+			innerErr = err2
+			return false
+		}
+		if pr, ok := v.ToBool(); ok {
 			if pr {
 				isPresent = true
 				return false
 			}
 		} else {
-			panic("function in present needs to return a bool")
+			innerErr = errors.New("function in present needs to return a bool")
+			return false
 		}
 		return true
 	})
-	return Bool(isPresent)
-}
-
-func (l *List) Top(st funcGen.Stack[Value]) *List {
-	if i, ok := st.Get(1).ToInt(); ok {
-		return NewListFromIterable(iterator.FirstN[Value](l.iterable, i))
+	if innerErr != nil {
+		return nil, innerErr
 	}
-	panic("error in top, no int given")
+	return Bool(isPresent), err
 }
 
-func (l *List) Skip(st funcGen.Stack[Value]) *List {
+func (l *List) Top(st funcGen.Stack[Value]) (*List, error) {
 	if i, ok := st.Get(1).ToInt(); ok {
-		return NewListFromIterable(iterator.Skip[Value](l.iterable, i))
+		return NewListFromIterable(iterator.FirstN[Value](l.iterable, i)), nil
 	}
-	panic("error in skip, no int given")
+	return nil, errors.New("error in top, no int given")
 }
 
-func (l *List) Reduce(st funcGen.Stack[Value]) Value {
-	f := ToFunc("reduce", st, 1, 2)
-	res, ok := iterator.Reduce[Value](l.iterable, func(a, b Value) Value {
+func (l *List) Skip(st funcGen.Stack[Value]) (*List, error) {
+	if i, ok := st.Get(1).ToInt(); ok {
+		return NewListFromIterable(iterator.Skip[Value](l.iterable, i)), nil
+	}
+	return nil, errors.New("error in skip, no int given")
+}
+
+func (l *List) Reduce(st funcGen.Stack[Value]) (Value, error) {
+	f, err := ToFunc("reduce", st, 1, 2)
+	if err != nil {
+		return nil, err
+	}
+	return iterator.Reduce[Value](l.iterable, func(a, b Value) (Value, error) {
 		st.Push(a)
 		st.Push(b)
 		return f.Func(st.CreateFrame(2), nil)
 	})
-	if ok {
-		return res
-	}
-	panic("error in reduce, no items in list")
 }
 
-func (l *List) Sum() Value {
+func (l *List) Sum() (Value, error) {
 	var sum Value
-	l.Iterator()(func(value Value) bool {
+	var innerErr error
+	_, err := l.Iterator()(func(value Value) bool {
 		if sum == nil {
 			sum = value
 		} else {
-			sum = Add(sum, value)
+			var err error
+			sum, err = Add(sum, value)
+			if err != nil {
+				innerErr = err
+				return false
+			}
 		}
 		return true
 	})
-	return sum
+	if innerErr != nil {
+		return nil, innerErr
+	}
+	if err != nil {
+		return nil, err
+	}
+	return sum, nil
 }
 
-func (l *List) MapReduce(st funcGen.Stack[Value]) Value {
+func (l *List) MapReduce(st funcGen.Stack[Value]) (Value, error) {
 	initial := st.Get(1)
-	f := ToFunc("mapReduce", st, 2, 2)
-	return iterator.MapReduce(l.iterable, initial, func(s Value, v Value) Value {
+	f, err := ToFunc("mapReduce", st, 2, 2)
+	if err != nil {
+		return nil, err
+	}
+	return iterator.MapReduce(l.iterable, initial, func(s Value, v Value) (Value, error) {
 		st.Push(s)
 		st.Push(v)
 		return f.Func(st.CreateFrame(2), nil)
 	})
 }
 
-func (l *List) MinMax(st funcGen.Stack[Value]) Value {
-	f := ToFunc("minMax", st, 1, 1)
+func (l *List) MinMax(st funcGen.Stack[Value]) (Value, error) {
+	f, err := ToFunc("minMax", st, 1, 1)
+	if err != nil {
+		return nil, err
+	}
 	first := true
 	var minVal Value = Int(0)
 	var maxVal Value = Int(0)
-	l.Iterator()(func(value Value) bool {
+	var innerErr error
+	_, err = l.Iterator()(func(value Value) bool {
 		st.Push(value)
-		r := f.Func(st.CreateFrame(1), nil)
+		r, err := f.Func(st.CreateFrame(1), nil)
+		if err != nil {
+			innerErr = err
+			return false
+		}
 		if first {
 			first = false
 			minVal = r
 			maxVal = r
 		} else {
-			if Less(r, minVal) {
+			less, err := Less(r, minVal)
+			if err != nil {
+				innerErr = err
+				return false
+			}
+			if less {
 				minVal = r
 			}
-			if Less(maxVal, r) {
+			b, err := Less(maxVal, r)
+			if err != nil {
+				innerErr = err
+				return false
+			}
+			if b {
 				maxVal = r
 			}
 		}
 		return true
 	})
+	if innerErr != nil {
+		return nil, innerErr
+	}
+	if err != nil {
+		return nil, err
+	}
 	return NewMap(listMap.New[Value](3).
 		Append("min", minVal).
 		Append("max", maxVal).
-		Append("valid", Bool(!first)))
+		Append("valid", Bool(!first))), nil
 }
 
-func (l *List) Replace(st funcGen.Stack[Value]) Value {
-	f := ToFunc("replace", st, 1, 1)
+func (l *List) Replace(st funcGen.Stack[Value]) (Value, error) {
+	f, err := ToFunc("replace", st, 1, 1)
+	if err != nil {
+		return nil, err
+	}
 	return f.Eval(st, l)
 }
 
-func (l *List) Number(st funcGen.Stack[Value]) *List {
-	f := ToFunc("number", st, 1, 2)
+func (l *List) Number(st funcGen.Stack[Value]) (*List, error) {
+	f, err := ToFunc("number", st, 1, 2)
+	if err != nil {
+		return nil, err
+	}
 	return NewListFromIterable(func() iterator.Iterator[Value] {
-		return func(yield func(Value) bool) bool {
+		return func(yield func(Value) bool) (bool, error) {
 			n := Int(0)
-			return l.iterable()(func(value Value) bool {
+			var innerErr error
+			_, err := l.iterable()(func(value Value) bool {
 				st.Push(n)
 				st.Push(value)
 				n++
-				return yield(f.Func(st.CreateFrame(2), nil))
+				v, err2 := f.Func(st.CreateFrame(2), nil)
+				if err2 != nil {
+					innerErr = err2
+					return false
+				}
+				return yield(v)
 			})
+			if innerErr != nil {
+				return false, innerErr
+			}
+			if err != nil {
+				return false, err
+			}
+			return true, nil
 		}
+	}), nil
+}
+
+func (l *List) GroupByString(st funcGen.Stack[Value]) (*List, error) {
+	keyFunc, err := ToFunc("groupByString", st, 1, 1)
+	if err != nil {
+		return nil, err
+	}
+	return groupBy(l, func(value Value) (Value, error) {
+		st.Push(value)
+		key, err := keyFunc.Func(st.CreateFrame(1), nil)
+		if err != nil {
+			return nil, err
+		}
+		return String(key.String()), nil
 	})
 }
 
-func (l *List) GroupByString(st funcGen.Stack[Value]) *List {
-	keyFunc := ToFunc("groupByString", st, 1, 1)
-	return groupBy(l, func(value Value) Value {
+func (l *List) GroupByInt(st funcGen.Stack[Value]) (*List, error) {
+	keyFunc, err := ToFunc("groupByInt", st, 1, 1)
+	if err != nil {
+		return nil, err
+	}
+	return groupBy(l, func(value Value) (Value, error) {
 		st.Push(value)
-		key := keyFunc.Func(st.CreateFrame(1), nil)
-		return String(key.String())
-	})
-}
-
-func (l *List) GroupByInt(st funcGen.Stack[Value]) *List {
-	keyFunc := ToFunc("groupByInt", st, 1, 1)
-	return groupBy(l, func(value Value) Value {
-		st.Push(value)
-		key := keyFunc.Func(st.CreateFrame(1), nil)
+		key, err := keyFunc.Func(st.CreateFrame(1), nil)
+		if err != nil {
+			return nil, err
+		}
 		if i, ok := key.ToInt(); ok {
-			return Int(i)
+			return Int(i), nil
 		} else {
-			panic("groupByInt requires an int as key")
+			return nil, errors.New("groupByInt requires an int as key")
 		}
 	})
 }
 
-func groupBy(list *List, keyFunc func(Value) Value) *List {
+func groupBy(list *List, keyFunc func(Value) (Value, error)) (*List, error) {
 	m := make(map[Value]*[]Value)
-	list.iterable()(func(value Value) bool {
-		key := keyFunc(value)
+	var innerErr error
+	_, err := list.iterable()(func(value Value) bool {
+		key, err := keyFunc(value)
+		if err != nil {
+			innerErr = err
+			return false
+		}
 		if l, ok := m[key]; ok {
 			*l = append(*l, value)
 		} else {
@@ -638,60 +864,99 @@ func groupBy(list *List, keyFunc func(Value) Value) *List {
 		}
 		return true
 	})
+	if innerErr != nil {
+		return nil, innerErr
+	}
+	if err != nil {
+		return nil, err
+	}
 	result := make([]Value, 0, len(m))
 	for k, v := range m {
 		result = append(result, Map{listMap.New[Value](2).
 			Append("key", k).
 			Append("values", NewList(*v...))})
 	}
-	return NewList(result...)
+	return NewList(result...), nil
 }
 
-func (l *List) UniqueString(st funcGen.Stack[Value]) *List {
-	keyFunc := ToFunc("uniqueString", st, 1, 1)
-	return unique(l, func(value Value) Value {
+func (l *List) UniqueString(st funcGen.Stack[Value]) (*List, error) {
+	keyFunc, err := ToFunc("uniqueString", st, 1, 1)
+	if err != nil {
+		return nil, err
+	}
+	return unique(l, func(value Value) (Value, error) {
 		st.Push(value)
-		key := keyFunc.Func(st.CreateFrame(1), nil)
-		return String(key.String())
+		key, err := keyFunc.Func(st.CreateFrame(1), nil)
+		if err != nil {
+			return nil, err
+		}
+		return String(key.String()), nil
 	})
 }
 
-func (l *List) UniqueInt(st funcGen.Stack[Value]) *List {
-	keyFunc := ToFunc("uniqueInt", st, 1, 1)
-	return unique(l, func(value Value) Value {
+func (l *List) UniqueInt(st funcGen.Stack[Value]) (*List, error) {
+	keyFunc, err := ToFunc("uniqueInt", st, 1, 1)
+	if err != nil {
+		return nil, err
+	}
+	return unique(l, func(value Value) (Value, error) {
 		st.Push(value)
-		key := keyFunc.Func(st.CreateFrame(1), nil)
+		key, err := keyFunc.Func(st.CreateFrame(1), nil)
+		if err != nil {
+			return nil, err
+		}
 		if i, ok := key.ToInt(); ok {
-			return Int(i)
+			return Int(i), nil
 		} else {
-			panic("uniqueInt requires an int as key")
+			return nil, errors.New("uniqueInt requires an int as key")
 		}
 	})
 }
 
-func unique(list *List, keyFunc func(Value) Value) *List {
+func unique(list *List, keyFunc func(Value) (Value, error)) (*List, error) {
 	m := make(map[Value]struct{})
-	list.iterable()(func(value Value) bool {
-		key := keyFunc(value)
+	var innerErr error
+	_, err := list.iterable()(func(value Value) bool {
+		key, err := keyFunc(value)
+		if err != nil {
+			innerErr = err
+			return false
+		}
 		m[key] = struct{}{}
 		return true
 	})
+	if innerErr != nil {
+		return nil, innerErr
+	}
+	if err != nil {
+		return nil, err
+	}
 	result := make([]Value, 0, len(m))
 	for k := range m {
 		result = append(result, k)
 	}
-	return NewList(result...)
+	return NewList(result...), nil
 }
 
-func (l *List) MovingWindow(st funcGen.Stack[Value]) *List {
-	f := ToFunc("movingWindow", st, 1, 1)
-	items := l.ToSlice()
+func (l *List) MovingWindow(st funcGen.Stack[Value]) (*List, error) {
+	f, err := ToFunc("movingWindow", st, 1, 1)
+	if err != nil {
+		return nil, err
+	}
+	items, err := l.ToSlice()
+	if err != nil {
+		return nil, err
+	}
 	values := make([]float64, len(items))
 	for i, elem := range items {
-		if float, ok := f.Eval(st, elem).ToFloat(); ok {
+		eval, err := f.Eval(st, elem)
+		if err != nil {
+			return nil, err
+		}
+		if float, ok := eval.ToFloat(); ok {
 			values[i] = float
 		} else {
-			panic("function in movingWindow needs to return a float")
+			return nil, errors.New("function in movingWindow needs to return a float")
 		}
 	}
 
@@ -703,38 +968,66 @@ func (l *List) MovingWindow(st funcGen.Stack[Value]) *List {
 		}
 		mainList = append(mainList, NewList(items[startIndex:i+1:i+1]...))
 	}
-	return NewList(mainList...)
+	return NewList(mainList...), nil
 }
 
-func (l *List) containsItem(item Value) bool {
+func (l *List) containsItem(item Value) (bool, error) {
 	found := false
-	l.iterable()(func(value Value) bool {
-		if Equal(item, value) {
+	var innerErr error
+	_, err := l.iterable()(func(value Value) bool {
+		equal, err := Equal(item, value)
+		if err != nil {
+			innerErr = err
+			return false
+		}
+		if equal {
 			found = true
 			return false
 		}
 		return true
 	})
-	return found
+	if innerErr != nil {
+		return false, innerErr
+	}
+	if err != nil {
+		return false, err
+
+	}
+	return found, nil
 }
 
-func (l *List) containsAllItems(lookForList *List) bool {
-	lookFor := lookForList.CopyToSlice()
-
-	if l.itemsPresent && len(l.items) < len(lookFor) {
-		return false
+func (l *List) containsAllItems(lookForList *List) (bool, error) {
+	lookFor, err := lookForList.CopyToSlice()
+	if err != nil {
+		return false, err
 	}
 
-	l.iterable()(func(value Value) bool {
+	if l.itemsPresent && len(l.items) < len(lookFor) {
+		return false, nil
+	}
+
+	var innerErr error
+	_, err = l.iterable()(func(value Value) bool {
 		for i, lf := range lookFor {
-			if Equal(lf, value) {
+			equal, err2 := Equal(lf, value)
+			if err2 != nil {
+				innerErr = err2
+				return false
+			}
+			if equal {
 				lookFor = append(lookFor[0:i], lookFor[i+1:]...)
 				break
 			}
 		}
 		return len(lookFor) > 0
 	})
-	return len(lookFor) == 0
+	if innerErr != nil {
+		return false, innerErr
+	}
+	if err != nil {
+		return false, err
+	}
+	return len(lookFor) == 0, nil
 }
 
 var ListMethods = MethodMap{
@@ -831,7 +1124,7 @@ var ListMethods = MethodMap{
 				"The function is called for pairs of items in the list and the returned bool needs to be true if a<b holds."),
 	"reverse": MethodAtType(0, func(list *List, stack funcGen.Stack[Value]) (Value, error) { return list.Reverse() }).
 		SetMethodDescription("Returns the list in reverse order."),
-	"append": MethodAtType(1, func(list *List, stack funcGen.Stack[Value]) (Value, error) { return list.Append(stack) }).
+	"append": MethodAtType(1, func(list *List, stack funcGen.Stack[Value]) (Value, error) { return list.Append(stack), nil }).
 		SetMethodDescription("item", "Returns a new list with the given item appended."),
 	"iir": MethodAtType(2, func(list *List, stack funcGen.Stack[Value]) (Value, error) { return list.IIr(stack) }).
 		SetMethodDescription("func(first_item) first_new_item", "func(item, last_new_item) new_item",
@@ -864,7 +1157,7 @@ var ListMethods = MethodMap{
 				"The function is called with the index of the item and the item itself."),
 	"present": MethodAtType(1, func(list *List, stack funcGen.Stack[Value]) (Value, error) { return list.Present(stack) }).
 		SetMethodDescription("func(item) bool", "Returns true if the given function returns true for any item in the list."),
-	"size": MethodAtType(0, func(list *List, stack funcGen.Stack[Value]) (Value, error) { return Int(list.Size()) }).
+	"size": MethodAtType(0, func(list *List, stack funcGen.Stack[Value]) (Value, error) { return Int(list.Size()), nil }).
 		SetMethodDescription("Returns the number of items in the list."),
 	"first": MethodAtType(0, func(list *List, stack funcGen.Stack[Value]) (Value, error) { return list.First() }).
 		SetMethodDescription("Returns the first item in the list."),

@@ -451,8 +451,14 @@ func New() *funcGen.FunctionGenerator[Value] {
 		SetToBool(func(c Value) (bool, bool) { return c.ToBool() }).
 		AddOp("|", true, Or).
 		AddOp("&", true, And).
-		AddOp("=", true, func(a Value, b Value) (Value, error) { return Bool(Equal(a, b)), nil }).
-		AddOp("!=", true, func(a, b Value) (Value, error) { return Bool(!Equal(a, b)), nil }).
+		AddOp("=", true, func(a Value, b Value) (Value, error) {
+			equal, err := Equal(a, b)
+			return Bool(equal), err
+		}).
+		AddOp("!=", true, func(a, b Value) (Value, error) {
+			equal, err := Equal(a, b)
+			return Bool(!equal), err
+		}).
 		AddOp("~", false, In).
 		AddOp("<", false, func(a Value, b Value) (Value, error) {
 			less, err := Less(a, b)
@@ -573,7 +579,7 @@ func New() *funcGen.FunctionGenerator[Value] {
 			Func: func(st funcGen.Stack[Value], cs []Value) (Value, error) {
 				v := st.Get(0)
 				if size, ok := v.ToInt(); ok {
-					return NewListFromIterable(iterator.Generate(size, func(i int) Value { return Int(i) })), nil
+					return NewListFromIterable(iterator.Generate(size, func(i int) (Value, error) { return Int(i), nil })), nil
 				}
 				return nil, fmt.Errorf("list not alowed on %v", v)
 			},
@@ -652,9 +658,18 @@ func sprintf(st funcGen.Stack[Value], cs []Value) (Value, error) {
 
 func createLowPass(st funcGen.Stack[Value], store []Value) (Value, error) {
 	name := st.Get(0).String()
-	t := ToFunc("createLowPass", st, 1, 1)
-	xf := ToFunc("createLowPass", st, 2, 1)
-	tau := ToFloat("createLowPass", st, 3)
+	t, err := ToFunc("createLowPass", st, 1, 1)
+	if err != nil {
+		return nil, err
+	}
+	xf, err := ToFunc("createLowPass", st, 2, 1)
+	if err != nil {
+		return nil, err
+	}
+	tau, err := ToFloat("createLowPass", st, 3)
+	if err != nil {
+		return nil, err
+	}
 	lp := Closure(funcGen.Function[Value]{
 		Func: func(st funcGen.Stack[Value], cs []Value) (Value, error) {
 			p0 := st.Get(0)
