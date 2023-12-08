@@ -28,8 +28,16 @@ func (e ErrValue) ToFloat() (float64, bool) {
 	return e.val, true
 }
 
-func (e ErrValue) String() string {
-	return value.Float(e.val).String() + "±" + value.Float(e.err).String()
+func (e ErrValue) String() (string, error) {
+	va, err := value.Float(e.val).String()
+	if err != nil {
+		return "", err
+	}
+	er, err := value.Float(e.err).String()
+	if err != nil {
+		return "", err
+	}
+	return string(va + "±" + er), nil
 }
 
 func (e ErrValue) ToBool() (bool, bool) {
@@ -41,11 +49,18 @@ func (e ErrValue) ToClosure() (funcGen.Function[value.Value], bool) {
 }
 
 var ErrValueMethods = value.MethodMap{
-	"val": value.MethodAtType(0, func(ev ErrValue, stack funcGen.Stack[value.Value]) value.Value { return value.Float(ev.val) }).
+	"val": value.MethodAtType(0, func(ev ErrValue, stack funcGen.Stack[value.Value]) (value.Value, error) {
+		return value.Float(ev.val), nil
+	}).
 		SetMethodDescription("Returns the value of the error value"),
-	"err": value.MethodAtType(0, func(ev ErrValue, stack funcGen.Stack[value.Value]) value.Value { return value.Float(ev.err) }).
+	"err": value.MethodAtType(0, func(ev ErrValue, stack funcGen.Stack[value.Value]) (value.Value, error) {
+		return value.Float(ev.err), nil
+	}).
 		SetMethodDescription("Returns the error of the error value"),
-	"string": value.MethodAtType(0, func(ev ErrValue, stack funcGen.Stack[value.Value]) value.Value { return value.String(ev.String()) }).
+	"string": value.MethodAtType(0, func(ev ErrValue, stack funcGen.Stack[value.Value]) (value.Value, error) {
+		s, err := ev.String()
+		return value.String(s), err
+	}).
 		SetMethodDescription("Returns the string representation of the error value"),
 }
 

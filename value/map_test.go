@@ -69,7 +69,9 @@ func TestMap_Equals(t *testing.T) {
 	for _, tt := range tests {
 		test := tt
 		t.Run(test.name, func(t *testing.T) {
-			assert.Equalf(t, test.want, test.a.Equals(test.b), "Equals(%v)", test.b)
+			equals, err := test.a.Equals(test.b)
+			assert.NoError(t, err)
+			assert.Equalf(t, test.want, equals, "Equals(%v)", test.b)
 		})
 	}
 }

@@ -62,10 +62,11 @@ func (v Map) ToFloat() (float64, bool) {
 	return 0, false
 }
 
-func (v Map) String() string {
+func (v Map) String() (string, error) {
 	var b bytes.Buffer
 	b.WriteString("{")
 	first := true
+	var innerErr error
 	v.m.Iter(func(key string, v Value) bool {
 		if first {
 			first = false
@@ -74,11 +75,19 @@ func (v Map) String() string {
 		}
 		b.WriteString(key)
 		b.WriteString(":")
-		b.WriteString(v.String())
+		s, err := v.String()
+		if err != nil {
+			innerErr = err
+			return false
+		}
+		b.WriteString(s)
 		return true
 	})
+	if innerErr != nil {
+		return "", innerErr
+	}
 	b.WriteString("}")
-	return b.String()
+	return b.String(), nil
 }
 
 func (v Map) ToBool() (bool, bool) {
@@ -281,7 +290,10 @@ var MapMethods = MethodMap{
 		SetMethodDescription("Returns a list of maps with the key and value of each entry in the map."),
 	"size": MethodAtType(0, func(m Map, stack funcGen.Stack[Value]) (Value, error) { return Int(m.Size()), nil }).
 		SetMethodDescription("Returns the number of entries in the map."),
-	"string": MethodAtType(0, func(m Map, stack funcGen.Stack[Value]) (Value, error) { return String(m.String()), nil }).
+	"string": MethodAtType(0, func(m Map, stack funcGen.Stack[Value]) (Value, error) {
+		s, err := m.String()
+		return String(s), err
+	}).
 		SetMethodDescription("Returns a string representation of the map."),
 	"isAvail": MethodAtType(-1, func(m Map, stack funcGen.Stack[Value]) (Value, error) { return m.IsAvail(stack) }).
 		SetMethodDescription("key", "Returns true if the key is available in the map."),

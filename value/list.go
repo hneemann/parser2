@@ -68,21 +68,33 @@ func (l *List) ToFloat() (float64, bool) {
 	return 0, false
 }
 
-func (l *List) String() string {
+func (l *List) String() (string, error) {
 	var b bytes.Buffer
 	b.WriteString("[")
 	first := true
-	l.iterable()(func(v Value) bool {
+	var innerErr error
+	_, err := l.iterable()(func(v Value) bool {
 		if first {
 			first = false
 		} else {
 			b.WriteString(", ")
 		}
-		b.WriteString(v.String())
+		s, err := v.String()
+		if err != nil {
+			innerErr = err
+			return false
+		}
+		b.WriteString(s)
 		return true
 	})
+	if innerErr != nil {
+		return "", innerErr
+	}
+	if err != nil {
+		return "", err
+	}
 	b.WriteString("]")
-	return b.String()
+	return b.String(), nil
 }
 
 func (l *List) ToBool() (bool, bool) {
@@ -165,8 +177,11 @@ func (l *List) CopyToSlice() ([]Value, error) {
 // Append creates a new list with a single element appended
 // The original list remains unchanged while appending element
 // by element is still efficient.
-func (l *List) Append(st funcGen.Stack[Value]) *List {
-	l.Eval()
+func (l *List) Append(st funcGen.Stack[Value]) (*List, error) {
+	err := l.Eval()
+	if err != nil {
+		return nil, err
+	}
 	newList := append(l.items, st.Get(1))
 	// Guarantee a copy operation the next time append is called on this
 	// list, which is only a rare special case, as the new list is usually
@@ -174,12 +189,15 @@ func (l *List) Append(st funcGen.Stack[Value]) *List {
 	if len(l.items) != cap(l.items) {
 		l.items = l.items[:len(l.items):len(l.items)]
 	}
-	return NewList(newList...)
+	return NewList(newList...), nil
 }
 
-func (l *List) Size() int {
-	l.Eval()
-	return len(l.items)
+func (l *List) Size() (int, error) {
+	err := l.Eval()
+	if err != nil {
+		return 0, err
+	}
+	return len(l.items), nil
 }
 
 func ToFunc(name string, st funcGen.Stack[Value], n int, args int) (funcGen.Function[Value], error) {
@@ -438,7 +456,7 @@ func (s *Sortable) pick(i int) (Value, bool) {
 	s.st.Push(s.items[i])
 	value, err := s.pickFunc.Func(s.st.CreateFrame(1), nil)
 	s.registerError(err)
-	return value, err != nil
+	return value, err == nil
 }
 
 func (s *Sortable) Less(i, j int) bool {
@@ -824,7 +842,8 @@ func (l *List) GroupByString(st funcGen.Stack[Value]) (*List, error) {
 		if err != nil {
 			return nil, err
 		}
-		return String(key.String()), nil
+		s, err := key.String()
+		return String(s), err
 	})
 }
 
@@ -890,7 +909,8 @@ func (l *List) UniqueString(st funcGen.Stack[Value]) (*List, error) {
 		if err != nil {
 			return nil, err
 		}
-		return String(key.String()), nil
+		s, err := key.String()
+		return String(s), err
 	})
 }
 
@@ -1124,7 +1144,7 @@ var ListMethods = MethodMap{
 				"The function is called for pairs of items in the list and the returned bool needs to be true if a<b holds."),
 	"reverse": MethodAtType(0, func(list *List, stack funcGen.Stack[Value]) (Value, error) { return list.Reverse() }).
 		SetMethodDescription("Returns the list in reverse order."),
-	"append": MethodAtType(1, func(list *List, stack funcGen.Stack[Value]) (Value, error) { return list.Append(stack), nil }).
+	"append": MethodAtType(1, func(list *List, stack funcGen.Stack[Value]) (Value, error) { return list.Append(stack) }).
 		SetMethodDescription("item", "Returns a new list with the given item appended."),
 	"iir": MethodAtType(2, func(list *List, stack funcGen.Stack[Value]) (Value, error) { return list.IIr(stack) }).
 		SetMethodDescription("func(first_item) first_new_item", "func(item, last_new_item) new_item",
@@ -1157,15 +1177,21 @@ var ListMethods = MethodMap{
 				"The function is called with the index of the item and the item itself."),
 	"present": MethodAtType(1, func(list *List, stack funcGen.Stack[Value]) (Value, error) { return list.Present(stack) }).
 		SetMethodDescription("func(item) bool", "Returns true if the given function returns true for any item in the list."),
-	"size": MethodAtType(0, func(list *List, stack funcGen.Stack[Value]) (Value, error) { return Int(list.Size()), nil }).
+	"size": MethodAtType(0, func(list *List, stack funcGen.Stack[Value]) (Value, error) {
+		size, err := list.Size()
+		return Int(size), err
+	}).
 		SetMethodDescription("Returns the number of items in the list."),
 	"first": MethodAtType(0, func(list *List, stack funcGen.Stack[Value]) (Value, error) { return list.First() }).
 		SetMethodDescription("Returns the first item in the list."),
 	"last": MethodAtType(0, func(list *List, stack funcGen.Stack[Value]) (Value, error) { return list.Last() }).
 		SetMethodDescription("Returns the last item in the list."),
-	"eval": MethodAtType(0, func(list *List, stack funcGen.Stack[Value]) (Value, error) { list.Eval(); return list, nil }).
+	"eval": MethodAtType(0, func(list *List, stack funcGen.Stack[Value]) (Value, error) { return list, list.Eval() }).
 		SetMethodDescription("Evaluates the list and stores all items in memory."),
-	"string": MethodAtType(0, func(list *List, stack funcGen.Stack[Value]) (Value, error) { return String(list.String()), nil }).
+	"string": MethodAtType(0, func(list *List, stack funcGen.Stack[Value]) (Value, error) {
+		s, err := list.String()
+		return String(s), err
+	}).
 		SetMethodDescription("Returns the list as a string."),
 	"movingWindow": MethodAtType(1, func(list *List, stack funcGen.Stack[Value]) (Value, error) { return list.MovingWindow(stack) }).
 		SetMethodDescription("func(item) float", "Returns a list of lists. "+

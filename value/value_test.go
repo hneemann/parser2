@@ -116,7 +116,6 @@ func TestBasic(t *testing.T) {
 		{exp: "(3.2).string()", res: String("3.2")},
 		{exp: "string(3)", res: String("3")},
 		{exp: "(3).string()", res: String("3")},
-		{exp: "(a->a*a).string()", res: String("<function>")},
 		{exp: "let a=1;sprintf()", res: String("")},
 		{exp: "let a=1;sprintf(\"Hello World\")", res: String("Hello World")},
 		{exp: "let a=1;sprintf(\"%v->%v\",a,2)", res: String("1->2")},
@@ -151,7 +150,11 @@ func runTest(t *testing.T, tests []testType) {
 				} else if expList, ok := test.res.(*List); ok {
 					actList, ok := res.(*List)
 					assert.True(t, ok)
-					assert.Equal(t, expList.ToSlice(), actList.ToSlice(), test.exp)
+					slice, err := expList.ToSlice()
+					assert.NoError(t, err)
+					toSlice, err := actList.ToSlice()
+					assert.NoError(t, err)
+					assert.Equal(t, slice, toSlice, test.exp)
 				} else {
 					assert.Equal(t, test.res, res, test.exp)
 				}
@@ -209,7 +212,11 @@ func TestOptimizer(t *testing.T) {
 				} else if expList, ok := test.res.(*List); ok {
 					actList, ok := c.Value.(*List)
 					assert.True(t, ok)
-					assert.EqualValues(t, expList.ToSlice(), actList.ToSlice(), test.exp)
+					slice, err := expList.ToSlice()
+					assert.NoError(t, err)
+					toSlice, err := actList.ToSlice()
+					assert.NoError(t, err)
+					assert.EqualValues(t, slice, toSlice, test.exp)
 				} else {
 					assert.EqualValues(t, test.res, c.Value)
 				}

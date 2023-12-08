@@ -35,20 +35,32 @@ func (s String) ToClosure() (funcGen.Function[Value], bool) {
 	return funcGen.Function[Value]{}, false
 }
 
-func (s String) String() string {
-	return string(s)
+func (s String) String() (string, error) {
+	return string(s), nil
 }
 
-func (s String) Contains(st funcGen.Stack[Value]) Value {
-	return Bool(strings.Contains(string(s), st.Get(1).String()))
+func (s String) Contains(st funcGen.Stack[Value]) (Value, error) {
+	if s2, ok := st.Get(1).(String); ok {
+		return Bool(strings.Contains(string(s), string(s2))), nil
+	} else {
+		return nil, errors.New("contains needs a string as argument")
+	}
 }
 
-func (s String) IndexOf(st funcGen.Stack[Value]) Value {
-	return Int(strings.Index(string(s), st.Get(1).String()))
+func (s String) IndexOf(st funcGen.Stack[Value]) (Value, error) {
+	if s2, ok := st.Get(1).(String); ok {
+		return Int(strings.Index(string(s), string(s2))), nil
+	} else {
+		return nil, errors.New("indexOf needs a string as argument")
+	}
 }
 
-func (s String) Split(st funcGen.Stack[Value]) Value {
-	return NewListConvert(func(s string) Value { return String(s) }, strings.Split(string(s), st.Get(1).String())...)
+func (s String) Split(st funcGen.Stack[Value]) (Value, error) {
+	if s2, ok := st.Get(1).(String); ok {
+		return NewListConvert(func(s string) Value { return String(s) }, strings.Split(string(s), string(s2))...), nil
+	} else {
+		return nil, errors.New("split needs a string as argument")
+	}
 }
 
 func (s String) Cut(st funcGen.Stack[Value]) (Value, error) {
@@ -92,9 +104,9 @@ var StringMethods = MethodMap{
 	"toUpper": MethodAtType(0, func(str String, stack funcGen.Stack[Value]) (Value, error) {
 		return String(strings.ToUpper(string(str))), nil
 	}),
-	"contains": MethodAtType(1, func(str String, stack funcGen.Stack[Value]) (Value, error) { return str.Contains(stack), nil }),
-	"indexOf":  MethodAtType(1, func(str String, stack funcGen.Stack[Value]) (Value, error) { return str.IndexOf(stack), nil }),
-	"split":    MethodAtType(1, func(str String, stack funcGen.Stack[Value]) (Value, error) { return str.Split(stack), nil }),
+	"contains": MethodAtType(1, func(str String, stack funcGen.Stack[Value]) (Value, error) { return str.Contains(stack) }),
+	"indexOf":  MethodAtType(1, func(str String, stack funcGen.Stack[Value]) (Value, error) { return str.IndexOf(stack) }),
+	"split":    MethodAtType(1, func(str String, stack funcGen.Stack[Value]) (Value, error) { return str.Split(stack) }),
 	"cut":      MethodAtType(2, func(str String, stack funcGen.Stack[Value]) (Value, error) { return str.Cut(stack) }),
 }
 

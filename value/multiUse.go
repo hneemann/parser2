@@ -22,26 +22,35 @@ const startTimeout = 2 // seconds
 func (l *List) MultiUse(st funcGen.Stack[Value]) (Map, error) {
 	if m, ok := st.Get(1).ToMap(); ok {
 		var muList multiUseList
+		var innerErr error
 		m.Iter(func(key string, value Value) bool {
 			if f, ok := value.ToClosure(); ok {
 				if f.Args == 1 {
 					muList = append(muList, &multiUseEntry{name: key, fu: f.Func})
 				} else {
-					panic("map in multiUse needs to contain functions with one argument")
+					innerErr = errors.New("map in multiUse needs to contain functions with one argument")
+					return false
 				}
 			} else {
-				panic("map in multiUse need to contain functions")
+				innerErr = errors.New("map in multiUse need to contain functions")
+				return false
 			}
 			return true
 		})
+		if innerErr != nil {
+			return Map{}, innerErr
+		}
 
-		muList.runConsumerClosures()
+		err := muList.runConsumerClosures()
+		if err != nil {
+			return Map{}, err
+		}
 
 		errChan := muList.runProducer(l.Iterator())
 
-		return muList.createResult(errChan)
+		return muList.createResult(errChan), nil
 	} else {
-		panic("first argument in multiUse needs to be a map")
+		return Map{}, errors.New("first argument in multiUse needs to be a map")
 	}
 }
 
@@ -68,15 +77,15 @@ func (mu *multiUseEntry) createIterable(started chan<- struct{}) iterator.Iterab
 		mu.writer = r
 		mu.requestClose = make(chan struct{})
 		started <- struct{}{}
-		return func(yield func(Value) bool) bool {
+		return func(yield func(Value) bool) (bool, error) {
 			for v := range r {
 				if !yield(v) {
 					mu.stopWriter()
-					return false
+					return false, nil
 				}
 			}
 			mu.stopWriter()
-			return true
+			return true, nil
 		}
 	}
 }
@@ -116,12 +125,20 @@ func (mu *multiUseEntry) runConsumer(started chan struct{}) {
 		}()
 		st := funcGen.NewEmptyStack[Value]()
 		st.Push(NewListFromIterable(mu.createIterable(started)))
-		value := mu.fu(st, nil)
+		value, err := mu.fu(st, nil)
+		if err != nil {
+			r <- multiUseResult{err: err}
+			return
+		}
 		if list, ok := value.(*List); ok {
 			// Force evaluation of lists. Lazy evaluation is not possible here because it is
 			// not possible to iterate over a list at any time. Iteration is only possible
 			// synchronously with all iterators at the same time.
-			list.Eval()
+			err := list.Eval()
+			if err != nil {
+				r <- multiUseResult{err: err}
+				return
+			}
 		}
 		r <- multiUseResult{result: value, err: nil}
 	}()
@@ -145,7 +162,7 @@ func (ml multiUseList) runProducer(i iterator.Iterator[Value]) <-chan error {
 			// that the error sent above is actually received.
 		}()
 		running := len(ml)
-		i(func(v Value) bool {
+		_, err := i(func(v Value) bool {
 			for _, mu := range ml {
 				if mu.writer != nil {
 					select {
@@ -159,9 +176,13 @@ func (ml multiUseList) runProducer(i iterator.Iterator[Value]) <-chan error {
 			}
 			return running > 0
 		})
-		for _, mu := range ml {
-			if mu.writer != nil {
-				close(mu.writer)
+		if err != nil {
+			errChan <- err
+		} else {
+			for _, mu := range ml {
+				if mu.writer != nil {
+					close(mu.writer)
+				}
 			}
 		}
 	}()
@@ -171,7 +192,7 @@ func (ml multiUseList) runProducer(i iterator.Iterator[Value]) <-chan error {
 // runConsumerClosures runs all the consumer closures and waits for them to be
 // started. Started means that the closure has requested an iterator to iterate
 // over the list.
-func (ml multiUseList) runConsumerClosures() {
+func (ml multiUseList) runConsumerClosures() error {
 	started := make(chan struct{})
 	for _, mu := range ml {
 		mu.runConsumer(started)
@@ -181,10 +202,11 @@ func (ml multiUseList) runConsumerClosures() {
 	for i := 0; i < len(ml); i++ {
 		select {
 		case <-time.After(startTimeout * time.Second):
-			panic(ml.timeOutError())
+			return ml.timeOutError()
 		case <-started:
 		}
 	}
+	return nil
 }
 
 // createResult creates the result map. If the source iterator panics, the panic

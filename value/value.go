@@ -2,6 +2,7 @@ package value
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"github.com/hneemann/iterator"
 	"github.com/hneemann/parser2"
@@ -17,7 +18,7 @@ type Value interface {
 	ToMap() (Map, bool)
 	ToInt() (int, bool)
 	ToFloat() (float64, bool)
-	String() string
+	String() (string, error)
 	ToBool() (bool, bool)
 	ToClosure() (funcGen.Function[Value], bool)
 	GetMethod(name string) (funcGen.Function[Value], error)
@@ -78,8 +79,8 @@ func (n nilType) ToFloat() (float64, bool) {
 	return 0, false
 }
 
-func (n nilType) String() string {
-	return "nil"
+func (n nilType) String() (string, error) {
+	return "nil", nil
 }
 
 func (n nilType) ToBool() (bool, bool) {
@@ -112,8 +113,8 @@ func (c Closure) ToFloat() (float64, bool) {
 	return 0, false
 }
 
-func (c Closure) String() string {
-	return "<function>"
+func (c Closure) String() (string, error) {
+	return "", errors.New("a function has no string representation")
 }
 
 func (c Closure) ToBool() (bool, bool) {
@@ -121,8 +122,6 @@ func (c Closure) ToBool() (bool, bool) {
 }
 
 var ClosureMethods = MethodMap{
-	"string": MethodAtType(0, func(c Closure, stack funcGen.Stack[Value]) (Value, error) { return String(c.String()), nil }).
-		SetMethodDescription("Returns the string '<function>'. Exists for compatibility with other types."),
 	"args": MethodAtType(0, func(c Closure, stack funcGen.Stack[Value]) (Value, error) { return Int(c.Args), nil }).
 		SetMethodDescription("Returns the number of arguments the function takes."),
 }
@@ -153,11 +152,11 @@ func (b Bool) ToFloat() (float64, bool) {
 	return 0, false
 }
 
-func (b Bool) String() string {
+func (b Bool) String() (string, error) {
 	if b {
-		return "true"
+		return "true", nil
 	}
-	return "false"
+	return "false", nil
 }
 
 func (b Bool) ToClosure() (funcGen.Function[Value], bool) {
@@ -165,7 +164,10 @@ func (b Bool) ToClosure() (funcGen.Function[Value], bool) {
 }
 
 var BoolMethods = MethodMap{
-	"string": MethodAtType(0, func(b Bool, stack funcGen.Stack[Value]) (Value, error) { return String(b.String()), nil }).
+	"string": MethodAtType(0, func(b Bool, stack funcGen.Stack[Value]) (Value, error) {
+		s, err := b.String()
+		return String(s), err
+	}).
 		SetMethodDescription("Returns the string 'true' or 'false'."),
 }
 
@@ -187,8 +189,8 @@ func (f Float) ToMap() (Map, bool) {
 	return Map{}, false
 }
 
-func (f Float) String() string {
-	return strconv.FormatFloat(float64(f), 'g', -1, 64)
+func (f Float) String() (string, error) {
+	return strconv.FormatFloat(float64(f), 'g', -1, 64), nil
 }
 
 func (f Float) ToClosure() (funcGen.Function[Value], bool) {
@@ -196,7 +198,10 @@ func (f Float) ToClosure() (funcGen.Function[Value], bool) {
 }
 
 var FloatMethods = MethodMap{
-	"string": MethodAtType(0, func(f Float, stack funcGen.Stack[Value]) (Value, error) { return String(f.String()), nil }).
+	"string": MethodAtType(0, func(f Float, stack funcGen.Stack[Value]) (Value, error) {
+		s, err := f.String()
+		return String(s), err
+	}).
 		SetMethodDescription("Returns a string representation of the float."),
 }
 
@@ -229,8 +234,8 @@ func (i Int) ToMap() (Map, bool) {
 	return Map{}, false
 }
 
-func (i Int) String() string {
-	return strconv.Itoa(int(i))
+func (i Int) String() (string, error) {
+	return strconv.Itoa(int(i)), nil
 }
 
 func (i Int) ToClosure() (funcGen.Function[Value], bool) {
@@ -238,7 +243,10 @@ func (i Int) ToClosure() (funcGen.Function[Value], bool) {
 }
 
 var IntMethods = MethodMap{
-	"string": MethodAtType(0, func(i Int, stack funcGen.Stack[Value]) (Value, error) { return String(i.String()), nil }).
+	"string": MethodAtType(0, func(i Int, stack funcGen.Stack[Value]) (Value, error) {
+		s, err := i.String()
+		return String(s), err
+	}).
 		SetMethodDescription("Returns a string representation of the int."),
 }
 
@@ -326,10 +334,16 @@ func (f factory) AccessList(list Value, index Value) (Value, error) {
 		if i, ok := index.ToInt(); ok {
 			if i < 0 {
 				return nil, fmt.Errorf("negative list index")
-			} else if i >= l.Size() {
-				return nil, fmt.Errorf("index out of bounds %d>=size(%d)", i, l.Size())
 			} else {
-				return l.items[i], nil
+				size, err := l.Size()
+				if err != nil {
+					return nil, err
+				}
+				if i >= size {
+					return nil, fmt.Errorf("index out of bounds %d>=size(%d)", i, size)
+				} else {
+					return l.items[i], nil
+				}
 			}
 		} else {
 			return nil, fmt.Errorf("not an int: %v", index)
@@ -488,7 +502,8 @@ func New() *funcGen.FunctionGenerator[Value] {
 		AddUnary("!", func(a Value) (Value, error) { return Not(a) }).
 		AddStaticFunction("string", funcGen.Function[Value]{
 			Func: func(st funcGen.Stack[Value], cs []Value) (Value, error) {
-				return String(st.Get(0).String()), nil
+				s, err := st.Get(0).String()
+				return String(s), err
 			},
 			Args:   1,
 			IsPure: true,
@@ -657,7 +672,12 @@ func sprintf(st funcGen.Stack[Value], cs []Value) (Value, error) {
 }
 
 func createLowPass(st funcGen.Stack[Value], store []Value) (Value, error) {
-	name := st.Get(0).String()
+	var name string
+	if n, ok := st.Get(0).(String); ok {
+		name = string(n)
+	} else {
+		return nil, fmt.Errorf("createLowPass requires a string as first argument")
+	}
 	t, err := ToFunc("createLowPass", st, 1, 1)
 	if err != nil {
 		return nil, err

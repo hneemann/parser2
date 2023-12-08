@@ -113,7 +113,11 @@ func Add(a, b Value) (Value, error) {
 		}
 	}
 	if aa, ok := a.(String); ok {
-		return aa + String(b.String()), nil
+		s, err := b.String()
+		if err != nil {
+			return nil, err
+		}
+		return aa + String(s), nil
 	}
 	if aa, ok := a.(*List); ok {
 		if bb, ok := b.(*List); ok {

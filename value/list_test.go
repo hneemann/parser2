@@ -221,7 +221,8 @@ func TestNewListCreate(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := NewListConvert(tt.conv, tt.items...).ToSlice()
+			got, err := NewListConvert(tt.conv, tt.items...).ToSlice()
+			assert.NoError(t, err)
 			assert.Equalf(t, tt.want, got, "NewListConvert, %v vs. %v", tt.want, got)
 		})
 	}
