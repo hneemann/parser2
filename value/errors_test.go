@@ -21,6 +21,7 @@ func TestErrors(t *testing.T) {
 		{"list(10).multiUse(3)", "needs to be a map"},
 		{"list(10).multiUse({a:3})", "contain functions"},
 		{"list(10).multiUse({a:(a,b)->a*b})", "one argument"},
+		{"list(10).multiUse({a:a->a.map(a->a.a)})", "not a map"},
 		{"list(10).multiUse({a:l->l.reduce((a,b)->a.e+b), b:l->l.reduce((a,b)->a+b)})", "not a map"},
 		{"list(10).multiUse({a:l->1, b:l->l->2})", "affected function(s): a, b"},
 		{"list(10).multiUse({a:l->l.reduce((a,b)->a+b)+l.reduce((a,b)->a*b)})", "function a can only be used once"},

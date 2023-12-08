@@ -46,17 +46,26 @@ func TestToHtml(t *testing.T) {
 }
 
 func style(v value.Value) value.Value {
-	return StyleFunc.EvalSt(funcGen.NewStack[value.Value](), value.String("zzz"), v)
+	st, err := StyleFunc.EvalSt(funcGen.NewStack[value.Value](), value.String("zzz"), v)
+	if err != nil {
+		panic(err)
+	}
+	return st
 }
 
 func styleCell(v value.Value) value.Value {
-	return StyleFuncCell.EvalSt(funcGen.NewStack[value.Value](), value.String("zzz"), v)
+	st, err := StyleFuncCell.EvalSt(funcGen.NewStack[value.Value](), value.String("zzz"), v)
+	if err != nil {
+		panic(err)
+	}
+	return st
 }
 
 func TestFormat_GetMethod(t *testing.T) {
 	v := style(value.String("test"))
 	m, err := v.GetMethod("len")
 	assert.NoError(t, err)
-	got := m.Func(funcGen.NewStack(v), nil)
+	got, err := m.Func(funcGen.NewStack(v), nil)
+	assert.NoError(t, err)
 	assert.Equal(t, value.Int(4), got)
 }

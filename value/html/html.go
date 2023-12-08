@@ -3,6 +3,7 @@
 package html
 
 import (
+	"errors"
 	"github.com/hneemann/iterator"
 	"github.com/hneemann/parser2"
 	"github.com/hneemann/parser2/funcGen"
@@ -22,11 +23,15 @@ type Format struct {
 
 // StyleFunc can be used add a CSS style to a value
 var StyleFunc = funcGen.Function[value.Value]{
-	Func: func(st funcGen.Stack[value.Value], cs []value.Value) value.Value {
-		return Format{
-			Value:  st.Get(1),
-			Cell:   false,
-			Format: st.Get(0).String(),
+	Func: func(st funcGen.Stack[value.Value], cs []value.Value) (value.Value, error) {
+		if s, ok := st.Get(0).(value.String); ok {
+			return Format{
+				Value:  st.Get(1),
+				Cell:   false,
+				Format: string(s),
+			}, nil
+		} else {
+			return nil, errors.New("style must be a string")
 		}
 	},
 	Args:   2,
@@ -37,11 +42,15 @@ var StyleFunc = funcGen.Function[value.Value]{
 // If used in a table the Format is applied to the cell instead of the containing value.
 // It is only required in rare occasions.
 var StyleFuncCell = funcGen.Function[value.Value]{
-	Func: func(st funcGen.Stack[value.Value], cs []value.Value) value.Value {
-		return Format{
-			Value:  st.Get(1),
-			Cell:   true,
-			Format: st.Get(0).String(),
+	Func: func(st funcGen.Stack[value.Value], cs []value.Value) (value.Value, error) {
+		if s, ok := st.Get(0).(value.String); ok {
+			return Format{
+				Value:  st.Get(1),
+				Cell:   true,
+				Format: string(s),
+			}, nil
+		} else {
+			return nil, errors.New("style must be a string")
 		}
 	},
 	Args:   2,
@@ -64,7 +73,7 @@ func (f Format) ToFloat() (float64, bool) {
 	return f.Value.ToFloat()
 }
 
-func (f Format) String() string {
+func (f Format) String() (string, error) {
 	return f.Value.String()
 }
 
@@ -82,7 +91,7 @@ func (f Format) GetMethod(name string) (funcGen.Function[value.Value], error) {
 		return funcGen.Function[value.Value]{}, err
 	}
 	return funcGen.Function[value.Value]{
-		Func: func(st funcGen.Stack[value.Value], closureStore []value.Value) value.Value {
+		Func: func(st funcGen.Stack[value.Value], closureStore []value.Value) (value.Value, error) {
 			ss := st.Size()
 			st.Push((st.Get(0).(Format)).Value)
 			for i := 1; i < ss; i++ {
@@ -109,23 +118,26 @@ func ToHtml(v value.Value, maxListSize int) (res template.HTML, err error) {
 		maxListSize = 1
 	}
 	w := xmlWriter.New()
-	toHtml(v, w, "", maxListSize)
+	err = toHtml(v, w, "", maxListSize)
+	if err != nil {
+		return "", err
+	}
 	return template.HTML(w.String()), nil
 }
 
-func toHtml(v value.Value, w *xmlWriter.XMLWriter, style string, maxListSize int) {
+func toHtml(v value.Value, w *xmlWriter.XMLWriter, style string, maxListSize int) error {
 	switch t := v.(type) {
 	case Format:
-		toHtml(t.Value, w, t.Format, maxListSize)
+		return toHtml(t.Value, w, t.Format, maxListSize)
 	case *value.List:
-		pit, f, ok := iterator.Peek(t.Iterator())
-		if ok {
-			if _, ok := f.(*value.List); ok {
-				tableToHtml(pit, w, style, maxListSize)
-				return
-			}
+		pit, f, err := iterator.Peek(t.Iterator())
+		if err != nil {
+			return err
 		}
-		listToHtml(pit, w, style, maxListSize)
+		if _, ok := f.(*value.List); ok {
+			return tableToHtml(pit, w, style, maxListSize)
+		}
+		return listToHtml(pit, w, style, maxListSize)
 	case value.Map:
 		openWithStyle("table", style, w)
 		var keys []string
@@ -141,7 +153,10 @@ func toHtml(v value.Value, w *xmlWriter.XMLWriter, style string, maxListSize int
 			w.Write(":")
 			w.Close()
 			v, _ := t.Get(k)
-			toTD(v, w, maxListSize)
+			err := toTD(v, w, maxListSize)
+			if err != nil {
+				return err
+			}
 			w.Close()
 		}
 		w.Close()
@@ -149,9 +164,14 @@ func toHtml(v value.Value, w *xmlWriter.XMLWriter, style string, maxListSize int
 		if v == nil {
 			w.Write("nil")
 		} else {
-			writeHtmlString(v.String(), style, w)
+			s, err := v.String()
+			if err != nil {
+				return err
+			}
+			writeHtmlString(s, style, w)
 		}
 	}
+	return nil
 }
 
 func writeHtmlString(s string, style string, w *xmlWriter.XMLWriter) {
@@ -174,22 +194,31 @@ func writeHtmlString(s string, style string, w *xmlWriter.XMLWriter) {
 	}
 }
 
-func listToHtml(it iterator.Iterator[value.Value], w *xmlWriter.XMLWriter, style string, maxListSize int) {
+func listToHtml(it iterator.Iterator[value.Value], w *xmlWriter.XMLWriter, style string, maxListSize int) error {
 	openWithStyle("table", style, w)
 	i := 0
-	it(func(e value.Value) bool {
+	var innerErr error
+	_, err := it(func(e value.Value) bool {
 		i++
 		w.Open("tr")
 		w.Open("td").Write(strconv.Itoa(i)).Write(".").Close()
 		if i <= maxListSize {
-			toTD(e, w, maxListSize)
+			err := toTD(e, w, maxListSize)
+			if err != nil {
+				innerErr = err
+				return false
+			}
 		} else {
 			w.Open("td").Write("more...").Close()
 		}
 		w.Close()
 		return i <= maxListSize
 	})
+	if innerErr != nil {
+		return innerErr
+	}
 	w.Close()
+	return err
 }
 
 func openWithStyle(tag string, style string, w *xmlWriter.XMLWriter) {
@@ -200,48 +229,68 @@ func openWithStyle(tag string, style string, w *xmlWriter.XMLWriter) {
 	}
 }
 
-func tableToHtml(it iterator.Iterator[value.Value], w *xmlWriter.XMLWriter, style string, maxListSize int) {
+func tableToHtml(it iterator.Iterator[value.Value], w *xmlWriter.XMLWriter, style string, maxListSize int) error {
 	openWithStyle("table", style, w)
 	i := 0
-	it(func(v value.Value) bool {
+	var outerErr error
+	_, err := it(func(v value.Value) bool {
 		i++
 		w.Open("tr")
 		if i <= maxListSize {
 			j := 0
-			toList(v).Iterator()(func(c value.Value) bool {
+			var innerErr error
+			_, err := toList(v).Iterator()(func(c value.Value) bool {
 				j++
 				if j <= maxListSize {
-					toTD(c, w, maxListSize)
+					err := toTD(c, w, maxListSize)
+					if err != nil {
+						innerErr = err
+						return false
+					}
 				} else {
 					w.Open("td").Write("more...").Close()
 				}
 				return j <= maxListSize
 			})
+			if innerErr != nil {
+				outerErr = innerErr
+				return false
+			}
+			if err != nil {
+				outerErr = err
+				return false
+			}
 		} else {
 			w.Open("td").Write("more...").Close()
 		}
 		w.Close()
 		return i <= maxListSize
 	})
+	if outerErr != nil {
+		return outerErr
+	}
 	w.Close()
+	return err
 }
 
-func toTD(d value.Value, w *xmlWriter.XMLWriter, maxListSize int) {
+func toTD(d value.Value, w *xmlWriter.XMLWriter, maxListSize int) error {
+	var err error
 	if formatted, ok := d.(Format); ok {
 		if _, isList := formatted.Value.(*value.List); isList && !formatted.Cell {
 			w.Open("td")
-			toHtml(formatted.Value, w, formatted.Format, maxListSize)
+			err = toHtml(formatted.Value, w, formatted.Format, maxListSize)
 			w.Close()
 		} else {
 			w.Open("td").Attr("style", formatted.Format)
-			toHtml(formatted.Value, w, "", maxListSize)
+			err = toHtml(formatted.Value, w, "", maxListSize)
 			w.Close()
 		}
 	} else {
 		w.Open("td")
-		toHtml(d, w, "", maxListSize)
+		err = toHtml(d, w, "", maxListSize)
 		w.Close()
 	}
+	return err
 }
 
 func toList(r value.Value) *value.List {
