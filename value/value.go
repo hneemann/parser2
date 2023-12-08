@@ -18,7 +18,7 @@ type Value interface {
 	ToMap() (Map, bool)
 	ToInt() (int, bool)
 	ToFloat() (float64, bool)
-	String() (string, error)
+	ToString() (string, error)
 	ToBool() (bool, bool)
 	ToClosure() (funcGen.Function[Value], bool)
 	GetMethod(name string) (funcGen.Function[Value], error)
@@ -79,7 +79,7 @@ func (n nilType) ToFloat() (float64, bool) {
 	return 0, false
 }
 
-func (n nilType) String() (string, error) {
+func (n nilType) ToString() (string, error) {
 	return "nil", nil
 }
 
@@ -113,7 +113,7 @@ func (c Closure) ToFloat() (float64, bool) {
 	return 0, false
 }
 
-func (c Closure) String() (string, error) {
+func (c Closure) ToString() (string, error) {
 	return "", errors.New("a function has no string representation")
 }
 
@@ -152,7 +152,7 @@ func (b Bool) ToFloat() (float64, bool) {
 	return 0, false
 }
 
-func (b Bool) String() (string, error) {
+func (b Bool) ToString() (string, error) {
 	if b {
 		return "true", nil
 	}
@@ -165,7 +165,7 @@ func (b Bool) ToClosure() (funcGen.Function[Value], bool) {
 
 var BoolMethods = MethodMap{
 	"string": MethodAtType(0, func(b Bool, stack funcGen.Stack[Value]) (Value, error) {
-		s, err := b.String()
+		s, err := b.ToString()
 		return String(s), err
 	}).
 		SetMethodDescription("Returns the string 'true' or 'false'."),
@@ -189,7 +189,7 @@ func (f Float) ToMap() (Map, bool) {
 	return Map{}, false
 }
 
-func (f Float) String() (string, error) {
+func (f Float) ToString() (string, error) {
 	return strconv.FormatFloat(float64(f), 'g', -1, 64), nil
 }
 
@@ -199,7 +199,7 @@ func (f Float) ToClosure() (funcGen.Function[Value], bool) {
 
 var FloatMethods = MethodMap{
 	"string": MethodAtType(0, func(f Float, stack funcGen.Stack[Value]) (Value, error) {
-		s, err := f.String()
+		s, err := f.ToString()
 		return String(s), err
 	}).
 		SetMethodDescription("Returns a string representation of the float."),
@@ -234,7 +234,7 @@ func (i Int) ToMap() (Map, bool) {
 	return Map{}, false
 }
 
-func (i Int) String() (string, error) {
+func (i Int) ToString() (string, error) {
 	return strconv.Itoa(int(i)), nil
 }
 
@@ -244,7 +244,7 @@ func (i Int) ToClosure() (funcGen.Function[Value], bool) {
 
 var IntMethods = MethodMap{
 	"string": MethodAtType(0, func(i Int, stack funcGen.Stack[Value]) (Value, error) {
-		s, err := i.String()
+		s, err := i.ToString()
 		return String(s), err
 	}).
 		SetMethodDescription("Returns a string representation of the int."),
@@ -502,7 +502,7 @@ func New() *funcGen.FunctionGenerator[Value] {
 		AddUnary("!", func(a Value) (Value, error) { return Not(a) }).
 		AddStaticFunction("string", funcGen.Function[Value]{
 			Func: func(st funcGen.Stack[Value], cs []Value) (Value, error) {
-				s, err := st.Get(0).String()
+				s, err := st.Get(0).ToString()
 				return String(s), err
 			},
 			Args:   1,

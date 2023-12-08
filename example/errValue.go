@@ -28,12 +28,12 @@ func (e ErrValue) ToFloat() (float64, bool) {
 	return e.val, true
 }
 
-func (e ErrValue) String() (string, error) {
-	va, err := value.Float(e.val).String()
+func (e ErrValue) ToString() (string, error) {
+	va, err := value.Float(e.val).ToString()
 	if err != nil {
 		return "", err
 	}
-	er, err := value.Float(e.err).String()
+	er, err := value.Float(e.err).ToString()
 	if err != nil {
 		return "", err
 	}
@@ -58,7 +58,7 @@ var ErrValueMethods = value.MethodMap{
 	}).
 		SetMethodDescription("Returns the error of the error value"),
 	"string": value.MethodAtType(0, func(ev ErrValue, stack funcGen.Stack[value.Value]) (value.Value, error) {
-		s, err := ev.String()
+		s, err := ev.ToString()
 		return value.String(s), err
 	}).
 		SetMethodDescription("Returns the string representation of the error value"),
@@ -82,7 +82,7 @@ func errOperation(name string,
 				if bf, ok := b.ToFloat(); ok {
 					return f(ae, ErrValue{val: bf})
 				} else {
-					panic(fmt.Errorf("%s operation not allowed with %v and %v ", name, a, b))
+					return nil, fmt.Errorf("%s operation not allowed with %v and %v ", name, a, b)
 				}
 			}
 		} else {
@@ -91,7 +91,7 @@ func errOperation(name string,
 				if af, ok := a.ToFloat(); ok {
 					return f(ErrValue{val: af}, be)
 				} else {
-					panic(fmt.Errorf("%s operation not allowed with %v and %v ", name, a, b))
+					return nil, fmt.Errorf("%s operation not allowed with %v and %v ", name, a, b)
 				}
 			} else {
 				// no error value at all

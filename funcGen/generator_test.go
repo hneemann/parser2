@@ -218,7 +218,7 @@ func TestFunctionDescription_String(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			var b bytes.Buffer
 			tt.fu.Description.WriteTo(&b, tt.name)
-			assert.Equalf(t, tt.want, b.String(), "String(%v)", tt.name)
+			assert.Equalf(t, tt.want, b.String(), "ToString(%v)", tt.name)
 		})
 	}
 }

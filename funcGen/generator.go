@@ -953,7 +953,7 @@ func (g *FunctionGenerator[V]) GenerateFunc(ast parser2.AST, gc GeneratorContext
 			if g.methodHandler != nil {
 				me, err := g.methodHandler.GetMethod(value, name)
 				if err != nil {
-					panic(a.EnhanceErrorf(err, "error accessing method %s", name))
+					return zero, a.EnhanceErrorf(err, "error accessing method %s", name)
 				}
 				if me.Args > 0 && me.Args != len(argsFuncList)+1 {
 					return zero, a.Errorf("wrong number of arguments at call of %s, required %d, found %d", name, me.Args-1, len(argsFuncList))

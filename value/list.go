@@ -68,7 +68,7 @@ func (l *List) ToFloat() (float64, bool) {
 	return 0, false
 }
 
-func (l *List) String() (string, error) {
+func (l *List) ToString() (string, error) {
 	var b bytes.Buffer
 	b.WriteString("[")
 	first := true
@@ -79,7 +79,7 @@ func (l *List) String() (string, error) {
 		} else {
 			b.WriteString(", ")
 		}
-		s, err := v.String()
+		s, err := v.ToString()
 		if err != nil {
 			innerErr = err
 			return false
@@ -842,7 +842,7 @@ func (l *List) GroupByString(st funcGen.Stack[Value]) (*List, error) {
 		if err != nil {
 			return nil, err
 		}
-		s, err := key.String()
+		s, err := key.ToString()
 		return String(s), err
 	})
 }
@@ -909,7 +909,7 @@ func (l *List) UniqueString(st funcGen.Stack[Value]) (*List, error) {
 		if err != nil {
 			return nil, err
 		}
-		s, err := key.String()
+		s, err := key.ToString()
 		return String(s), err
 	})
 }
@@ -1189,7 +1189,7 @@ var ListMethods = MethodMap{
 	"eval": MethodAtType(0, func(list *List, stack funcGen.Stack[Value]) (Value, error) { return list, list.Eval() }).
 		SetMethodDescription("Evaluates the list and stores all items in memory."),
 	"string": MethodAtType(0, func(list *List, stack funcGen.Stack[Value]) (Value, error) {
-		s, err := list.String()
+		s, err := list.ToString()
 		return String(s), err
 	}).
 		SetMethodDescription("Returns the list as a string."),

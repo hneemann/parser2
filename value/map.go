@@ -62,7 +62,7 @@ func (v Map) ToFloat() (float64, bool) {
 	return 0, false
 }
 
-func (v Map) String() (string, error) {
+func (v Map) ToString() (string, error) {
 	var b bytes.Buffer
 	b.WriteString("{")
 	first := true
@@ -75,7 +75,7 @@ func (v Map) String() (string, error) {
 		}
 		b.WriteString(key)
 		b.WriteString(":")
-		s, err := v.String()
+		s, err := v.ToString()
 		if err != nil {
 			innerErr = err
 			return false
@@ -291,7 +291,7 @@ var MapMethods = MethodMap{
 	"size": MethodAtType(0, func(m Map, stack funcGen.Stack[Value]) (Value, error) { return Int(m.Size()), nil }).
 		SetMethodDescription("Returns the number of entries in the map."),
 	"string": MethodAtType(0, func(m Map, stack funcGen.Stack[Value]) (Value, error) {
-		s, err := m.String()
+		s, err := m.ToString()
 		return String(s), err
 	}).
 		SetMethodDescription("Returns a string representation of the map."),

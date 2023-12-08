@@ -73,8 +73,8 @@ func (f Format) ToFloat() (float64, bool) {
 	return f.Value.ToFloat()
 }
 
-func (f Format) String() (string, error) {
-	return f.Value.String()
+func (f Format) ToString() (string, error) {
+	return f.Value.ToString()
 }
 
 func (f Format) ToBool() (bool, bool) {
@@ -106,7 +106,7 @@ func (f Format) GetMethod(name string) (funcGen.Function[value.Value], error) {
 
 // ToHtml creates an HTML representation of a value
 // Lists and maps are converted to a html table.
-// Everything else is converted to a string by calling the String() method.
+// Everything else is converted to a string by calling the ToString() method.
 func ToHtml(v value.Value, maxListSize int) (res template.HTML, err error) {
 	defer func() {
 		if rec := recover(); rec != nil {
@@ -164,7 +164,7 @@ func toHtml(v value.Value, w *xmlWriter.XMLWriter, style string, maxListSize int
 		if v == nil {
 			w.Write("nil")
 		} else {
-			s, err := v.String()
+			s, err := v.ToString()
 			if err != nil {
 				return err
 			}

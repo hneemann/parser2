@@ -35,7 +35,7 @@ func (s String) ToClosure() (funcGen.Function[Value], bool) {
 	return funcGen.Function[Value]{}, false
 }
 
-func (s String) String() (string, error) {
+func (s String) ToString() (string, error) {
 	return string(s), nil
 }
 
