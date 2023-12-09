@@ -1,4 +1,4 @@
-package html
+package export
 
 import (
 	"github.com/hneemann/parser2/funcGen"
@@ -38,7 +38,7 @@ func TestToHtml(t *testing.T) {
 	for _, tt := range tests {
 		test := tt
 		t.Run(tt.name, func(t *testing.T) {
-			h, err := ToHtml(test.value, test.maxListSize)
+			h, err := ToHtml(test.value, test.maxListSize, nil)
 			assert.NoError(t, err)
 			assert.Equal(t, test.html, string(h))
 		})

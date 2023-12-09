@@ -2,6 +2,7 @@ package xmlWriter
 
 import (
 	"bytes"
+	"html/template"
 	"log"
 )
 
@@ -83,6 +84,12 @@ func (w *XMLWriter) Write(s string) *XMLWriter {
 	return w
 }
 
+func (w *XMLWriter) WriteHTML(s template.HTML) *XMLWriter {
+	w.checkOpenTag()
+	w.b.WriteString(string(s))
+	return w
+}
+
 func (w *XMLWriter) writeEsc(s string) {
 	for _, r := range s {
 		switch r {
@@ -120,6 +127,10 @@ func (w *XMLWriter) newLine() {
 
 func (w *XMLWriter) String() string {
 	return w.b.String()
+}
+
+func (w *XMLWriter) Bytes() []byte {
+	return w.b.Bytes()
 }
 
 func (w *XMLWriter) checkOpenTag() {

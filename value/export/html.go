@@ -1,6 +1,4 @@
-// Package html is used to create an HTML representation of a value
-// It's ToHtml function returns a sanitized html string.
-package html
+package export
 
 import (
 	"errors"
@@ -8,7 +6,7 @@ import (
 	"github.com/hneemann/parser2"
 	"github.com/hneemann/parser2/funcGen"
 	"github.com/hneemann/parser2/value"
-	"github.com/hneemann/parser2/value/html/xmlWriter"
+	"github.com/hneemann/parser2/value/export/xmlWriter"
 	"html/template"
 	"sort"
 	"strconv"
@@ -104,10 +102,12 @@ func (f Format) GetMethod(name string) (funcGen.Function[value.Value], error) {
 	}, nil
 }
 
+type CustomHTML func(value.Value) (template.HTML, bool, error)
+
 // ToHtml creates an HTML representation of a value
 // Lists and maps are converted to a html table.
 // Everything else is converted to a string by calling the ToString() method.
-func ToHtml(v value.Value, maxListSize int) (res template.HTML, err error) {
+func ToHtml(v value.Value, maxListSize int, custom CustomHTML) (res template.HTML, err error) {
 	defer func() {
 		if rec := recover(); rec != nil {
 			err = parser2.AnyToError(rec)
@@ -117,29 +117,45 @@ func ToHtml(v value.Value, maxListSize int) (res template.HTML, err error) {
 	if maxListSize < 1 {
 		maxListSize = 1
 	}
-	w := xmlWriter.New()
-	err = toHtml(v, w, "", maxListSize)
+	w := xmlWriter.New().AvoidShort()
+	ex := htmlExporter{w: w, maxListSize: maxListSize, custom: custom}
+	err = ex.toHtml(v, "")
 	if err != nil {
 		return "", err
 	}
 	return template.HTML(w.String()), nil
 }
 
-func toHtml(v value.Value, w *xmlWriter.XMLWriter, style string, maxListSize int) error {
+type htmlExporter struct {
+	w           *xmlWriter.XMLWriter
+	maxListSize int
+	custom      CustomHTML
+}
+
+func (ex *htmlExporter) toHtml(v value.Value, style string) error {
+	if ex.custom != nil {
+		if htm, ok, err := ex.custom(v); ok || err != nil {
+			if err != nil {
+				return err
+			}
+			ex.w.WriteHTML(htm)
+			return nil
+		}
+	}
 	switch t := v.(type) {
 	case Format:
-		return toHtml(t.Value, w, t.Format, maxListSize)
+		return ex.toHtml(t.Value, t.Format)
 	case *value.List:
 		pit, f, err := iterator.Peek(t.Iterator())
 		if err != nil {
 			return err
 		}
 		if _, ok := f.(*value.List); ok {
-			return tableToHtml(pit, w, style, maxListSize)
+			return ex.tableToHtml(pit, style)
 		}
-		return listToHtml(pit, w, style, maxListSize)
+		return ex.listToHtml(pit, style)
 	case value.Map:
-		openWithStyle("table", style, w)
+		ex.openWithStyle("table", style)
 		var keys []string
 		t.Iter(func(k string, v value.Value) bool {
 			keys = append(keys, k)
@@ -147,110 +163,110 @@ func toHtml(v value.Value, w *xmlWriter.XMLWriter, style string, maxListSize int
 		})
 		sort.Strings(keys)
 		for _, k := range keys {
-			w.Open("tr")
-			w.Open("td")
-			w.Write(k)
-			w.Write(":")
-			w.Close()
+			ex.w.Open("tr")
+			ex.w.Open("td")
+			ex.w.Write(k)
+			ex.w.Write(":")
+			ex.w.Close()
 			v, _ := t.Get(k)
-			err := toTD(v, w, maxListSize)
+			err := ex.toTD(v)
 			if err != nil {
 				return err
 			}
-			w.Close()
+			ex.w.Close()
 		}
-		w.Close()
+		ex.w.Close()
 	default:
 		if v == nil {
-			w.Write("nil")
+			ex.w.Write("nil")
 		} else {
 			s, err := v.ToString()
 			if err != nil {
 				return err
 			}
-			writeHtmlString(s, style, w)
+			ex.writeHtmlString(s, style)
 		}
 	}
 	return nil
 }
 
-func writeHtmlString(s string, style string, w *xmlWriter.XMLWriter) {
+func (ex *htmlExporter) writeHtmlString(s string, style string) {
 	if strings.HasPrefix(s, "http://") || strings.HasPrefix(s, "https://") {
-		w.Open("a").Attr("href", s).Attr("target", "_blank")
-		w.Write("Link")
-		w.Close()
+		ex.w.Open("a").Attr("href", s).Attr("target", "_blank")
+		ex.w.Write("Link")
+		ex.w.Close()
 	} else if strings.HasPrefix(s, "host:") {
-		w.Open("a").Attr("href", s[5:]).Attr("target", "_blank")
-		w.Write("Link")
-		w.Close()
+		ex.w.Open("a").Attr("href", s[5:]).Attr("target", "_blank")
+		ex.w.Write("Link")
+		ex.w.Close()
 	} else {
 		if style == "" {
-			w.Write(s)
+			ex.w.Write(s)
 		} else {
-			w.Open("span").Attr("style", style)
-			w.Write(s)
-			w.Close()
+			ex.w.Open("span").Attr("style", style)
+			ex.w.Write(s)
+			ex.w.Close()
 		}
 	}
 }
 
-func listToHtml(it iterator.Iterator[value.Value], w *xmlWriter.XMLWriter, style string, maxListSize int) error {
-	openWithStyle("table", style, w)
+func (ex *htmlExporter) listToHtml(it iterator.Iterator[value.Value], style string) error {
+	ex.openWithStyle("table", style)
 	i := 0
 	var innerErr error
 	_, err := it(func(e value.Value) bool {
 		i++
-		w.Open("tr")
-		w.Open("td").Write(strconv.Itoa(i)).Write(".").Close()
-		if i <= maxListSize {
-			err := toTD(e, w, maxListSize)
+		ex.w.Open("tr")
+		ex.w.Open("td").Write(strconv.Itoa(i)).Write(".").Close()
+		if i <= ex.maxListSize {
+			err := ex.toTD(e)
 			if err != nil {
 				innerErr = err
 				return false
 			}
 		} else {
-			w.Open("td").Write("more...").Close()
+			ex.w.Open("td").Write("more...").Close()
 		}
-		w.Close()
-		return i <= maxListSize
+		ex.w.Close()
+		return i <= ex.maxListSize
 	})
 	if innerErr != nil {
 		return innerErr
 	}
-	w.Close()
+	ex.w.Close()
 	return err
 }
 
-func openWithStyle(tag string, style string, w *xmlWriter.XMLWriter) {
+func (ex *htmlExporter) openWithStyle(tag string, style string) {
 	if style == "" {
-		w.Open(tag)
+		ex.w.Open(tag)
 	} else {
-		w.Open(tag).Attr("style", style)
+		ex.w.Open(tag).Attr("style", style)
 	}
 }
 
-func tableToHtml(it iterator.Iterator[value.Value], w *xmlWriter.XMLWriter, style string, maxListSize int) error {
-	openWithStyle("table", style, w)
+func (ex *htmlExporter) tableToHtml(it iterator.Iterator[value.Value], style string) error {
+	ex.openWithStyle("table", style)
 	i := 0
 	var outerErr error
 	_, err := it(func(v value.Value) bool {
 		i++
-		w.Open("tr")
-		if i <= maxListSize {
+		ex.w.Open("tr")
+		if i <= ex.maxListSize {
 			j := 0
 			var innerErr error
 			_, err := toList(v).Iterator()(func(c value.Value) bool {
 				j++
-				if j <= maxListSize {
-					err := toTD(c, w, maxListSize)
+				if j <= ex.maxListSize {
+					err := ex.toTD(c)
 					if err != nil {
 						innerErr = err
 						return false
 					}
 				} else {
-					w.Open("td").Write("more...").Close()
+					ex.w.Open("td").Write("more...").Close()
 				}
-				return j <= maxListSize
+				return j <= ex.maxListSize
 			})
 			if innerErr != nil {
 				outerErr = innerErr
@@ -261,34 +277,34 @@ func tableToHtml(it iterator.Iterator[value.Value], w *xmlWriter.XMLWriter, styl
 				return false
 			}
 		} else {
-			w.Open("td").Write("more...").Close()
+			ex.w.Open("td").Write("more...").Close()
 		}
-		w.Close()
-		return i <= maxListSize
+		ex.w.Close()
+		return i <= ex.maxListSize
 	})
 	if outerErr != nil {
 		return outerErr
 	}
-	w.Close()
+	ex.w.Close()
 	return err
 }
 
-func toTD(d value.Value, w *xmlWriter.XMLWriter, maxListSize int) error {
+func (ex *htmlExporter) toTD(d value.Value) error {
 	var err error
 	if formatted, ok := d.(Format); ok {
 		if _, isList := formatted.Value.(*value.List); isList && !formatted.Cell {
-			w.Open("td")
-			err = toHtml(formatted.Value, w, formatted.Format, maxListSize)
-			w.Close()
+			ex.w.Open("td")
+			err = ex.toHtml(formatted.Value, formatted.Format)
+			ex.w.Close()
 		} else {
-			w.Open("td").Attr("style", formatted.Format)
-			err = toHtml(formatted.Value, w, "", maxListSize)
-			w.Close()
+			ex.w.Open("td").Attr("style", formatted.Format)
+			err = ex.toHtml(formatted.Value, "")
+			ex.w.Close()
 		}
 	} else {
-		w.Open("td")
-		err = toHtml(d, w, "", maxListSize)
-		w.Close()
+		ex.w.Open("td")
+		err = ex.toHtml(d, "")
+		ex.w.Close()
 	}
 	return err
 }
