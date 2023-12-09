@@ -266,6 +266,11 @@ func (a AppendMap) Size() int {
 
 func (v Map) PutM(stack funcGen.Stack[Value]) (Map, error) {
 	if key, ok := stack.Get(1).(String); ok {
+
+		if _, ok := v.Get(string(key)); ok {
+			return Map{}, fmt.Errorf("key %v already present in map", key)
+		}
+
 		val := stack.Get(2)
 		return Map{AppendMap{key: string(key), value: val, parent: v.m}}, nil
 	}

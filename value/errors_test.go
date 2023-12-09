@@ -28,8 +28,7 @@ func TestErrors(t *testing.T) {
 		{"list(10).map(e->e.e).multiUse({a:l->l.reduce((a,b)->a+b)})", "not a map"},
 		{"list(10).multiUse({a:l->l.mapReduce(0,(s,i)->s+i), b:l->l.notFound(i->i+1)})", "notFound"},
 		{"list(10).multiUse({a:l->l.notFound(0,(s,i)->s+i), b:l->l.notFound(i->i+1)})", "notFound"},
-		{"{a:1,b:2}.append(\"b\", 3)", "key b already present in map"},
-		{"{a:1,b:2}+{c:1,b:2}", "key b already present in first map"},
+		{"{a:1,b:2}.put(\"b\", 3)", "key b already present in map"},
 	}
 
 	fg := SetUpParser(New())

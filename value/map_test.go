@@ -17,7 +17,6 @@ func TestMap(t *testing.T) {
 		{exp: "{a:1,b:2,c:3}={a:1,b:2,c:3}", res: Bool(true)},
 		{exp: "{a:1,b:2,c:3}={a:1,b:2,c:4}", res: Bool(false)},
 		{exp: "{a:1,b:2,c:3}={a:1,b:2,d:3}", res: Bool(false)},
-		{exp: "({a:1,b:2}+{c:3,d:4}).string()", res: String("{a:1, b:2, c:3, d:4}")},
 		{exp: "{a:1,b:2,c:3}.map((k,v)->v*v)", res: NewMap(listMap.New[Value](3).
 			Append("a", Int(1)).
 			Append("b", Int(4)).
@@ -46,11 +45,11 @@ func TestMap(t *testing.T) {
 		{exp: "\"a\" ~ {a:1,b:2}", res: Bool(true)},
 		{exp: "\"c\" ~ {a:1,b:2}", res: Bool(false)},
 		{exp: "{a:1,b:2}.get(\"a\")", res: Int(1)},
-		{exp: "\"\"+{a:1,b:2}.append(\"c\",3)", res: String("{c:3, a:1, b:2}")},
-		{exp: "{a:1,b:2}.append(\"c\",3).string()", res: String("{c:3, a:1, b:2}")},
-		{exp: "{a:1,b:2}.append(\"c\",3).c", res: Int(3)},
-		{exp: "{a:1,b:2}.append(\"c\",3).b", res: Int(2)},
-		{exp: "{a:1,b:2}.append(\"c\",3).size()", res: Int(3)},
+		{exp: "\"\"+{a:1,b:2}.put(\"c\",3)", res: String("{c:3, a:1, b:2}")},
+		{exp: "{a:1,b:2}.put(\"c\",3).string()", res: String("{c:3, a:1, b:2}")},
+		{exp: "{a:1,b:2}.put(\"c\",3).c", res: Int(3)},
+		{exp: "{a:1,b:2}.put(\"c\",3).b", res: Int(2)},
+		{exp: "{a:1,b:2}.put(\"c\",3).size()", res: Int(3)},
 	})
 }
 

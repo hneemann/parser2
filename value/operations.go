@@ -124,11 +124,6 @@ func Add(a, b Value) (Value, error) {
 			return NewListFromIterable(iterator.Append(aa.iterable, bb.iterable)), nil
 		}
 	}
-	if aa, ok := a.(Map); ok {
-		if bb, ok := b.(Map); ok {
-			return MergeMaps(aa, bb)
-		}
-	}
 	if aa, ok := a.ToFloat(); ok {
 		if bb, ok := b.ToFloat(); ok {
 			return Float(aa + bb), nil
