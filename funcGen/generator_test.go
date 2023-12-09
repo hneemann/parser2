@@ -54,9 +54,9 @@ func (th typeHandler) ToClosure(fu Value) (Function[Value], bool) {
 
 func NewGen() *FunctionGenerator[Value] {
 	return New[Value]().
-		AddOp("+", true, func(a Value, b Value) Value { return Float(a.Float() + b.Float()) }).
-		AddOp("*", true, func(a Value, b Value) Value { return Float(a.Float() * b.Float()) }).
-		AddUnary("-", func(a Value) Value { return Float(-a.Float()) }).
+		AddOp("+", true, func(a Value, b Value) (Value, error) { return Float(a.Float() + b.Float()), nil }).
+		AddOp("*", true, func(a Value, b Value) (Value, error) { return Float(a.Float() * b.Float()), nil }).
+		AddUnary("-", func(a Value) (Value, error) { return Float(-a.Float()), nil }).
 		SetToBool(func(c Value) (bool, bool) { return c.Float() != 0, true }).
 		SetClosureHandler(th).
 		SetNumberParser(
@@ -218,7 +218,7 @@ func TestFunctionDescription_String(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			var b bytes.Buffer
 			tt.fu.Description.WriteTo(&b, tt.name)
-			assert.Equalf(t, tt.want, b.String(), "String(%v)", tt.name)
+			assert.Equalf(t, tt.want, b.String(), "ToString(%v)", tt.name)
 		})
 	}
 }

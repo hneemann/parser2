@@ -21,23 +21,35 @@ func (o optimizer[V]) Optimize(ast parser2.AST) (parser2.AST, error) {
 			if bc, ok := o.isConst(oper.B); ok {
 				if operator.IsPure {
 					if ac, ok := o.isConst(oper.A); ok {
-						return &parser2.Const[V]{operator.Impl(ac, bc), oper.Line}, nil
+						co, err := operator.Impl(ac, bc)
+						if err != nil {
+							return nil, fmt.Errorf("error in const operation: %s", operator.Operator)
+						}
+						return &parser2.Const[V]{co, oper.Line}, nil
 					}
 				}
 				if operator.IsCommutative {
 					if aOp, ok := oper.A.(*parser2.Operate); ok && aOp.Operator == oper.Operator {
 						if iac, ok := o.isConst(aOp.A); ok {
+							co, err := operator.Impl(iac, bc)
+							if err != nil {
+								return nil, fmt.Errorf("error in const operation: %s", operator.Operator)
+							}
 							return &parser2.Operate{
 								Operator: oper.Operator,
-								A:        &parser2.Const[V]{operator.Impl(iac, bc), oper.Line},
+								A:        &parser2.Const[V]{co, oper.Line},
 								B:        aOp.B,
 							}, nil
 						}
 						if ibc, ok := o.isConst(aOp.B); ok {
+							co, err := operator.Impl(ibc, bc)
+							if err != nil {
+								return nil, fmt.Errorf("error in const operation: %s", operator.Operator)
+							}
 							return &parser2.Operate{
 								Operator: oper.Operator,
 								A:        aOp.A,
-								B:        &parser2.Const[V]{operator.Impl(ibc, bc), oper.Line},
+								B:        &parser2.Const[V]{co, oper.Line},
 							}, nil
 						}
 					}
@@ -50,7 +62,11 @@ func (o optimizer[V]) Optimize(ast parser2.AST) (parser2.AST, error) {
 	if oper, ok := ast.(*parser2.Unary); ok {
 		if operator, ok := o.g.uMap[oper.Operator]; ok {
 			if c, ok := o.isConst(oper.Value); ok {
-				return &parser2.Const[V]{operator.Impl(c), oper.Line}, nil
+				co, err := operator.Impl(c)
+				if err != nil {
+					return nil, fmt.Errorf("error in const unary operation: %s", operator.Operator)
+				}
+				return &parser2.Const[V]{co, oper.Line}, nil
 			}
 		}
 	}
@@ -101,7 +117,11 @@ func (o optimizer[V]) Optimize(ast parser2.AST) (parser2.AST, error) {
 					return nil, fmt.Errorf("number of args wrong in: %v", fc)
 				}
 				if c, ok := o.allConst(fc.Args); ok {
-					return &parser2.Const[V]{fu.Func(NewStack[V](c...), nil), ident.Line}, nil
+					v, err := fu.Func(NewStack[V](c...), nil)
+					if err != nil {
+						return nil, fmt.Errorf("error in const function call: %s", ident)
+					}
+					return &parser2.Const[V]{v, ident.Line}, nil
 				}
 			}
 		}

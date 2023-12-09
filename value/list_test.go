@@ -51,6 +51,7 @@ func TestList(t *testing.T) {
 		{exp: realIir, res: Float(0.707192)},
 		{exp: realIirBuiltin, res: Float(0.707192)},
 		{exp: realIirApply, res: Float(0.707192)},
+		{exp: manualIirApply, res: Float(0.707192)},
 		{exp: "list(6).combine((a,b)->a+b)", res: NewList(Int(1), Int(3), Int(5), Int(7), Int(9))},
 		{exp: "list(6).combine3((a,b,c)->a+b+c)", res: NewList(Int(3), Int(6), Int(9), Int(12))},
 		{exp: "list(6).combineN(3,l->l[0]+l[1]+l[2])", res: NewList(Int(3), Int(6), Int(9), Int(12))},
@@ -151,6 +152,25 @@ let minMax=filtered.skip(100).minMax(p->p.f);
 (minMax.max-minMax.min)/2
 `
 
+const manualIirApply = `
+let data=list(1000).map(i->
+	let t=i/50;
+	{t:t, s:sin(2*pi*t)});
+
+func CLP(name, getT, getX, tau)
+   {initial:
+      p->p.put(name,getX(p)),
+    filter: 
+ 	  (p0,p1,y)->
+		let a = exp((getT(p0) - getT(p1)) / tau);
+		p1.put(name, y.get(name)*a + getX(p1)*(1-a))};
+
+let filtered=data.iirApply(CLP("f",p->p.t,p->p.s,1/(2*pi)));
+
+let minMax=filtered.skip(100).minMax(p->p.f);
+(minMax.max-minMax.min)/2
+`
+
 const visitAndCollect = `
   let data=list(100).map(i->if i%10=9 then i else 0);
   
@@ -221,7 +241,8 @@ func TestNewListCreate(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := NewListConvert(tt.conv, tt.items...).ToSlice()
+			got, err := NewListConvert(tt.conv, tt.items...).ToSlice()
+			assert.NoError(t, err)
 			assert.Equalf(t, tt.want, got, "NewListConvert, %v vs. %v", tt.want, got)
 		})
 	}

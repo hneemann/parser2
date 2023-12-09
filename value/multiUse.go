@@ -19,29 +19,38 @@ const startTimeout = 2 // seconds
 // have to use the same list multiple times and the list is both expensive to
 // create and expensive to store. This is because MultiUse allows you to use the
 // list multiple times without having to store the list elements for later reuse.
-func (l *List) MultiUse(st funcGen.Stack[Value]) Map {
+func (l *List) MultiUse(st funcGen.Stack[Value]) (Map, error) {
 	if m, ok := st.Get(1).ToMap(); ok {
 		var muList multiUseList
+		var innerErr error
 		m.Iter(func(key string, value Value) bool {
 			if f, ok := value.ToClosure(); ok {
 				if f.Args == 1 {
 					muList = append(muList, &multiUseEntry{name: key, fu: f.Func})
 				} else {
-					panic("map in multiUse needs to contain functions with one argument")
+					innerErr = errors.New("map in multiUse needs to contain functions with one argument")
+					return false
 				}
 			} else {
-				panic("map in multiUse need to contain functions")
+				innerErr = errors.New("map in multiUse need to contain functions")
+				return false
 			}
 			return true
 		})
+		if innerErr != nil {
+			return Map{}, innerErr
+		}
 
-		muList.runConsumerClosures()
+		err := muList.runConsumerClosures()
+		if err != nil {
+			return Map{}, err
+		}
 
 		errChan := muList.runProducer(l.Iterator())
 
 		return muList.createResult(errChan)
 	} else {
-		panic("first argument in multiUse needs to be a map")
+		return Map{}, errors.New("first argument in multiUse needs to be a map")
 	}
 }
 
@@ -59,25 +68,23 @@ type multiUseList []*multiUseEntry
 // createIterable creates an iterable based on the writer chanel. If the yield
 // function returns false, the requestClose channel is closed which will cause
 // the producer to stop sending values to this iterable.
-func (mu *multiUseEntry) createIterable(started chan<- struct{}) iterator.Iterable[Value] {
-	return func() iterator.Iterator[Value] {
+func (mu *multiUseEntry) createIterable(started chan<- string) iterator.Iterable[Value] {
+	return func(yield func(Value) bool) error {
 		if mu.writer != nil {
-			panic(fmt.Errorf("list passed to multiUse function %s can only be used once", mu.name))
+			return fmt.Errorf("list passed to multiUse function %s can only be used once", mu.name)
 		}
 		r := make(chan Value)
 		mu.writer = r
 		mu.requestClose = make(chan struct{})
-		started <- struct{}{}
-		return func(yield func(Value) bool) bool {
-			for v := range r {
-				if !yield(v) {
-					mu.stopWriter()
-					return false
-				}
+		started <- mu.name
+		for v := range r {
+			if !yield(v) {
+				mu.stopWriter()
+				return nil
 			}
-			mu.stopWriter()
-			return true
 		}
+		mu.stopWriter()
+		return nil
 	}
 }
 
@@ -97,7 +104,7 @@ type multiUseResult struct {
 // the closure panics, the panic is recovered and also sent to the result
 // channel. if the closure returns a list, the list is evaluated before it is
 // sent to the result channel.
-func (mu *multiUseEntry) runConsumer(started chan struct{}) {
+func (mu *multiUseEntry) runConsumer(started chan string) {
 	r := make(chan multiUseResult)
 	mu.result = r
 	go func() {
@@ -107,21 +114,32 @@ func (mu *multiUseEntry) runConsumer(started chan struct{}) {
 				// If start is not reported yet, do now. This happens if evaluation of function
 				// fails before the iterator has even started.
 				if mu.writer == nil {
-					started <- struct{}{}
+					started <- mu.name
 				}
 				// send error message to the result channel
-				r <- multiUseResult{result: nil, err: parser2.AnyToError(rec)}
+				r <- multiUseResult{err: parser2.AnyToError(rec)}
 			}
 			close(r)
 		}()
 		st := funcGen.NewEmptyStack[Value]()
 		st.Push(NewListFromIterable(mu.createIterable(started)))
-		value := mu.fu(st, nil)
+		value, err := mu.fu(st, nil)
+		if err != nil {
+			if mu.writer == nil {
+				started <- mu.name
+			}
+			r <- multiUseResult{err: err}
+			return
+		}
 		if list, ok := value.(*List); ok {
 			// Force evaluation of lists. Lazy evaluation is not possible here because it is
 			// not possible to iterate over a list at any time. Iteration is only possible
 			// synchronously with all iterators at the same time.
-			list.Eval()
+			err := list.Eval()
+			if err != nil {
+				r <- multiUseResult{err: err}
+				return
+			}
 		}
 		r <- multiUseResult{result: value, err: nil}
 	}()
@@ -132,7 +150,7 @@ func (mu *multiUseEntry) runConsumer(started chan struct{}) {
 // its requestClose channel which will cause this method to stop sending values to this
 // destination list. If all destination lists yield functions have returned
 // false, also the source iterator returns false, which stops the iteration.
-func (ml multiUseList) runProducer(i iterator.Iterator[Value]) <-chan error {
+func (ml multiUseList) runProducer(i iterator.Iterable[Value]) <-chan error {
 	errChan := make(chan error)
 	go func() {
 		defer func() {
@@ -145,7 +163,7 @@ func (ml multiUseList) runProducer(i iterator.Iterator[Value]) <-chan error {
 			// that the error sent above is actually received.
 		}()
 		running := len(ml)
-		i(func(v Value) bool {
+		err := i(func(v Value) bool {
 			for _, mu := range ml {
 				if mu.writer != nil {
 					select {
@@ -159,9 +177,13 @@ func (ml multiUseList) runProducer(i iterator.Iterator[Value]) <-chan error {
 			}
 			return running > 0
 		})
-		for _, mu := range ml {
-			if mu.writer != nil {
-				close(mu.writer)
+		if err != nil {
+			errChan <- err
+		} else {
+			for _, mu := range ml {
+				if mu.writer != nil {
+					close(mu.writer)
+				}
 			}
 		}
 	}()
@@ -171,8 +193,8 @@ func (ml multiUseList) runProducer(i iterator.Iterator[Value]) <-chan error {
 // runConsumerClosures runs all the consumer closures and waits for them to be
 // started. Started means that the closure has requested an iterator to iterate
 // over the list.
-func (ml multiUseList) runConsumerClosures() {
-	started := make(chan struct{})
+func (ml multiUseList) runConsumerClosures() error {
+	started := make(chan string)
 	for _, mu := range ml {
 		mu.runConsumer(started)
 	}
@@ -181,35 +203,32 @@ func (ml multiUseList) runConsumerClosures() {
 	for i := 0; i < len(ml); i++ {
 		select {
 		case <-time.After(startTimeout * time.Second):
-			panic(ml.timeOutError())
+			return ml.timeOutError()
 		case <-started:
 		}
 	}
+	return nil
 }
 
 // createResult creates the result map. If the source iterator panics, the panic
 // is rethrown. If one of the closures panics, the panic is recovered and also
 // rethrown. This method needs to be called in the main thread. It is the only
 // part that does not run in its own goroutine.
-func (ml multiUseList) createResult(errChan <-chan error) Map {
+func (ml multiUseList) createResult(errChan <-chan error) (Map, error) {
 	resultMap := listMap.New[Value](len(ml))
-	var reportedErr error
 	for _, mu := range ml {
 		select {
 		case result := <-mu.result:
 			if result.err != nil {
-				reportedErr = result.err
+				return Map{}, result.err
 			} else {
 				resultMap = resultMap.Append(mu.name, result.result)
 			}
 		case err := <-errChan:
-			panic(err)
+			return Map{}, err
 		}
 	}
-	if reportedErr != nil {
-		panic(reportedErr)
-	}
-	return NewMap(resultMap)
+	return NewMap(resultMap), nil
 }
 
 // timeOutError creates the error message if one of the closures does not request
