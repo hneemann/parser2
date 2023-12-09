@@ -162,8 +162,7 @@ func CLP(name, getT, getX, tau)
       p->p.put(name,getX(p)),
     filter: 
  	  (p0,p1,y)->
-		let dt = getT(p1) - getT(p0);
-		let a = exp(-dt / tau);
+		let a = exp((getT(p0) - getT(p1)) / tau);
 		p1.put(name, y.get(name)*a + getX(p1)*(1-a))};
 
 let filtered=data.iirApply(CLP("f",p->p.t,p->p.s,1/(2*pi)));
