@@ -194,13 +194,13 @@ func (v Map) Replace(st funcGen.Stack[Value]) (Value, error) {
 }
 
 func (v Map) List() *List {
-	return NewListFromIterable(func(yield func(Value) bool) (bool, error) {
+	return NewListFromIterable(func(yield func(Value) bool) error {
 		v.m.Iter(func(key string, v Value) bool {
 			return yield(NewMap(listMap.New[Value](2).
 				Append("key", String(key)).
 				Append("value", v)))
 		})
-		return true, nil
+		return nil
 	})
 }
 

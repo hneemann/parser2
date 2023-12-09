@@ -214,7 +214,7 @@ func (ex *htmlExporter) listToHtml(it iterator.Iterable[value.Value], style stri
 	ex.openWithStyle("table", style)
 	i := 0
 	var innerErr error
-	_, err := it(func(e value.Value) bool {
+	err := it(func(e value.Value) bool {
 		i++
 		ex.w.Open("tr")
 		ex.w.Open("td").Write(strconv.Itoa(i)).Write(".").Close()
@@ -249,13 +249,13 @@ func (ex *htmlExporter) tableToHtml(it iterator.Iterable[value.Value], style str
 	ex.openWithStyle("table", style)
 	i := 0
 	var outerErr error
-	_, err := it(func(v value.Value) bool {
+	err := it(func(v value.Value) bool {
 		i++
 		ex.w.Open("tr")
 		if i <= ex.maxListSize {
 			j := 0
 			var innerErr error
-			_, err := toList(v).Iterator()(func(c value.Value) bool {
+			err := toList(v).Iterator()(func(c value.Value) bool {
 				j++
 				if j <= ex.maxListSize {
 					err := ex.toTD(c)

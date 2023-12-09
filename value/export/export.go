@@ -42,7 +42,7 @@ func Export[V any](val value.Value, exporter Exporter[V]) error {
 			return err
 		}
 		var innerErr error
-		_, err = v.Iterator()(func(e value.Value) bool {
+		err = v.Iterator()(func(e value.Value) bool {
 			err := le.Add(e)
 			if err != nil {
 				innerErr = err
