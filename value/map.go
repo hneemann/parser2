@@ -3,7 +3,6 @@ package value
 import (
 	"bytes"
 	"fmt"
-	"github.com/hneemann/iterator"
 	"github.com/hneemann/parser2/funcGen"
 	"github.com/hneemann/parser2/listMap"
 )
@@ -195,15 +194,13 @@ func (v Map) Replace(st funcGen.Stack[Value]) (Value, error) {
 }
 
 func (v Map) List() *List {
-	return NewListFromIterable(func() iterator.Iterator[Value] {
-		return func(yield func(Value) bool) (bool, error) {
-			v.m.Iter(func(key string, v Value) bool {
-				return yield(NewMap(listMap.New[Value](2).
-					Append("key", String(key)).
-					Append("value", v)))
-			})
-			return true, nil
-		}
+	return NewListFromIterable(func(yield func(Value) bool) (bool, error) {
+		v.m.Iter(func(key string, v Value) bool {
+			return yield(NewMap(listMap.New[Value](2).
+				Append("key", String(key)).
+				Append("value", v)))
+		})
+		return true, nil
 	})
 }
 

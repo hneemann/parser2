@@ -210,7 +210,7 @@ func (ex *htmlExporter) writeHtmlString(s string, style string) {
 	}
 }
 
-func (ex *htmlExporter) listToHtml(it iterator.Iterator[value.Value], style string) error {
+func (ex *htmlExporter) listToHtml(it iterator.Iterable[value.Value], style string) error {
 	ex.openWithStyle("table", style)
 	i := 0
 	var innerErr error
@@ -245,7 +245,7 @@ func (ex *htmlExporter) openWithStyle(tag string, style string) {
 	}
 }
 
-func (ex *htmlExporter) tableToHtml(it iterator.Iterator[value.Value], style string) error {
+func (ex *htmlExporter) tableToHtml(it iterator.Iterable[value.Value], style string) error {
 	ex.openWithStyle("table", style)
 	i := 0
 	var outerErr error

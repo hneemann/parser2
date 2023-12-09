@@ -30,7 +30,7 @@ func CLP(name, getT, getX, tau)
 data.iirApply(CLP("f",p->p.t,p->p.s,1/(2*pi)))
 `
 
-func getIterable(bench string) iterator.Iterator[Value] {
+func getIterable(bench string) iterator.Iterable[Value] {
 	valueParser := SetUpParser(New())
 	f, err := valueParser.Generate(bench)
 	if err != nil {

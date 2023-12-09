@@ -69,26 +69,22 @@ type multiUseList []*multiUseEntry
 // function returns false, the requestClose channel is closed which will cause
 // the producer to stop sending values to this iterable.
 func (mu *multiUseEntry) createIterable(started chan<- string) iterator.Iterable[Value] {
-	return func() iterator.Iterator[Value] {
+	return func(yield func(Value) bool) (bool, error) {
 		if mu.writer != nil {
-			return func(yield func(Value) bool) (bool, error) {
-				return false, fmt.Errorf("list passed to multiUse function %s can only be used once", mu.name)
-			}
+			return false, fmt.Errorf("list passed to multiUse function %s can only be used once", mu.name)
 		}
 		r := make(chan Value)
 		mu.writer = r
 		mu.requestClose = make(chan struct{})
 		started <- mu.name
-		return func(yield func(Value) bool) (bool, error) {
-			for v := range r {
-				if !yield(v) {
-					mu.stopWriter()
-					return false, nil
-				}
+		for v := range r {
+			if !yield(v) {
+				mu.stopWriter()
+				return false, nil
 			}
-			mu.stopWriter()
-			return true, nil
 		}
+		mu.stopWriter()
+		return true, nil
 	}
 }
 
@@ -154,7 +150,7 @@ func (mu *multiUseEntry) runConsumer(started chan string) {
 // its requestClose channel which will cause this method to stop sending values to this
 // destination list. If all destination lists yield functions have returned
 // false, also the source iterator returns false, which stops the iteration.
-func (ml multiUseList) runProducer(i iterator.Iterator[Value]) <-chan error {
+func (ml multiUseList) runProducer(i iterator.Iterable[Value]) <-chan error {
 	errChan := make(chan error)
 	go func() {
 		defer func() {
