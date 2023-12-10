@@ -194,18 +194,23 @@ const fsm = `
 
     const search=0;
     const inEvent=1;
-	func fsm(vis, p)
-		if vis.state=search
-        then
-			if p.v<15 then vis
-			else {state:inEvent, start:p.t, events:vis.events}
-		else
-			if p.v>=15 then vis
-			else {state:search, events:vis.events.append({start:vis.start, end:p.t})};
+    const found=3;
+	func findHigh(s, p)
+        switch s.state
+		case search:
+			if p.v<15 then s
+			else goto(inEvent)+{start:p.t}
+		case inEvent:
+			if p.v>=15 then s
+			else goto(found)+{event:{start:s.start, end:p.t}}
+        default
+            goto(search);
 
-  let events=data.visit({state:search, events:[]},fsm).events;
-
-  events.string()
+  data
+   .fsm(findHigh)
+   .accept(e->e.state=found)
+   .map(e->e.event)
+   .string()
 `
 
 const movingWindow = `

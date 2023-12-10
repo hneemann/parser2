@@ -642,6 +642,34 @@ func (l *List) Visit(st funcGen.Stack[Value]) (Value, error) {
 	return visitor, err
 }
 
+func createState(state int) Value {
+	return NewMap(listMap.New[Value](1).Append("state", Int(state)))
+}
+
+func (l *List) FSM(st funcGen.Stack[Value]) (*List, error) {
+	fsm, err := ToFunc("fsm", st, 1, 2)
+	if err != nil {
+		return nil, err
+	}
+	return NewListFromIterable(func(yield func(Value) bool) error {
+		state := createState(0)
+		var innerErr error
+		err = l.iterable(func(value Value) bool {
+			st.Push(state)
+			st.Push(value)
+			state, innerErr = fsm.Func(st.CreateFrame(2), nil)
+			if innerErr != nil {
+				return false
+			}
+			return yield(state)
+		})
+		if innerErr != nil {
+			return innerErr
+		}
+		return err
+	}), nil
+}
+
 func (l *List) Present(st funcGen.Stack[Value]) (Value, error) {
 	function, err := ToFunc("present", st, 1, 1)
 	if err != nil {
@@ -1159,6 +1187,11 @@ var ListMethods = MethodMap{
 		SetMethodDescription("initial_visitor", "func(visitor, item) visitor",
 			"Visits each item in the list with the given function. The function is called with the visitor and the item. "+
 				"An initial visitor is given as the first argument. The return value of the function is used as the new visitor "),
+	"fsm": MethodAtType(1, func(list *List, stack funcGen.Stack[Value]) (Value, error) { return list.FSM(stack) }).
+		SetMethodDescription("func(state, item) state",
+			"Returns a new list with the given function applied to the items in the list. "+
+				"The state is initialized with '{state:0}' and the function is called with the state and the item and returns the new state. "+
+				"See also the function 'goto', which helps to create new state maps."),
 	"top": MethodAtType(1, func(list *List, stack funcGen.Stack[Value]) (Value, error) { return list.Top(stack) }).
 		SetMethodDescription("n", "Returns the first n items of the list."),
 	"skip": MethodAtType(1, func(list *List, stack funcGen.Stack[Value]) (Value, error) { return list.Skip(stack) }).

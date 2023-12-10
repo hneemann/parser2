@@ -601,6 +601,18 @@ func New() *funcGen.FunctionGenerator[Value] {
 			Args:   1,
 			IsPure: true,
 		}.SetDescription("n", "Returns a list with n integer values, starting with 0.")).
+		AddStaticFunction("goto", funcGen.Function[Value]{
+			Func: func(st funcGen.Stack[Value], cs []Value) (Value, error) {
+				v := st.Get(0)
+				if state, ok := v.ToInt(); ok {
+					return createState(state), nil
+				}
+				return nil, fmt.Errorf("goto requires an int as argument, not %v", v)
+			},
+			Args:   1,
+			IsPure: true,
+		}.SetDescription("s", "Returns a map with the key 'state' set to the given int. "+
+			"Useful for implementing a state machine. See also the list method 'fsm', which is used to run the state machine.")).
 		AddStaticFunction("sprintf", funcGen.Function[Value]{Func: sprintf, Args: -1, IsPure: true}.
 			SetDescription("format", "args", "the classic, well known sprintf function")).
 		AddStaticFunction("sqrt", simpleOnlyFloatFunc("sqrt", func(x float64) float64 { return math.Sqrt(x) })).
