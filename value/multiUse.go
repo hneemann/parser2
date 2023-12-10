@@ -131,16 +131,15 @@ func (mu *multiUseEntry) runConsumer(started chan string) {
 			r <- multiUseResult{err: err}
 			return
 		}
-		if list, ok := value.(*List); ok {
-			// Force evaluation of lists. Lazy evaluation is not possible here because it is
-			// not possible to iterate over a list at any time. Iteration is only possible
-			// synchronously with all iterators at the same time.
-			err := list.Eval()
-			if err != nil {
-				r <- multiUseResult{err: err}
-				return
-			}
+		// Force evaluation of lists. Lazy evaluation is not possible here because it is
+		// not possible to iterate over a list at any time. Iteration is only possible
+		// synchronously with all iterators at the same time.
+		err = deepEvalLists(value)
+		if err != nil {
+			r <- multiUseResult{err: err}
+			return
 		}
+
 		r <- multiUseResult{result: value, err: nil}
 	}()
 }

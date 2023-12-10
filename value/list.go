@@ -123,6 +123,35 @@ func (l *List) Eval() error {
 	return nil
 }
 
+func deepEvalLists(v Value) error {
+	switch v := v.(type) {
+	case *List:
+		sl, err := v.ToSlice()
+		if err != nil {
+			return err
+		}
+		for _, vv := range sl {
+			err := deepEvalLists(vv)
+			if err != nil {
+				return err
+			}
+		}
+		return nil
+	case Map:
+		var innerErr error
+		v.Iter(func(key string, value Value) bool {
+			err := deepEvalLists(value)
+			if err != nil {
+				innerErr = err
+				return false
+			}
+			return true
+		})
+		return innerErr
+	}
+	return nil
+}
+
 func (l *List) Equals(other *List) (bool, error) {
 	a, aErr := l.ToSlice()
 	if aErr != nil {
@@ -230,6 +259,12 @@ func (l *List) Accept(st funcGen.Stack[Value]) (*List, error) {
 				return false, err
 			}
 			if accept, ok := eval.ToBool(); ok {
+				// Force deep evaluation of lists. If lazy evaluation is not resolved, parallel
+				// mapping does not make sense.
+				err := deepEvalLists(eval)
+				if err != nil {
+					return false, err
+				}
 				return accept, nil
 			}
 			return false, fmt.Errorf("function in accept does not return a bool")
@@ -245,7 +280,17 @@ func (l *List) Map(st funcGen.Stack[Value]) (*List, error) {
 	return NewListFromIterable(iterator.MapAuto[Value, Value](l.iterable, func() func(i int, v Value) (Value, error) {
 		lst := funcGen.NewEmptyStack[Value]()
 		return func(i int, v Value) (Value, error) {
-			return f.Eval(lst, v)
+			eval, err2 := f.Eval(lst, v)
+			if err2 != nil {
+				return nil, err2
+			}
+			// Force deep evaluation of lists. If lazy evaluation is not resolved, parallel
+			// mapping does not make sense.
+			err2 = deepEvalLists(eval)
+			if err2 != nil {
+				return nil, err2
+			}
+			return eval, err2
 		}
 	})), nil
 }
