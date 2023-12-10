@@ -150,6 +150,10 @@ func (ex *htmlExporter) toHtml(v value.Value, style string) error {
 		if err != nil {
 			return err
 		}
+		if pit == nil {
+			ex.w.Write("[]")
+			return nil
+		}
 		if _, ok := f.(*value.List); ok {
 			return ex.tableToHtml(pit, style)
 		}
