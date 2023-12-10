@@ -83,32 +83,52 @@ func (l Line) GetLine() Line {
 	return l
 }
 
-type errorWithLine struct {
+type ErrorWithLine struct {
 	message string
 	line    Line
 	cause   error
 }
 
-func (e errorWithLine) Error() string {
+func (e ErrorWithLine) Error() string {
 	m := e.message
 	if e.line > 0 {
 		m += " in line " + strconv.Itoa(int(e.line))
 	}
-	if e.cause != nil {
-		m += ";\n cause: " + e.cause.Error()
-	}
 	return m
 }
 
+func (e ErrorWithLine) Unwrap() error {
+	return e.cause
+}
+
 func (l Line) Errorf(m string, a ...any) error {
-	return errorWithLine{
+	return ErrorWithLine{
 		message: fmt.Sprintf(m, a...),
 		line:    l,
 	}
 }
 
-func enhanceErrorfInternal(cause any, m string, a ...any) errorWithLine {
-	return errorWithLine{
+func CreateErrorMessage(err error) string {
+	if err == nil {
+		return ""
+	}
+	m := err.Error()
+	for {
+		if u, ok := err.(interface{ Unwrap() error }); ok {
+			err = u.Unwrap()
+			if err == nil {
+				return m
+			} else {
+				m += ";\n cause: " + err.Error()
+			}
+		} else {
+			return m
+		}
+	}
+}
+
+func enhanceErrorfInternal(cause any, m string, a ...any) ErrorWithLine {
+	return ErrorWithLine{
 		message: fmt.Sprintf(m, a...),
 		cause:   AnyToError(cause),
 	}

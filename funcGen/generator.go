@@ -966,7 +966,11 @@ func (g *FunctionGenerator[V]) GenerateFunc(ast parser2.AST, gc GeneratorContext
 					}
 					st.Push(v)
 				}
-				return me.Func(st.CreateFrame(len(argsFuncList)+1), nil)
+				v, err := me.Func(st.CreateFrame(len(argsFuncList)+1), nil)
+				if err != nil {
+					return v, a.EnhanceErrorf(err, "error in method call to %s", name)
+				}
+				return v, err
 			}
 			return zero, a.Errorf("method %s not found", name)
 		}, nil

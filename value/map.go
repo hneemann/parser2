@@ -2,6 +2,7 @@ package value
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"github.com/hneemann/parser2/funcGen"
 	"github.com/hneemann/parser2/listMap"
@@ -216,7 +217,7 @@ func (v Map) IsAvail(stack funcGen.Stack[Value]) (Value, error) {
 				return Bool(false), nil
 			}
 		} else {
-			return nil, fmt.Errorf("isAvail requires a string as argument")
+			return nil, errors.New("isAvail requires a string as argument")
 		}
 	}
 	return Bool(true), nil
@@ -235,7 +236,7 @@ func (v Map) GetM(stack funcGen.Stack[Value]) (Value, error) {
 			return nil, fmt.Errorf("key %v not found in map", key)
 		}
 	}
-	return nil, fmt.Errorf("get requires a string as argument")
+	return nil, errors.New("get requires a string as argument")
 }
 
 type AppendMap struct {
@@ -274,7 +275,7 @@ func (v Map) PutM(stack funcGen.Stack[Value]) (Map, error) {
 		val := stack.Get(2)
 		return Map{AppendMap{key: string(key), value: val, parent: v.m}}, nil
 	}
-	return Map{}, fmt.Errorf("get requires a string as argument")
+	return Map{}, errors.New("put requires a string as first argument")
 }
 
 type MergeMap struct {
