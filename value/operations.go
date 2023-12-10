@@ -29,11 +29,10 @@ func Equal(a Value, b Value) (bool, error) {
 		if bb, ok := b.(Map); ok {
 			return aa.Equals(bb)
 		}
-	default:
-		if aa, ok := a.ToFloat(); ok {
-			if bb, ok := b.ToFloat(); ok {
-				return aa == bb, nil
-			}
+	}
+	if aa, ok := a.ToFloat(); ok {
+		if bb, ok := b.ToFloat(); ok {
+			return aa == bb, nil
 		}
 	}
 	return false, nil
