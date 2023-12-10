@@ -268,13 +268,50 @@ func (v Map) PutM(stack funcGen.Stack[Value]) (Map, error) {
 	if key, ok := stack.Get(1).(String); ok {
 
 		if _, ok := v.Get(string(key)); ok {
-			return Map{}, fmt.Errorf("key %v already present in map", key)
+			return Map{}, fmt.Errorf("key '%s' already present in map", key)
 		}
 
 		val := stack.Get(2)
 		return Map{AppendMap{key: string(key), value: val, parent: v.m}}, nil
 	}
 	return Map{}, fmt.Errorf("get requires a string as argument")
+}
+
+type MergeMap struct {
+	a, b MapStorage
+}
+
+func (m MergeMap) Get(key string) (Value, bool) {
+	if e, ok := m.a.Get(key); ok {
+		return e, true
+	}
+	return m.b.Get(key)
+}
+
+func (m MergeMap) Iter(yield func(key string, v Value) bool) bool {
+	if m.a.Iter(yield) {
+		return m.b.Iter(yield)
+	}
+	return true
+}
+
+func (m MergeMap) Size() int {
+	return m.a.Size() + m.b.Size()
+}
+
+func (v Map) Merge(other Map) (Map, error) {
+	var exists string
+	other.Iter(func(key string, val Value) bool {
+		if _, ok := v.Get(key); ok {
+			exists = key
+			return false
+		}
+		return true
+	})
+	if exists != "" {
+		return Map{}, fmt.Errorf("first map already contains key '%s'", exists)
+	}
+	return Map{MergeMap{a: v.m, b: other.m}}, nil
 }
 
 var MapMethods = MethodMap{

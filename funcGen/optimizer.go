@@ -23,7 +23,7 @@ func (o optimizer[V]) Optimize(ast parser2.AST) (parser2.AST, error) {
 					if ac, ok := o.isConst(oper.A); ok {
 						co, err := operator.Impl(ac, bc)
 						if err != nil {
-							return nil, fmt.Errorf("error in const operation: %s", operator.Operator)
+							return nil, fmt.Errorf("error in const operation %s: %w", operator.Operator, err)
 						}
 						return &parser2.Const[V]{co, oper.Line}, nil
 					}
@@ -33,7 +33,7 @@ func (o optimizer[V]) Optimize(ast parser2.AST) (parser2.AST, error) {
 						if iac, ok := o.isConst(aOp.A); ok {
 							co, err := operator.Impl(iac, bc)
 							if err != nil {
-								return nil, fmt.Errorf("error in const operation: %s", operator.Operator)
+								return nil, fmt.Errorf("error in const operation %s: %w", operator.Operator, err)
 							}
 							return &parser2.Operate{
 								Operator: oper.Operator,
@@ -44,7 +44,7 @@ func (o optimizer[V]) Optimize(ast parser2.AST) (parser2.AST, error) {
 						if ibc, ok := o.isConst(aOp.B); ok {
 							co, err := operator.Impl(ibc, bc)
 							if err != nil {
-								return nil, fmt.Errorf("error in const operation: %s", operator.Operator)
+								return nil, fmt.Errorf("error in const operation %s: %w", operator.Operator, err)
 							}
 							return &parser2.Operate{
 								Operator: oper.Operator,
@@ -64,7 +64,7 @@ func (o optimizer[V]) Optimize(ast parser2.AST) (parser2.AST, error) {
 			if c, ok := o.isConst(oper.Value); ok {
 				co, err := operator.Impl(c)
 				if err != nil {
-					return nil, fmt.Errorf("error in const unary operation: %s", operator.Operator)
+					return nil, fmt.Errorf("error in const unary operation %s: %w", operator.Operator, err)
 				}
 				return &parser2.Const[V]{co, oper.Line}, nil
 			}
@@ -119,7 +119,7 @@ func (o optimizer[V]) Optimize(ast parser2.AST) (parser2.AST, error) {
 				if c, ok := o.allConst(fc.Args); ok {
 					v, err := fu.Func(NewStack[V](c...), nil)
 					if err != nil {
-						return nil, fmt.Errorf("error in const function call: %s", ident)
+						return nil, fmt.Errorf("error in const function call %s: %w", ident, err)
 					}
 					return &parser2.Const[V]{v, ident.Line}, nil
 				}
