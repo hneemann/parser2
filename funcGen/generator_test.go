@@ -174,7 +174,7 @@ func TestReflectionError(t *testing.T) {
 	assert.NoError(t, err)
 	_, err = f(NewStack[Value](Float(2)))
 	assert.Error(t, err)
-	errStr := err.Error()
+	errStr := parser2.CreateErrorMessage(err)
 	assert.True(t, strings.Contains(errStr, "method DoesNotExist not found"))
 	assert.True(t, strings.Contains(errStr, "available are: Sqrt()"))
 }

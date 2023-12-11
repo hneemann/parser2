@@ -272,7 +272,7 @@ func TestMethodError(t *testing.T) {
 	assert.NoError(t, err)
 	_, err = f(funcGen.NewStack[Value](Float(2)))
 	assert.Error(t, err)
-	es := err.Error()
+	es := parser2.CreateErrorMessage(err)
 	assert.True(t, strings.Contains(es, "method 'notFound' not found"))
 }
 

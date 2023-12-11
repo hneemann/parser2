@@ -1,6 +1,7 @@
 package value
 
 import (
+	"github.com/hneemann/parser2"
 	"github.com/hneemann/parser2/funcGen"
 	"github.com/stretchr/testify/assert"
 	"strings"
@@ -43,7 +44,8 @@ func TestErrors(t *testing.T) {
 			if err == nil {
 				t.Errorf("expected an error containing '%v'", test.err)
 			} else {
-				assert.True(t, strings.Contains(err.Error(), test.err), "expected error containing '%v', got: %v", test.err, err.Error())
+				msg := parser2.CreateErrorMessage(err)
+				assert.True(t, strings.Contains(msg, test.err), "expected error containing '%v', got: %v", test.err, err.Error())
 			}
 		})
 	}
