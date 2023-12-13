@@ -597,6 +597,9 @@ func (l *List) IIr(st funcGen.Stack[Value]) (*List, error) {
 		return nil, err
 	}
 	function, err := ToFunc("iir", st, 2, 2)
+	if err != nil {
+		return nil, err
+	}
 	return NewListFromIterable(iterator.IirMap[Value, Value](l.iterable,
 		func(st funcGen.Stack[Value], item Value) (Value, error) {
 			return initial.Eval(st, item)
