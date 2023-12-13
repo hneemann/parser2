@@ -88,7 +88,7 @@ type Operator[V any] struct {
 	// Operator is the operator as a string like "+"
 	Operator string
 	// Impl is the implementation of the operation
-	Impl func(a, b V) (V, error)
+	Impl func(st Stack[V], a, b V) (V, error)
 	// IsPure is true if the result of the operation depends only on the operands.
 	// This is usually the case, there are only special corner cases where it is not.
 	// So IsPure is usually true.
@@ -259,7 +259,7 @@ type Generator[V any] interface {
 
 type ToBool[V any] func(c V) (bool, bool)
 
-type IsEqual[V any] func(a, b V) (bool, error)
+type IsEqual[V any] func(st Stack[V], a, b V) (bool, error)
 
 type constMap[V any] map[string]V
 
@@ -295,7 +295,7 @@ func New[V any]() *FunctionGenerator[V] {
 		staticFunctions: make(map[string]Function[V]),
 		methodHandler:   MethodHandlerFunc[V](methodByReflection[V]),
 	}
-	g.optimizer = NewOptimizer(g)
+	g.optimizer = NewOptimizer(NewEmptyStack[V](), g)
 	return g
 }
 
@@ -367,14 +367,14 @@ func (g *FunctionGenerator[V]) AddUnary(operator string, impl func(a V) (V, erro
 // The Operation needs to be pure.
 // The operation with the lowest priority needs to be added first.
 // The operation with the highest priority needs to be added last.
-func (g *FunctionGenerator[V]) AddOp(operator string, isCommutative bool, impl func(a V, b V) (V, error)) *FunctionGenerator[V] {
+func (g *FunctionGenerator[V]) AddOp(operator string, isCommutative bool, impl func(st Stack[V], a V, b V) (V, error)) *FunctionGenerator[V] {
 	return g.AddOpPure(operator, isCommutative, impl, true)
 }
 
 // AddOpPure adds an operation to the generator.
 // The operation with the lowest priority needs to be added first.
 // The operation with the highest priority needs to be added last.
-func (g *FunctionGenerator[V]) AddOpPure(operator string, isCommutative bool, impl func(a V, b V) (V, error), isPure bool) *FunctionGenerator[V] {
+func (g *FunctionGenerator[V]) AddOpPure(operator string, isCommutative bool, impl func(st Stack[V], a V, b V) (V, error), isPure bool) *FunctionGenerator[V] {
 	if g.parser != nil {
 		panic("parser already created")
 	}
@@ -717,7 +717,7 @@ func (g *FunctionGenerator[V]) GenerateFunc(ast parser2.AST, gc GeneratorContext
 					if err != nil {
 						return zero, a.EnhanceErrorf(err, "error in switch-case")
 					}
-					equal, err := g.isEqual(val, constval)
+					equal, err := g.isEqual(st, val, constval)
 					if err != nil {
 						return zero, a.EnhanceErrorf(err, "error in switch-case")
 					}
@@ -760,7 +760,7 @@ func (g *FunctionGenerator[V]) GenerateFunc(ast parser2.AST, gc GeneratorContext
 			if err != nil {
 				return zero, a.EnhanceErrorf(err, "error in operation %v", a.Operator)
 			}
-			return op(aVal, bVal)
+			return op(st, aVal, bVal)
 		}, nil
 	case *parser2.ClosureLiteral:
 		funcArgs := argsMap{}

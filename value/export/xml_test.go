@@ -1,6 +1,7 @@
 package export
 
 import (
+	"github.com/hneemann/parser2/funcGen"
 	"github.com/hneemann/parser2/listMap"
 	"github.com/hneemann/parser2/value"
 	"github.com/stretchr/testify/assert"
@@ -47,7 +48,7 @@ func TestXML(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			xml := XML()
-			err := Export(tt.val, xml)
+			err := Export(funcGen.NewEmptyStack[value.Value](), tt.val, xml)
 			assert.NoError(t, err)
 			assert.Equal(t, "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\" ?>\n"+tt.want, string(xml.Result()))
 		})

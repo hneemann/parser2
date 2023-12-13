@@ -1,6 +1,7 @@
 package export
 
 import (
+	"github.com/hneemann/parser2/funcGen"
 	"github.com/hneemann/parser2/value"
 	"sort"
 )
@@ -25,7 +26,7 @@ type Exporter[R any] interface {
 	Result() R
 }
 
-func Export[V any](val value.Value, exporter Exporter[V]) error {
+func Export[V any](st funcGen.Stack[value.Value], val value.Value, exporter Exporter[V]) error {
 	if ok, err := exporter.Custom(val); ok || err != nil {
 		if err != nil {
 			return err
@@ -34,7 +35,7 @@ func Export[V any](val value.Value, exporter Exporter[V]) error {
 	}
 	switch v := val.(type) {
 	case Format:
-		return Export(v.Value, exporter)
+		return Export(st, v.Value, exporter)
 	case *value.List:
 		le := exporter.List()
 		err := le.Open()
@@ -42,7 +43,7 @@ func Export[V any](val value.Value, exporter Exporter[V]) error {
 			return err
 		}
 		var innerErr error
-		_, err = v.Iterator()(func(e value.Value) bool {
+		_, err = v.Iterator(st)(func(e value.Value) bool {
 			err := le.Add(e)
 			if err != nil {
 				innerErr = err
@@ -82,7 +83,7 @@ func Export[V any](val value.Value, exporter Exporter[V]) error {
 		if v == nil {
 			return exporter.String("nil")
 		}
-		str, err := v.ToString()
+		str, err := v.ToString(st)
 		if err != nil {
 			return err
 		}

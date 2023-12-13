@@ -2,6 +2,7 @@ package export
 
 import (
 	"bytes"
+	"github.com/hneemann/parser2/funcGen"
 	"github.com/hneemann/parser2/value"
 	"github.com/hneemann/parser2/value/export/xmlWriter"
 )
@@ -17,7 +18,7 @@ func (x xmlListExporter) Open() error {
 
 func (x xmlListExporter) Add(item value.Value) error {
 	x.x.w.Open("entry")
-	err := Export[[]byte](item, x.x)
+	err := Export[[]byte](funcGen.NewEmptyStack[value.Value](), item, x.x)
 	if err != nil {
 		return err
 	}
@@ -41,15 +42,16 @@ func (x xmlMapExporter) Open() error {
 }
 
 func (x xmlMapExporter) Add(key string, val value.Value) error {
+	st := funcGen.NewEmptyStack[value.Value]()
 	if x.isSimple {
-		str, err := val.ToString()
+		str, err := val.ToString(st)
 		if err != nil {
 			return err
 		}
 		x.x.w.Attr(key, str)
 	} else {
 		x.x.w.Open("entry").Attr("key", key)
-		err := Export[[]byte](val, x.x)
+		err := Export[[]byte](st, val, x.x)
 		if err != nil {
 			return err
 		}

@@ -2,6 +2,7 @@ package export
 
 import (
 	"bytes"
+	"github.com/hneemann/parser2/funcGen"
 	"github.com/hneemann/parser2/value"
 )
 
@@ -24,7 +25,7 @@ func (j *jsonListExporter) Add(item value.Value) error {
 			return err
 		}
 	}
-	return Export[[]byte](item, j.j)
+	return Export[[]byte](funcGen.NewEmptyStack[value.Value](), item, j.j)
 }
 
 func (j *jsonListExporter) Close() error {
@@ -56,7 +57,7 @@ func (j *jsonMapExporter) Add(key string, val value.Value) error {
 		return err
 	}
 	j.j.b.WriteString(":")
-	return Export[[]byte](val, j.j)
+	return Export[[]byte](funcGen.NewEmptyStack[value.Value](), val, j.j)
 }
 
 func (j *jsonMapExporter) Close() error {

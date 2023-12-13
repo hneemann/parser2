@@ -1,6 +1,7 @@
 package value
 
 import (
+	"github.com/hneemann/parser2/funcGen"
 	"github.com/stretchr/testify/assert"
 	"testing"
 )
@@ -241,7 +242,7 @@ func TestNewListCreate(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := NewListConvert(tt.conv, tt.items...).ToSlice()
+			got, err := NewListConvert(tt.conv, tt.items...).ToSlice(funcGen.NewEmptyStack[Value]())
 			assert.NoError(t, err)
 			assert.Equalf(t, tt.want, got, "NewListConvert, %v vs. %v", tt.want, got)
 		})

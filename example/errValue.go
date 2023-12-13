@@ -28,12 +28,12 @@ func (e ErrValue) ToFloat() (float64, bool) {
 	return e.val, true
 }
 
-func (e ErrValue) ToString() (string, error) {
-	va, err := value.Float(e.val).ToString()
+func (e ErrValue) ToString(st funcGen.Stack[value.Value]) (string, error) {
+	va, err := value.Float(e.val).ToString(st)
 	if err != nil {
 		return "", err
 	}
-	er, err := value.Float(e.err).ToString()
+	er, err := value.Float(e.err).ToString(st)
 	if err != nil {
 		return "", err
 	}
@@ -58,7 +58,7 @@ var ErrValueMethods = value.MethodMap{
 	}).
 		SetMethodDescription("Returns the error of the error value"),
 	"string": value.MethodAtType(0, func(ev ErrValue, stack funcGen.Stack[value.Value]) (value.Value, error) {
-		s, err := ev.ToString()
+		s, err := ev.ToString(stack)
 		return value.String(s), err
 	}).
 		SetMethodDescription("Returns the string representation of the error value"),
@@ -69,10 +69,10 @@ func (e ErrValue) GetMethod(name string) (funcGen.Function[value.Value], error) 
 }
 
 func errOperation(name string,
-	def func(a value.Value, b value.Value) (value.Value, error),
-	f func(a, b ErrValue) (ErrValue, error)) func(a value.Value, b value.Value) (value.Value, error) {
+	def func(st funcGen.Stack[value.Value], a value.Value, b value.Value) (value.Value, error),
+	f func(a, b ErrValue) (ErrValue, error)) func(st funcGen.Stack[value.Value], a value.Value, b value.Value) (value.Value, error) {
 
-	return func(a value.Value, b value.Value) (value.Value, error) {
+	return func(st funcGen.Stack[value.Value], a value.Value, b value.Value) (value.Value, error) {
 		if ae, ok := a.(ErrValue); ok {
 			if be, ok := b.(ErrValue); ok {
 				// both are error values
@@ -95,7 +95,7 @@ func errOperation(name string,
 				}
 			} else {
 				// no error value at all
-				return def(a, b)
+				return def(st, a, b)
 			}
 		}
 	}
@@ -130,7 +130,7 @@ var ErrValueParser = value.SetUpParser(value.New().
 			return ErrValue{val, (math.Abs(a.val)+a.err)/(math.Abs(b.val)-b.err) - math.Abs(val)}, nil
 		}),
 	).
-	AddOp("+-", false, func(a value.Value, b value.Value) (value.Value, error) {
+	AddOp("+-", false, func(st funcGen.Stack[value.Value], a value.Value, b value.Value) (value.Value, error) {
 		if v, ok := a.ToFloat(); ok {
 			if e, ok := b.ToFloat(); ok {
 				return ErrValue{v, math.Abs(e)}, nil

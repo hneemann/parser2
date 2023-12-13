@@ -3,11 +3,12 @@ package value
 import (
 	"fmt"
 	"github.com/hneemann/iterator"
+	"github.com/hneemann/parser2/funcGen"
 	"math"
 	"strings"
 )
 
-func Equal(a Value, b Value) (bool, error) {
+func Equal(st funcGen.Stack[Value], a Value, b Value) (bool, error) {
 	switch aa := a.(type) {
 	case Bool:
 		if bb, ok := b.(Bool); ok {
@@ -23,23 +24,22 @@ func Equal(a Value, b Value) (bool, error) {
 		}
 	case *List:
 		if bb, ok := b.(*List); ok {
-			return aa.Equals(bb)
+			return aa.Equals(st, bb)
 		}
 	case Map:
 		if bb, ok := b.(Map); ok {
-			return aa.Equals(bb)
+			return aa.Equals(st, bb)
 		}
-	default:
-		if aa, ok := a.ToFloat(); ok {
-			if bb, ok := b.ToFloat(); ok {
-				return aa == bb, nil
-			}
+	}
+	if aa, ok := a.ToFloat(); ok {
+		if bb, ok := b.ToFloat(); ok {
+			return aa == bb, nil
 		}
 	}
 	return false, nil
 }
 
-func LessEqual(a Value, b Value) (Value, error) {
+func LessEqual(st funcGen.Stack[Value], a Value, b Value) (Value, error) {
 	if aa, ok := a.(Int); ok {
 		if bb, ok := b.(Int); ok {
 			return Bool(aa <= bb), nil
@@ -58,13 +58,13 @@ func LessEqual(a Value, b Value) (Value, error) {
 	return nil, fmt.Errorf("less not allowed on %v<%v", a, b)
 }
 
-func In(a Value, b Value) (Value, error) {
+func In(st funcGen.Stack[Value], a Value, b Value) (Value, error) {
 	if list, ok := b.(*List); ok {
 		if search, ok := a.(*List); ok {
-			items, err := list.containsAllItems(search)
+			items, err := list.containsAllItems(st, search)
 			return Bool(items), err
 		} else {
-			item, err := list.containsItem(a)
+			item, err := list.containsItem(st, a)
 			return Bool(item), err
 		}
 	}
@@ -81,7 +81,7 @@ func In(a Value, b Value) (Value, error) {
 	return nil, fmt.Errorf("~ not allowed on %v~%v", a, b)
 }
 
-func Less(a Value, b Value) (bool, error) {
+func Less(st funcGen.Stack[Value], a Value, b Value) (bool, error) {
 	if aa, ok := a.(Int); ok {
 		if bb, ok := b.(Int); ok {
 			return aa < bb, nil
@@ -100,20 +100,20 @@ func Less(a Value, b Value) (bool, error) {
 	return false, fmt.Errorf("less not allowed on %v<%v", a, b)
 }
 
-func Swap(inner func(a, b Value) (Value, error)) func(a, b Value) (Value, error) {
-	return func(a, b Value) (Value, error) {
-		return inner(b, a)
+func Swap(inner func(st funcGen.Stack[Value], a, b Value) (Value, error)) func(st funcGen.Stack[Value], a, b Value) (Value, error) {
+	return func(st funcGen.Stack[Value], a, b Value) (Value, error) {
+		return inner(st, b, a)
 	}
 }
 
-func Add(a, b Value) (Value, error) {
+func Add(st funcGen.Stack[Value], a, b Value) (Value, error) {
 	if aa, ok := a.(Int); ok {
 		if bb, ok := b.(Int); ok {
 			return aa + bb, nil
 		}
 	}
 	if aa, ok := a.(String); ok {
-		s, err := b.ToString()
+		s, err := b.ToString(st)
 		if err != nil {
 			return nil, err
 		}
@@ -132,7 +132,7 @@ func Add(a, b Value) (Value, error) {
 	return nil, fmt.Errorf("add not allowed on %v+%v", a, b)
 }
 
-func Sub(a, b Value) (Value, error) {
+func Sub(st funcGen.Stack[Value], a, b Value) (Value, error) {
 	if aa, ok := a.(Int); ok {
 		if bb, ok := b.(Int); ok {
 			return aa - bb, nil
@@ -146,7 +146,7 @@ func Sub(a, b Value) (Value, error) {
 	return nil, fmt.Errorf("sub not allowed on %v-%v", a, b)
 }
 
-func Left(a, b Value) (Value, error) {
+func Left(st funcGen.Stack[Value], a, b Value) (Value, error) {
 	if aa, ok := a.(Int); ok {
 		if bb, ok := b.(Int); ok {
 			return aa << bb, nil
@@ -154,7 +154,7 @@ func Left(a, b Value) (Value, error) {
 	}
 	return nil, fmt.Errorf("<< not allowed on %v<<%v", a, b)
 }
-func Right(a, b Value) (Value, error) {
+func Right(st funcGen.Stack[Value], a, b Value) (Value, error) {
 	if aa, ok := a.(Int); ok {
 		if bb, ok := b.(Int); ok {
 			return aa >> bb, nil
@@ -162,7 +162,7 @@ func Right(a, b Value) (Value, error) {
 	}
 	return nil, fmt.Errorf(">> not allowed on %v>>%v", a, b)
 }
-func Mod(a, b Value) (Value, error) {
+func Mod(st funcGen.Stack[Value], a, b Value) (Value, error) {
 	if aa, ok := a.(Int); ok {
 		if bb, ok := b.(Int); ok {
 			return aa % bb, nil
@@ -171,7 +171,7 @@ func Mod(a, b Value) (Value, error) {
 	return nil, fmt.Errorf("%% not allowed on %v%%%v", a, b)
 }
 
-func Mul(a, b Value) (Value, error) {
+func Mul(st funcGen.Stack[Value], a, b Value) (Value, error) {
 	if aa, ok := a.(Int); ok {
 		if bb, ok := b.(Int); ok {
 			return aa * bb, nil
@@ -185,7 +185,7 @@ func Mul(a, b Value) (Value, error) {
 	return nil, fmt.Errorf("mul not allowed on %v*%v", a, b)
 }
 
-func Div(a, b Value) (Value, error) {
+func Div(st funcGen.Stack[Value], a, b Value) (Value, error) {
 	if aa, ok := a.ToFloat(); ok {
 		if bb, ok := b.ToFloat(); ok {
 			return Float(aa / bb), nil
@@ -194,7 +194,7 @@ func Div(a, b Value) (Value, error) {
 	return nil, fmt.Errorf("div not allowed on %v/%v", a, b)
 }
 
-func Pow(a, b Value) (Value, error) {
+func Pow(st funcGen.Stack[Value], a, b Value) (Value, error) {
 	if aa, ok := a.(Int); ok {
 		if bb, ok := b.(Int); ok {
 			if bb > 0 && bb < 10 {
@@ -233,7 +233,7 @@ func Not(a Value) (Value, error) {
 	return nil, fmt.Errorf("not not allowed on !%v", a)
 }
 
-func And(a, b Value) (Value, error) {
+func And(st funcGen.Stack[Value], a, b Value) (Value, error) {
 	if aa, ok := a.ToBool(); ok {
 		if bb, ok := b.ToBool(); ok {
 			return Bool(aa && bb), nil
@@ -242,7 +242,7 @@ func And(a, b Value) (Value, error) {
 	return nil, fmt.Errorf("& not allowed on %v&%v", a, b)
 }
 
-func Or(a, b Value) (Value, error) {
+func Or(st funcGen.Stack[Value], a, b Value) (Value, error) {
 	if aa, ok := a.ToBool(); ok {
 		if bb, ok := b.ToBool(); ok {
 			return Bool(aa || bb), nil

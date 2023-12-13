@@ -1,6 +1,7 @@
 package export
 
 import (
+	"github.com/hneemann/parser2/funcGen"
 	"github.com/hneemann/parser2/listMap"
 	"github.com/hneemann/parser2/value"
 	"github.com/stretchr/testify/assert"
@@ -47,7 +48,7 @@ func TestJSON(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			xml := JSON()
-			err := Export(tt.val, xml)
+			err := Export(funcGen.NewEmptyStack[value.Value](), tt.val, xml)
 			assert.NoError(t, err)
 			assert.Equal(t, tt.want, string(xml.Result()))
 		})

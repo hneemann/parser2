@@ -54,8 +54,8 @@ func (th typeHandler) ToClosure(fu Value) (Function[Value], bool) {
 
 func NewGen() *FunctionGenerator[Value] {
 	return New[Value]().
-		AddOp("+", true, func(a Value, b Value) (Value, error) { return Float(a.Float() + b.Float()), nil }).
-		AddOp("*", true, func(a Value, b Value) (Value, error) { return Float(a.Float() * b.Float()), nil }).
+		AddOp("+", true, func(st Stack[Value], a Value, b Value) (Value, error) { return Float(a.Float() + b.Float()), nil }).
+		AddOp("*", true, func(st Stack[Value], a Value, b Value) (Value, error) { return Float(a.Float() * b.Float()), nil }).
 		AddUnary("-", func(a Value) (Value, error) { return Float(-a.Float()), nil }).
 		SetToBool(func(c Value) (bool, bool) { return c.Float() != 0, true }).
 		SetClosureHandler(th).

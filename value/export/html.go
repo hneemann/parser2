@@ -71,8 +71,8 @@ func (f Format) ToFloat() (float64, bool) {
 	return f.Value.ToFloat()
 }
 
-func (f Format) ToString() (string, error) {
-	return f.Value.ToString()
+func (f Format) ToString(st funcGen.Stack[value.Value]) (string, error) {
+	return f.Value.ToString(st)
 }
 
 func (f Format) ToBool() (bool, bool) {
@@ -119,7 +119,7 @@ func ToHtml(v value.Value, maxListSize int, custom CustomHTML) (res template.HTM
 	}
 	w := xmlWriter.New().AvoidShort()
 	ex := htmlExporter{w: w, maxListSize: maxListSize, custom: custom}
-	err = ex.toHtml(v, "")
+	err = ex.toHtml(funcGen.NewEmptyStack[value.Value](), v, "")
 	if err != nil {
 		return "", err
 	}
@@ -132,7 +132,7 @@ type htmlExporter struct {
 	custom      CustomHTML
 }
 
-func (ex *htmlExporter) toHtml(v value.Value, style string) error {
+func (ex *htmlExporter) toHtml(st funcGen.Stack[value.Value], v value.Value, style string) error {
 	if ex.custom != nil {
 		if htm, ok, err := ex.custom(v); ok || err != nil {
 			if err != nil {
@@ -144,16 +144,20 @@ func (ex *htmlExporter) toHtml(v value.Value, style string) error {
 	}
 	switch t := v.(type) {
 	case Format:
-		return ex.toHtml(t.Value, t.Format)
+		return ex.toHtml(st, t.Value, t.Format)
 	case *value.List:
-		pit, f, err := iterator.Peek(t.Iterator())
+		pit, f, err := iterator.Peek(t.Iterator(st))
 		if err != nil {
 			return err
 		}
-		if _, ok := f.(*value.List); ok {
-			return ex.tableToHtml(pit, style)
+		if f == nil {
+			return nil
+		} else {
+			if _, ok := f.(*value.List); ok {
+				return ex.tableToHtml(st, pit, style)
+			}
 		}
-		return ex.listToHtml(pit, style)
+		return ex.listToHtml(st, pit, style)
 	case value.Map:
 		ex.openWithStyle("table", style)
 		var keys []string
@@ -169,7 +173,7 @@ func (ex *htmlExporter) toHtml(v value.Value, style string) error {
 			ex.w.Write(":")
 			ex.w.Close()
 			v, _ := t.Get(k)
-			err := ex.toTD(v)
+			err := ex.toTD(st, v)
 			if err != nil {
 				return err
 			}
@@ -180,7 +184,7 @@ func (ex *htmlExporter) toHtml(v value.Value, style string) error {
 		if v == nil {
 			ex.w.Write("nil")
 		} else {
-			s, err := v.ToString()
+			s, err := v.ToString(st)
 			if err != nil {
 				return err
 			}
@@ -210,7 +214,7 @@ func (ex *htmlExporter) writeHtmlString(s string, style string) {
 	}
 }
 
-func (ex *htmlExporter) listToHtml(it iterator.Iterator[value.Value], style string) error {
+func (ex *htmlExporter) listToHtml(st funcGen.Stack[value.Value], it iterator.Iterator[value.Value], style string) error {
 	ex.openWithStyle("table", style)
 	i := 0
 	var innerErr error
@@ -219,7 +223,7 @@ func (ex *htmlExporter) listToHtml(it iterator.Iterator[value.Value], style stri
 		ex.w.Open("tr")
 		ex.w.Open("td").Write(strconv.Itoa(i)).Write(".").Close()
 		if i <= ex.maxListSize {
-			err := ex.toTD(e)
+			err := ex.toTD(st, e)
 			if err != nil {
 				innerErr = err
 				return false
@@ -245,7 +249,7 @@ func (ex *htmlExporter) openWithStyle(tag string, style string) {
 	}
 }
 
-func (ex *htmlExporter) tableToHtml(it iterator.Iterator[value.Value], style string) error {
+func (ex *htmlExporter) tableToHtml(st funcGen.Stack[value.Value], it iterator.Iterator[value.Value], style string) error {
 	ex.openWithStyle("table", style)
 	i := 0
 	var outerErr error
@@ -255,10 +259,10 @@ func (ex *htmlExporter) tableToHtml(it iterator.Iterator[value.Value], style str
 		if i <= ex.maxListSize {
 			j := 0
 			var innerErr error
-			_, err := toList(v).Iterator()(func(c value.Value) bool {
+			_, err := toList(v).Iterator(st)(func(c value.Value) bool {
 				j++
 				if j <= ex.maxListSize {
-					err := ex.toTD(c)
+					err := ex.toTD(st, c)
 					if err != nil {
 						innerErr = err
 						return false
@@ -289,21 +293,21 @@ func (ex *htmlExporter) tableToHtml(it iterator.Iterator[value.Value], style str
 	return err
 }
 
-func (ex *htmlExporter) toTD(d value.Value) error {
+func (ex *htmlExporter) toTD(st funcGen.Stack[value.Value], d value.Value) error {
 	var err error
 	if formatted, ok := d.(Format); ok {
 		if _, isList := formatted.Value.(*value.List); isList && !formatted.Cell {
 			ex.w.Open("td")
-			err = ex.toHtml(formatted.Value, formatted.Format)
+			err = ex.toHtml(st, formatted.Value, formatted.Format)
 			ex.w.Close()
 		} else {
 			ex.w.Open("td").Attr("style", formatted.Format)
-			err = ex.toHtml(formatted.Value, "")
+			err = ex.toHtml(st, formatted.Value, "")
 			ex.w.Close()
 		}
 	} else {
 		ex.w.Open("td")
-		err = ex.toHtml(d, "")
+		err = ex.toHtml(st, d, "")
 		ex.w.Close()
 	}
 	return err
@@ -313,5 +317,5 @@ func toList(r value.Value) *value.List {
 	if l, ok := r.(*value.List); ok {
 		return l
 	}
-	return value.NewListFromIterable(iterator.Single(r))
+	return value.NewListFromIterable(iterator.Single[value.Value, funcGen.Stack[value.Value]](r))
 }

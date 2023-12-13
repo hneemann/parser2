@@ -8,6 +8,7 @@ import (
 	"github.com/hneemann/parser2"
 	"github.com/hneemann/parser2/funcGen"
 	"github.com/hneemann/parser2/listMap"
+	"sync"
 	"time"
 )
 
@@ -46,7 +47,7 @@ func (l *List) MultiUse(st funcGen.Stack[Value]) (Map, error) {
 			return Map{}, err
 		}
 
-		errChan := muList.runProducer(l.Iterator())
+		errChan := muList.runProducer(l.Iterator(st))
 
 		return muList.createResult(errChan)
 	} else {
@@ -57,6 +58,7 @@ func (l *List) MultiUse(st funcGen.Stack[Value]) (Map, error) {
 type multiUseEntry struct {
 	name            string
 	fu              funcGen.Func[Value]
+	writerLock      sync.Mutex
 	writer          chan<- Value
 	requestClose    chan struct{}
 	requestIsClosed bool
@@ -68,8 +70,8 @@ type multiUseList []*multiUseEntry
 // createIterable creates an iterable based on the writer chanel. If the yield
 // function returns false, the requestClose channel is closed which will cause
 // the producer to stop sending values to this iterable.
-func (mu *multiUseEntry) createIterable(started chan<- string) iterator.Iterable[Value] {
-	return func() iterator.Iterator[Value] {
+func (mu *multiUseEntry) createIterable(started chan<- string) iterator.Iterable[Value, funcGen.Stack[Value]] {
+	return func(st funcGen.Stack[Value]) iterator.Iterator[Value] {
 		if mu.writer != nil {
 			return func(yield func(Value) bool) (bool, error) {
 				return false, fmt.Errorf("list passed to multiUse function %s can only be used once", mu.name)
@@ -129,9 +131,11 @@ func (mu *multiUseEntry) runConsumer(started chan string) {
 		st.Push(NewListFromIterable(mu.createIterable(started)))
 		value, err := mu.fu(st, nil)
 		if err != nil {
+			mu.writerLock.Lock()
 			if mu.writer == nil {
 				started <- mu.name
 			}
+			mu.writerLock.Unlock()
 			r <- multiUseResult{err: err}
 			return
 		}
@@ -139,7 +143,7 @@ func (mu *multiUseEntry) runConsumer(started chan string) {
 			// Force evaluation of lists. Lazy evaluation is not possible here because it is
 			// not possible to iterate over a list at any time. Iteration is only possible
 			// synchronously with all iterators at the same time.
-			err := list.Eval()
+			err := list.Eval(funcGen.NewEmptyStack[Value]())
 			if err != nil {
 				r <- multiUseResult{err: err}
 				return
@@ -174,8 +178,10 @@ func (ml multiUseList) runProducer(i iterator.Iterator[Value]) <-chan error {
 					case mu.writer <- v:
 					case <-mu.requestClose:
 						running--
+						mu.writerLock.Lock()
 						close(mu.writer)
 						mu.writer = nil
+						mu.writerLock.Unlock()
 					}
 				}
 			}

@@ -62,7 +62,7 @@ func (v Map) ToFloat() (float64, bool) {
 	return 0, false
 }
 
-func (v Map) ToString() (string, error) {
+func (v Map) ToString(st funcGen.Stack[Value]) (string, error) {
 	var b bytes.Buffer
 	b.WriteString("{")
 	first := true
@@ -75,7 +75,7 @@ func (v Map) ToString() (string, error) {
 		}
 		b.WriteString(key)
 		b.WriteString(":")
-		s, err := v.ToString()
+		s, err := v.ToString(st)
 		if err != nil {
 			innerErr = err
 			return false
@@ -88,6 +88,14 @@ func (v Map) ToString() (string, error) {
 	}
 	b.WriteString("}")
 	return b.String(), nil
+}
+
+func (v Map) String() string {
+	s, err := v.ToString(funcGen.NewEmptyStack[Value]())
+	if err != nil {
+		return fmt.Sprintf("Map Error: %v", err)
+	}
+	return s
 }
 
 func (v Map) ToBool() (bool, bool) {
@@ -105,7 +113,7 @@ func (v Map) Size() int {
 	return v.m.Size()
 }
 
-func (v Map) Equals(other Map) (bool, error) {
+func (v Map) Equals(st funcGen.Stack[Value], other Map) (bool, error) {
 	if v.Size() != other.Size() {
 		return false, nil
 	}
@@ -113,7 +121,7 @@ func (v Map) Equals(other Map) (bool, error) {
 	var innerErr error
 	v.m.Iter(func(key string, v Value) bool {
 		if o, ok := other.Get(key); ok {
-			b, err := Equal(o, v)
+			b, err := Equal(st, o, v)
 			if err != nil {
 				innerErr = err
 				return false
@@ -195,7 +203,7 @@ func (v Map) Replace(st funcGen.Stack[Value]) (Value, error) {
 }
 
 func (v Map) List() *List {
-	return NewListFromIterable(func() iterator.Iterator[Value] {
+	return NewListFromIterable(func(funcGen.Stack[Value]) iterator.Iterator[Value] {
 		return func(yield func(Value) bool) (bool, error) {
 			v.m.Iter(func(key string, v Value) bool {
 				return yield(NewMap(listMap.New[Value](2).
@@ -291,7 +299,7 @@ var MapMethods = MethodMap{
 	"size": MethodAtType(0, func(m Map, stack funcGen.Stack[Value]) (Value, error) { return Int(m.Size()), nil }).
 		SetMethodDescription("Returns the number of entries in the map."),
 	"string": MethodAtType(0, func(m Map, stack funcGen.Stack[Value]) (Value, error) {
-		s, err := m.ToString()
+		s, err := m.ToString(stack)
 		return String(s), err
 	}).
 		SetMethodDescription("Returns a string representation of the map."),

@@ -150,9 +150,10 @@ func runTest(t *testing.T, tests []testType) {
 				} else if expList, ok := test.res.(*List); ok {
 					actList, ok := res.(*List)
 					assert.True(t, ok)
-					slice, err := expList.ToSlice()
+					st := funcGen.NewEmptyStack[Value]()
+					slice, err := expList.ToSlice(st)
 					assert.NoError(t, err)
-					toSlice, err := actList.ToSlice()
+					toSlice, err := actList.ToSlice(st)
 					assert.NoError(t, err)
 					assert.Equal(t, slice, toSlice, test.exp)
 				} else {
@@ -211,10 +212,11 @@ func TestOptimizer(t *testing.T) {
 					assert.InDelta(t, float64(f), fl, 1e-7)
 				} else if expList, ok := test.res.(*List); ok {
 					actList, ok := c.Value.(*List)
+					st := funcGen.NewEmptyStack[Value]()
 					assert.True(t, ok)
-					slice, err := expList.ToSlice()
+					slice, err := expList.ToSlice(st)
 					assert.NoError(t, err)
-					toSlice, err := actList.ToSlice()
+					toSlice, err := actList.ToSlice(st)
 					assert.NoError(t, err)
 					assert.EqualValues(t, slice, toSlice, test.exp)
 				} else {

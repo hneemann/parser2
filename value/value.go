@@ -18,7 +18,7 @@ type Value interface {
 	ToMap() (Map, bool)
 	ToInt() (int, bool)
 	ToFloat() (float64, bool)
-	ToString() (string, error)
+	ToString(st funcGen.Stack[Value]) (string, error)
 	ToBool() (bool, bool)
 	ToClosure() (funcGen.Function[Value], bool)
 	GetMethod(name string) (funcGen.Function[Value], error)
@@ -79,7 +79,7 @@ func (n nilType) ToFloat() (float64, bool) {
 	return 0, false
 }
 
-func (n nilType) ToString() (string, error) {
+func (n nilType) ToString(funcGen.Stack[Value]) (string, error) {
 	return "nil", nil
 }
 
@@ -113,7 +113,7 @@ func (c Closure) ToFloat() (float64, bool) {
 	return 0, false
 }
 
-func (c Closure) ToString() (string, error) {
+func (c Closure) ToString(funcGen.Stack[Value]) (string, error) {
 	return "", errors.New("a function has no string representation")
 }
 
@@ -152,7 +152,7 @@ func (b Bool) ToFloat() (float64, bool) {
 	return 0, false
 }
 
-func (b Bool) ToString() (string, error) {
+func (b Bool) ToString(funcGen.Stack[Value]) (string, error) {
 	if b {
 		return "true", nil
 	}
@@ -165,7 +165,7 @@ func (b Bool) ToClosure() (funcGen.Function[Value], bool) {
 
 var BoolMethods = MethodMap{
 	"string": MethodAtType(0, func(b Bool, stack funcGen.Stack[Value]) (Value, error) {
-		s, err := b.ToString()
+		s, err := b.ToString(stack)
 		return String(s), err
 	}).
 		SetMethodDescription("Returns the string 'true' or 'false'."),
@@ -189,7 +189,7 @@ func (f Float) ToMap() (Map, bool) {
 	return Map{}, false
 }
 
-func (f Float) ToString() (string, error) {
+func (f Float) ToString(funcGen.Stack[Value]) (string, error) {
 	return strconv.FormatFloat(float64(f), 'g', -1, 64), nil
 }
 
@@ -199,7 +199,7 @@ func (f Float) ToClosure() (funcGen.Function[Value], bool) {
 
 var FloatMethods = MethodMap{
 	"string": MethodAtType(0, func(f Float, stack funcGen.Stack[Value]) (Value, error) {
-		s, err := f.ToString()
+		s, err := f.ToString(stack)
 		return String(s), err
 	}).
 		SetMethodDescription("Returns a string representation of the float."),
@@ -234,7 +234,7 @@ func (i Int) ToMap() (Map, bool) {
 	return Map{}, false
 }
 
-func (i Int) ToString() (string, error) {
+func (i Int) ToString(funcGen.Stack[Value]) (string, error) {
 	return strconv.Itoa(int(i)), nil
 }
 
@@ -244,7 +244,7 @@ func (i Int) ToClosure() (funcGen.Function[Value], bool) {
 
 var IntMethods = MethodMap{
 	"string": MethodAtType(0, func(i Int, stack funcGen.Stack[Value]) (Value, error) {
-		s, err := i.ToString()
+		s, err := i.ToString(stack)
 		return String(s), err
 	}).
 		SetMethodDescription("Returns a string representation of the int."),
@@ -335,7 +335,7 @@ func (f factory) AccessList(list Value, index Value) (Value, error) {
 			if i < 0 {
 				return nil, fmt.Errorf("negative list index")
 			} else {
-				size, err := l.Size()
+				size, err := l.Size(funcGen.NewEmptyStack[Value]())
 				if err != nil {
 					return nil, err
 				}
@@ -465,24 +465,24 @@ func New() *funcGen.FunctionGenerator[Value] {
 		SetToBool(func(c Value) (bool, bool) { return c.ToBool() }).
 		AddOp("|", true, Or).
 		AddOp("&", true, And).
-		AddOp("=", true, func(a Value, b Value) (Value, error) {
-			equal, err := Equal(a, b)
+		AddOp("=", true, func(st funcGen.Stack[Value], a Value, b Value) (Value, error) {
+			equal, err := Equal(st, a, b)
 			return Bool(equal), err
 		}).
-		AddOp("!=", true, func(a, b Value) (Value, error) {
-			equal, err := Equal(a, b)
+		AddOp("!=", true, func(st funcGen.Stack[Value], a, b Value) (Value, error) {
+			equal, err := Equal(st, a, b)
 			return Bool(!equal), err
 		}).
 		AddOp("~", false, In).
-		AddOp("<", false, func(a Value, b Value) (Value, error) {
-			less, err := Less(a, b)
+		AddOp("<", false, func(st funcGen.Stack[Value], a Value, b Value) (Value, error) {
+			less, err := Less(st, a, b)
 			if err != nil {
 				return nil, err
 			}
 			return Bool(less), nil
 		}).
-		AddOp(">", false, func(a Value, b Value) (Value, error) {
-			less, err := Less(b, a)
+		AddOp(">", false, func(st funcGen.Stack[Value], a Value, b Value) (Value, error) {
+			less, err := Less(st, b, a)
 			if err != nil {
 				return nil, err
 			}
@@ -502,7 +502,7 @@ func New() *funcGen.FunctionGenerator[Value] {
 		AddUnary("!", func(a Value) (Value, error) { return Not(a) }).
 		AddStaticFunction("string", funcGen.Function[Value]{
 			Func: func(st funcGen.Stack[Value], cs []Value) (Value, error) {
-				s, err := st.Get(0).ToString()
+				s, err := st.Get(0).ToString(st)
 				return String(s), err
 			},
 			Args:   1,
@@ -594,9 +594,20 @@ func New() *funcGen.FunctionGenerator[Value] {
 			Func: func(st funcGen.Stack[Value], cs []Value) (Value, error) {
 				v := st.Get(0)
 				if size, ok := v.ToInt(); ok {
-					return NewListFromIterable(iterator.Generate(size, func(i int) (Value, error) { return Int(i), nil })), nil
+					return NewListFromIterable(iterator.Generate[Value, funcGen.Stack[Value]](size, func(i int) (Value, error) { return Int(i), nil })), nil
 				}
 				return nil, fmt.Errorf("list not alowed on %v", v)
+			},
+			Args:   1,
+			IsPure: true,
+		}.SetDescription("n", "Returns a list with n integer values, starting with 0.")).
+		AddStaticFunction("goto", funcGen.Function[Value]{
+			Func: func(st funcGen.Stack[Value], cs []Value) (Value, error) {
+				v := st.Get(0)
+				if state, ok := v.ToInt(); ok {
+					return createState(state), nil
+				}
+				return nil, errors.New("goto requires an int")
 			},
 			Args:   1,
 			IsPure: true,
@@ -621,7 +632,7 @@ func minFunc(st funcGen.Stack[Value], cs []Value) (Value, error) {
 		if i == 0 {
 			m = v
 		} else {
-			less, err := Less(v, m)
+			less, err := Less(st, v, m)
 			if err != nil {
 				return nil, err
 			}
@@ -640,7 +651,7 @@ func maxFunc(st funcGen.Stack[Value], cs []Value) (Value, error) {
 		if i == 0 {
 			m = v
 		} else {
-			less, err := Less(m, v)
+			less, err := Less(st, m, v)
 			if err != nil {
 				return nil, err
 			}

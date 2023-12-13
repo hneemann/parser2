@@ -7,11 +7,12 @@ import (
 )
 
 type optimizer[V any] struct {
-	g *FunctionGenerator[V]
+	st Stack[V]
+	g  *FunctionGenerator[V]
 }
 
-func NewOptimizer[V any](g *FunctionGenerator[V]) parser2.Optimizer {
-	return optimizer[V]{g}
+func NewOptimizer[V any](st Stack[V], g *FunctionGenerator[V]) parser2.Optimizer {
+	return optimizer[V]{st: st, g: g}
 }
 
 func (o optimizer[V]) Optimize(ast parser2.AST) (parser2.AST, error) {
@@ -21,7 +22,7 @@ func (o optimizer[V]) Optimize(ast parser2.AST) (parser2.AST, error) {
 			if bc, ok := o.isConst(oper.B); ok {
 				if operator.IsPure {
 					if ac, ok := o.isConst(oper.A); ok {
-						co, err := operator.Impl(ac, bc)
+						co, err := operator.Impl(o.st, ac, bc)
 						if err != nil {
 							return nil, fmt.Errorf("error in const operation: %s", operator.Operator)
 						}
@@ -31,7 +32,7 @@ func (o optimizer[V]) Optimize(ast parser2.AST) (parser2.AST, error) {
 				if operator.IsCommutative {
 					if aOp, ok := oper.A.(*parser2.Operate); ok && aOp.Operator == oper.Operator {
 						if iac, ok := o.isConst(aOp.A); ok {
-							co, err := operator.Impl(iac, bc)
+							co, err := operator.Impl(o.st, iac, bc)
 							if err != nil {
 								return nil, fmt.Errorf("error in const operation: %s", operator.Operator)
 							}
@@ -42,7 +43,7 @@ func (o optimizer[V]) Optimize(ast parser2.AST) (parser2.AST, error) {
 							}, nil
 						}
 						if ibc, ok := o.isConst(aOp.B); ok {
-							co, err := operator.Impl(ibc, bc)
+							co, err := operator.Impl(o.st, ibc, bc)
 							if err != nil {
 								return nil, fmt.Errorf("error in const operation: %s", operator.Operator)
 							}

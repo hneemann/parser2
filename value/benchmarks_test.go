@@ -36,7 +36,8 @@ func getIterable(bench string) iterator.Iterator[Value] {
 	if err != nil {
 		panic(err)
 	}
-	l, err := f(funcGen.NewEmptyStack[Value]())
+	st := funcGen.NewEmptyStack[Value]()
+	l, err := f(st)
 	if err != nil {
 		panic(err)
 	}
@@ -44,7 +45,7 @@ func getIterable(bench string) iterator.Iterator[Value] {
 	if !ok {
 		panic("not a list")
 	}
-	return list.Iterator()
+	return list.Iterator(st)
 }
 
 var list1 = getIterable(bench1)
