@@ -318,3 +318,20 @@ func TestListString(t *testing.T) {
 	}
 
 }
+
+const parallel = `
+    const n=5000;
+    const exp=n*n*(n-1)/2;
+	let l=list(n).map(e->list(n));
+	
+	exp-l.map(e->e.reduce((a,b)->a+b))
+     .reduce((a,b)->a+b)
+`
+
+func TestParallel(t *testing.T) {
+	fu, err := SetUpParser(New()).Generate(parallel)
+	assert.NoError(t, err)
+	r, err := fu(funcGen.NewEmptyStack[Value]())
+	assert.NoError(t, err)
+	assert.EqualValues(t, 0, r)
+}
