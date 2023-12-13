@@ -167,6 +167,35 @@ func (l *List) Eval(st funcGen.Stack[Value]) error {
 	return nil
 }
 
+func deepEvalLists(st funcGen.Stack[Value], v Value) error {
+	switch v := v.(type) {
+	case *List:
+		sl, err := v.ToSlice(st)
+		if err != nil {
+			return err
+		}
+		for _, vv := range sl {
+			err := deepEvalLists(st, vv)
+			if err != nil {
+				return err
+			}
+		}
+		return nil
+	case Map:
+		var innerErr error
+		v.Iter(func(key string, value Value) bool {
+			err := deepEvalLists(st, value)
+			if err != nil {
+				innerErr = err
+				return false
+			}
+			return true
+		})
+		return innerErr
+	}
+	return nil
+}
+
 func (l *List) Equals(st funcGen.Stack[Value], other *List) (bool, error) {
 	a, aErr := l.ToSlice(st)
 	if aErr != nil {
@@ -1120,6 +1149,97 @@ func (l *List) containsAllItems(st funcGen.Stack[Value], lookForList *List) (boo
 	return len(lookFor) == 0, nil
 }
 
+type point struct {
+	x, y float64
+}
+
+type pointFunc struct {
+	points []point
+	lastX  float64
+	lastN  int
+}
+
+func (pf *pointFunc) interpolate(x float64) float64 {
+	n0 := 0
+	n1 := len(pf.points) - 1
+
+	if x <= pf.points[n0].x {
+		return pf.points[n0].y
+	} else if x >= pf.points[n1].x {
+		return pf.points[n1].y
+	} else {
+		for n1-n0 > 1 {
+			n := (n0 + n1) / 2
+			if x < pf.points[n].x {
+				n1 = n
+			} else {
+				n0 = n
+			}
+		}
+
+		xr := (x - pf.points[n0].x) / (pf.points[n1].x - pf.points[n0].x)
+		y := pf.points[n0].y + (pf.points[n1].y-pf.points[n0].y)*xr
+		return y
+	}
+}
+
+func (l *List) CreateInterpolation(st funcGen.Stack[Value]) (Value, error) {
+	getXFunc, err := ToFunc("createInterpolation", st, 1, 1)
+	if err != nil {
+		return nil, err
+	}
+	getYFunc, err := ToFunc("createInterpolation", st, 2, 1)
+	if err != nil {
+		return nil, err
+	}
+
+	var points []point
+	var innerErr error
+	_, err = l.Iterator(st)(func(v Value) bool {
+		x, err := MustFloat(getXFunc.Eval(st, v))
+		if err != nil {
+			innerErr = err
+			return false
+		}
+		if len(points) > 0 && x <= points[len(points)-1].x {
+			innerErr = errors.New("x values in interpolation need to be increasing")
+			return false
+		}
+
+		y, err := MustFloat(getYFunc.Eval(st, v))
+		if err != nil {
+			innerErr = err
+			return false
+		}
+		points = append(points, point{x: x, y: y})
+		return true
+	})
+	if innerErr != nil {
+		return nil, innerErr
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	pf := pointFunc{
+		points: points,
+		lastX:  0,
+		lastN:  -1,
+	}
+
+	return Closure{
+		Func: func(st funcGen.Stack[Value], cs []Value) (Value, error) {
+			fl, ok := st.Get(0).ToFloat()
+			if !ok {
+				return nil, errors.New("argument in interpolation needs to be a float")
+			}
+			return Float(pf.interpolate(fl)), nil
+		},
+		Args:   1,
+		IsPure: true,
+	}, nil
+}
+
 var ListMethods = MethodMap{
 	"accept": MethodAtType(1, func(list *List, stack funcGen.Stack[Value]) (Value, error) { return list.Accept(stack) }).
 		SetMethodDescription("func(item) bool",
@@ -1239,7 +1359,9 @@ var ListMethods = MethodMap{
 				"An initial visitor is given as the first argument. The return value of the function is used as the new visitor "),
 	"fsm": MethodAtType(1, func(list *List, stack funcGen.Stack[Value]) (Value, error) { return list.FSM(stack) }).
 		SetMethodDescription("func(state, item) state",
-			"Runs a Finite State Machine"),
+			"Returns a new list with the given function applied to the items in the list. "+
+				"The state is initialized with '{state:0}' and the function is called with the state and the item and returns the new state. "+
+				"See also the function 'goto', which helps to create new state maps."),
 	"top": MethodAtType(1, func(list *List, stack funcGen.Stack[Value]) (Value, error) { return list.Top(stack) }).
 		SetMethodDescription("n", "Returns the first n items of the list."),
 	"skip": MethodAtType(1, func(list *List, stack funcGen.Stack[Value]) (Value, error) { return list.Skip(stack) }).
@@ -1271,6 +1393,9 @@ var ListMethods = MethodMap{
 			"The inner lists contain all items that are close to each other. "+
 			"Two items are close to each other if the given function returns a similar value for both items. "+
 			"Similarity is defined as the absolute difference being smaller than 1."),
+	"createInterpolation": MethodAtType(2, func(list *List, stack funcGen.Stack[Value]) (Value, error) { return list.CreateInterpolation(stack) }).
+		SetMethodDescription("func(item) x", "func(item) y",
+			"Returns a function that interpolates between the given points."),
 }
 
 func (l *List) GetMethod(name string) (funcGen.Function[Value], error) {

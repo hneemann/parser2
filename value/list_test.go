@@ -110,6 +110,8 @@ func TestList(t *testing.T) {
 
 		{exp: movingWindow,
 			res: String("[{t0:0, t1:0, len:1}, {t0:0, t1:0.1, len:2}, {t0:0, t1:0.2, len:3}, {t0:0, t1:0.3, len:4}, {t0:0, t1:0.4, len:5}, {t0:0, t1:0.5, len:6}, {t0:0, t1:0.6, len:7}, {t0:0, t1:0.7, len:8}, {t0:0, t1:0.8, len:9}, {t0:0, t1:0.9, len:10}, {t0:0, t1:1, len:11}, {t0:0.1, t1:1.1, len:11}, {t0:0.2, t1:1.2, len:11}, {t0:0.3, t1:1.3, len:11}, {t0:0.4, t1:1.4, len:11}, {t0:0.5, t1:1.5, len:11}, {t0:0.6, t1:1.6, len:11}, {t0:0.7, t1:1.7, len:11}, {t0:0.8, t1:1.8, len:11}, {t0:0.9, t1:1.9, len:11}]")},
+
+		{exp: interpolate, res: String("[0, 0, 0.5, 1, 0.5, 0, 0]")},
 	})
 }
 
@@ -239,6 +241,12 @@ const movingWindow = `
 	let data=list(20).map(i->{t:i/10,v:i});
 	
 	data.movingWindow(p->p.t).map(l->{t0:l[0].t,t1:l[l.size()-1].t,len:l.size()}).string()
+`
+
+const interpolate = `
+	let f=[{x:0,y:0},{x:1,y:1},{x:2,y:0}].createInterpolation(p->p.x,p->p.y);
+	
+	[f(-1),f(0),f(0.5),f(1),f(1.5),f(2),f(3)].string()
 `
 
 func TestNewListCreate(t *testing.T) {
