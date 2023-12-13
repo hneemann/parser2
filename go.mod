@@ -3,7 +3,7 @@ module github.com/hneemann/parser2
 go 1.20
 
 require (
-	github.com/hneemann/iterator v0.0.0-20230929124444-7bf6580bdeaa
+	github.com/hneemann/iterator v0.0.0-20231213192313-aec005867ea2
 	github.com/stretchr/testify v1.8.4
 )
 
