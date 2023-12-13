@@ -47,6 +47,7 @@ func TestMap(t *testing.T) {
 		{exp: "\"c\" ~ {a:1,b:2}", res: Bool(false)},
 		{exp: "{a:1,b:2}.get(\"a\")", res: Int(1)},
 		{exp: "\"\"+{a:1,b:2}.put(\"c\",3)", res: String("{c:3, a:1, b:2}")},
+		{exp: "({a:1,b:2}+{c:3,d:4}).string()", res: String("{a:1, b:2, c:3, d:4}")},
 		{exp: "{a:1,b:2}.put(\"c\",3).string()", res: String("{c:3, a:1, b:2}")},
 		{exp: "{a:1,b:2}.put(\"c\",3).c", res: Int(3)},
 		{exp: "{a:1,b:2}.put(\"c\",3).b", res: Int(2)},
