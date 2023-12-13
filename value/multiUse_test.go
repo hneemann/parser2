@@ -19,6 +19,10 @@ func TestMultiUse(t *testing.T) {
 		           a:  l->l.first(),
 		           b:  l->l.first()*2,
 		        }).string()`, res: String("{a:0, b:0}")},
+		{exp: `list(1e9).map(n->n+10).multiUse({
+		           a:  l->l.first(),
+		           b:  l->l.first()*2,
+		        }).string()`, res: String("{a:10, b:20}")},
 		{exp: `list(1e9).multiUse({
 		           a:  l->l.present(n->n>10),
 		           b:  l->l.present(n->n>100),

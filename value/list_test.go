@@ -3,6 +3,7 @@ package value
 import (
 	"github.com/hneemann/parser2/funcGen"
 	"github.com/stretchr/testify/assert"
+	"strings"
 	"testing"
 )
 
@@ -334,4 +335,42 @@ func TestParallel(t *testing.T) {
 	r, err := fu(funcGen.NewEmptyStack[Value]())
 	assert.NoError(t, err)
 	assert.EqualValues(t, 0, r)
+}
+
+const parallelError = `
+    const n=5000;
+    const exp=n*n*(n-1)/2;
+	let l=list(n).map(e->if e=500
+                         then list(n).map(e->error(e))
+                         else list(n));
+	
+	exp-l.map(e->e.reduce((a,b)->a+b))
+     .reduce((a,b)->a+b)
+`
+
+func TestParallelError(t *testing.T) {
+	fu, err := SetUpParser(New().AddStaticFunction("error", toLargeErrorFunc(500))).Generate(parallelError)
+	assert.NoError(t, err)
+	_, err = fu(funcGen.NewEmptyStack[Value]())
+	assert.Error(t, err)
+	assert.True(t, strings.Contains(err.Error(), "toLarge"))
+}
+
+const parallelError2 = `
+    const n=5000;
+    const exp=n*n*(n-1)/2;
+	let l=list(n).map(e->if e>500
+                         then list(n).map(e->error(e))
+                         else list(n));
+	
+	exp-l.map(e->e.reduce((a,b)->a+b))
+     .reduce((a,b)->a+b)
+`
+
+func TestParallelError2(t *testing.T) {
+	fu, err := SetUpParser(New().AddStaticFunction("error", toLargeErrorFunc(500))).Generate(parallelError2)
+	assert.NoError(t, err)
+	_, err = fu(funcGen.NewEmptyStack[Value]())
+	assert.Error(t, err)
+	assert.True(t, strings.Contains(err.Error(), "toLarge"))
 }
