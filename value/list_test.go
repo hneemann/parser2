@@ -62,6 +62,7 @@ func TestList(t *testing.T) {
 		{exp: "let a=[1,2].append(3);\"\"+[a.append(4), a.append(5)]", res: String("[[1, 2, 3, 4], [1, 2, 3, 5]]")},
 		{exp: "list(20).visit([],(vis,val)->vis.append(val)).string()", res: String("[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19]")},
 		{exp: fsm, res: String("[{start:15, end:20}, {start:35, end:40}, {start:55, end:60}, {start:75, end:80}]")},
+		{exp: fsmVisit, res: String("[{start:15, end:20}, {start:35, end:40}, {start:55, end:60}, {start:75, end:80}]")},
 		{exp: visitAndCollect, res: String("[9, 19, 29, 39, 49, 59, 69, 79, 89, 99]")},
 		{exp: accept, res: String("[9, 19, 29, 39, 49, 59, 69, 79, 89, 99]")},
 		{exp: "list(12).groupByString(i->\"n\"+round(i/4)).order(a->a.key).string()",
@@ -190,7 +191,7 @@ const accept = `
   events.string()
 `
 
-const fsm = `
+const fsmVisit = `
 	let data=list(100).map(i->{t:i,v:i%20});
 
     const search=0;
@@ -205,6 +206,31 @@ const fsm = `
 			else {state:search, events:vis.events.append({start:vis.start, end:p.t})};
 
   let events=data.visit({state:search, events:[]},fsm).events;
+
+  events.string()
+`
+
+const fsm = `
+	let data=list(100).map(i->{t:i,v:i%20});
+
+    const search=0;
+    const inEvent=1;
+    const found=2;
+	func fsm(s, p)
+   		switch s.state
+		case search:
+			if p.v<15 then s
+			else goto(inEvent)+{start:p.t}
+		case inEvent:
+			if p.v>=15 then s
+			else goto(found)+{start:s.start, end:p.t}
+        default
+            goto(search);
+
+  let events=data
+          .fsm(fsm)
+          .accept(s->s.state=found)
+          .map(s->{start:s.start, end:s.end});
 
   events.string()
 `
@@ -247,4 +273,40 @@ func TestNewListCreate(t *testing.T) {
 			assert.Equalf(t, tt.want, got, "NewListConvert, %v vs. %v", tt.want, got)
 		})
 	}
+}
+
+func TestListString(t *testing.T) {
+
+	type testCase[I any] struct {
+		name  string
+		items []I
+		want  string
+	}
+	tests := []testCase[int]{
+		{
+			name:  "normal",
+			items: []int{1, 2, 3},
+			want:  "[1, 2, 3]",
+		},
+		{
+			name:  "max",
+			items: []int{1, 2, 3, 4, 5, 6, 7, 8, 9, 10},
+			want:  "[1, 2, 3, 4, 5, 6, 7, 8, 9, 10]",
+		},
+		{
+			name:  "long",
+			items: []int{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11},
+			want:  "[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, ...]",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := NewListConvert(func(i int) Value {
+				return Int(i)
+			}, tt.items...)
+			assert.Equal(t, tt.want, got.String())
+		})
+	}
+
 }
