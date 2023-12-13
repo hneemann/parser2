@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"fmt"
 	"github.com/hneemann/parser2/listMap"
+	"log"
 	"strconv"
 	"unicode"
 )
@@ -59,6 +60,7 @@ func AnyToError(e any) error {
 func Optimize(ast AST, optimizer Optimizer) (astRet AST, errRet error) {
 	defer func() {
 		if rec := recover(); rec != nil {
+			log.Print("panic in optimizer: ", rec)
 			errRet = AnyToError(rec)
 			astRet = nil
 		}

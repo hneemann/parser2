@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/hneemann/parser2"
 	"github.com/hneemann/parser2/listMap"
+	"log"
 	"reflect"
 	"unicode"
 	"unicode/utf8"
@@ -535,6 +536,7 @@ func (g *FunctionGenerator[V]) generateIntern(args []string, exp string, ThisNam
 	return func(st Stack[V]) (val V, err error) {
 		defer func() {
 			if rec := recover(); rec != nil {
+				log.Print("panic in function: ", rec)
 				var zero V
 				val = zero
 				err = parser2.AnyToError(rec)

@@ -8,6 +8,7 @@ import (
 	"github.com/hneemann/parser2"
 	"github.com/hneemann/parser2/funcGen"
 	"github.com/hneemann/parser2/listMap"
+	"log"
 	"sync"
 	"time"
 )
@@ -117,6 +118,7 @@ func (mu *multiUseEntry) runConsumer(started chan string) {
 		defer func() {
 			mu.stopWriter()
 			if rec := recover(); rec != nil {
+				log.Print("panic in multiUse consumer: ", rec)
 				// If start is not reported yet, do now. This happens if evaluation of function
 				// fails before the iterator has even started.
 				if mu.writer == nil {
@@ -164,6 +166,7 @@ func (ml multiUseList) runProducer(i iterator.Iterator[Value]) <-chan error {
 		defer func() {
 			// recover a panic and send it to the error channel
 			if rec := recover(); rec != nil {
+				log.Print("panic in multiUse producer: ", rec)
 				errChan <- parser2.AnyToError(rec)
 			}
 			// If a panic occurs, the writers are not closed. This ensures that the consumers

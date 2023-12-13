@@ -8,6 +8,7 @@ import (
 	"github.com/hneemann/parser2/value"
 	"github.com/hneemann/parser2/value/export/xmlWriter"
 	"html/template"
+	"log"
 	"sort"
 	"strconv"
 	"strings"
@@ -110,6 +111,7 @@ type CustomHTML func(value.Value) (template.HTML, bool, error)
 func ToHtml(v value.Value, maxListSize int, custom CustomHTML) (res template.HTML, err error) {
 	defer func() {
 		if rec := recover(); rec != nil {
+			log.Print("panic in ToHtml: ", rec)
 			err = parser2.AnyToError(rec)
 			res = ""
 		}
