@@ -35,7 +35,7 @@ var StyleFunc = funcGen.Function[value.Value]{
 	},
 	Args:   2,
 	IsPure: true,
-}
+}.SetDescription("style", "value", "Formats the value with the given style.")
 
 // StyleFuncCell can be used add a CSS stale to a value
 // If used in a table the Format is applied to the cell instead of the containing value.
@@ -54,7 +54,8 @@ var StyleFuncCell = funcGen.Function[value.Value]{
 	},
 	Args:   2,
 	IsPure: true,
-}
+}.SetDescription("style", "value", "Formats the value with the given style. If used in a table, "+
+	"the style is applied to the cell instead of the containing value.")
 
 func (f Format) ToList() (*value.List, bool) {
 	return f.Value.ToList()

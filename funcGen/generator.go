@@ -7,6 +7,7 @@ import (
 	"github.com/hneemann/parser2/listMap"
 	"log"
 	"reflect"
+	"sort"
 	"unicode"
 	"unicode/utf8"
 )
@@ -1149,10 +1150,22 @@ func (g *FunctionGenerator[V]) genCodeMap(a listMap.ListMap[parser2.AST], gc Gen
 }
 
 func (g *FunctionGenerator[V]) generateStaticFunctionDocu(err error) error {
-	var b bytes.Buffer
+	type sf struct {
+		name string
+		f    Function[V]
+	}
+	var list []sf
 	for n, f := range g.staticFunctions {
+		list = append(list, sf{name: n, f: f})
+	}
+	sort.Slice(list, func(i, j int) bool {
+		return list[i].name < list[j].name
+	})
+
+	var b bytes.Buffer
+	for _, f := range list {
 		b.WriteRune('\n')
-		f.Description.WriteTo(&b, n)
+		f.f.Description.WriteTo(&b, f.name)
 	}
 	return fmt.Errorf("%w\n\nAvailable functions are:%s", err, b.String())
 }
