@@ -9,9 +9,9 @@ import (
 var boolParser = funcGen.New[bool]().
 	AddConstant("false", false).
 	AddConstant("true", true).
-	AddOp("^", true, func(st funcGen.Stack[bool], a, b bool) (bool, error) { return a != b, nil }).
-	AddOp("=", true, func(st funcGen.Stack[bool], a, b bool) (bool, error) { return a == b, nil }).
-	AddOp("|", true, func(st funcGen.Stack[bool], a, b bool) (bool, error) { return a || b, nil }).
-	AddOp("&", true, func(st funcGen.Stack[bool], a, b bool) (bool, error) { return a && b, nil }).
+	AddSimpleOp("^", true, func(a, b bool) (bool, error) { return a != b, nil }).
+	AddSimpleOp("=", true, func(a, b bool) (bool, error) { return a == b, nil }).
+	AddSimpleOp("|", true, func(a, b bool) (bool, error) { return a || b, nil }).
+	AddSimpleOp("&", true, func(a, b bool) (bool, error) { return a && b, nil }).
 	AddUnary("!", func(a bool) (bool, error) { return !a, nil }).
 	SetToBool(func(c bool) (bool, bool) { return c, true })

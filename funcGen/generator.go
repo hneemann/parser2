@@ -364,6 +364,16 @@ func (g *FunctionGenerator[V]) AddUnary(operator string, impl func(a V) (V, erro
 	return g
 }
 
+// AddSimpleOp adds an operation to the generator.
+// The Operation needs to be pure.
+// The operation with the lowest priority needs to be added first.
+// The operation with the highest priority needs to be added last.
+func (g *FunctionGenerator[V]) AddSimpleOp(operator string, isCommutative bool, impl func(a V, b V) (V, error)) *FunctionGenerator[V] {
+	return g.AddOpPure(operator, isCommutative, func(st Stack[V], a V, b V) (V, error) {
+		return impl(a, b)
+	}, true)
+}
+
 // AddOp adds an operation to the generator.
 // The Operation needs to be pure.
 // The operation with the lowest priority needs to be added first.
