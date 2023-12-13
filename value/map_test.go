@@ -52,6 +52,7 @@ func TestMap(t *testing.T) {
 		{exp: "{a:1,b:2}.put(\"c\",3).c", res: Int(3)},
 		{exp: "{a:1,b:2}.put(\"c\",3).b", res: Int(2)},
 		{exp: "{a:1,b:2}.put(\"c\",3).size()", res: Int(3)},
+		{exp: "{a:1,b:2}.combine({a:3,b:4},(a,b)->a+b).string()", res: String("{a:4, b:6}")},
 	})
 }
 

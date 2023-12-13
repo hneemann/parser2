@@ -326,6 +326,39 @@ func (v Map) Merge(other Map) (Map, error) {
 	return Map{MergeMap{a: v.m, b: other.m}}, nil
 }
 
+func (v Map) Combine(st funcGen.Stack[Value]) (Map, error) {
+	fun, err := ToFunc("combine", st, 2, 2)
+	if err != nil {
+		return Map{}, err
+	}
+	if other, ok := st.Get(1).ToMap(); ok {
+		result := listMap.New[Value](v.Size())
+		var innerErr error
+		v.Iter(func(key string, val Value) bool {
+			if o, ok := other.Get(key); ok {
+				st.Push(val)
+				st.Push(o)
+				r, err := fun.Func(st.CreateFrame(2), nil)
+				if err != nil {
+					innerErr = err
+					return false
+				}
+				result = result.Append(key, r)
+			} else {
+				innerErr = fmt.Errorf("key '%s' not present in second map", key)
+				return false
+			}
+			return true
+		})
+		if innerErr != nil {
+			return Map{}, innerErr
+		}
+		return Map{result}, nil
+	} else {
+		return Map{}, errors.New("combine requires a map as first argument")
+	}
+}
+
 var MapMethods = MethodMap{
 	"accept": MethodAtType(1, func(m Map, stack funcGen.Stack[Value]) (Value, error) { return m.Accept(stack) }).
 		SetMethodDescription("func(key, value) bool",
@@ -353,6 +386,11 @@ var MapMethods = MethodMap{
 	"put": MethodAtType(2, func(m Map, stack funcGen.Stack[Value]) (Value, error) { return m.PutM(stack) }).
 		SetMethodDescription("key", "value",
 			"Returns a new map with the given key and value added. The original map is not changed."),
+	"combine": MethodAtType(2, func(m Map, stack funcGen.Stack[Value]) (Value, error) { return m.Combine(stack) }).
+		SetMethodDescription("other_map", "func(a,b) r",
+			"Combines the two maps with the given funktion to a new map. The function is called for each key that is in both maps. "+
+				"The first argument is the value of the first map and the second argument is the value of the second map. "+
+				"The function must return a value that is used as value in the new map."),
 }
 
 func (v Map) GetMethod(name string) (funcGen.Function[Value], error) {
