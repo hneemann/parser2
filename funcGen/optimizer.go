@@ -1,7 +1,6 @@
 package funcGen
 
 import (
-	"fmt"
 	"github.com/hneemann/parser2"
 	"github.com/hneemann/parser2/listMap"
 )
@@ -24,7 +23,7 @@ func (o optimizer[V]) Optimize(ast parser2.AST) (parser2.AST, error) {
 					if ac, ok := o.isConst(oper.A); ok {
 						co, err := operator.Impl(o.st, ac, bc)
 						if err != nil {
-							return nil, fmt.Errorf("error in const operation: %s", operator.Operator)
+							return nil, ast.GetLine().EnhanceErrorf(err, "error in constant pre evaluation of: %s", operator.Operator)
 						}
 						return &parser2.Const[V]{co, oper.Line}, nil
 					}
@@ -34,7 +33,7 @@ func (o optimizer[V]) Optimize(ast parser2.AST) (parser2.AST, error) {
 						if iac, ok := o.isConst(aOp.A); ok {
 							co, err := operator.Impl(o.st, iac, bc)
 							if err != nil {
-								return nil, fmt.Errorf("error in const operation: %s", operator.Operator)
+								return nil, ast.GetLine().EnhanceErrorf(err, "error in constant pre evaluation of: %s", operator.Operator)
 							}
 							return &parser2.Operate{
 								Operator: oper.Operator,
@@ -45,7 +44,7 @@ func (o optimizer[V]) Optimize(ast parser2.AST) (parser2.AST, error) {
 						if ibc, ok := o.isConst(aOp.B); ok {
 							co, err := operator.Impl(o.st, ibc, bc)
 							if err != nil {
-								return nil, fmt.Errorf("error in const operation: %s", operator.Operator)
+								return nil, ast.GetLine().EnhanceErrorf(err, "error in constant pre evaluation of: %s", operator.Operator)
 							}
 							return &parser2.Operate{
 								Operator: oper.Operator,
@@ -65,7 +64,7 @@ func (o optimizer[V]) Optimize(ast parser2.AST) (parser2.AST, error) {
 			if c, ok := o.isConst(oper.Value); ok {
 				co, err := operator.Impl(c)
 				if err != nil {
-					return nil, fmt.Errorf("error in const unary operation: %s", operator.Operator)
+					return nil, ast.GetLine().EnhanceErrorf(err, "error in constant pre evaluation of unary: %s", operator.Operator)
 				}
 				return &parser2.Const[V]{co, oper.Line}, nil
 			}
@@ -81,7 +80,7 @@ func (o optimizer[V]) Optimize(ast parser2.AST) (parser2.AST, error) {
 					return ifNode.Else, nil
 				}
 			} else {
-				return nil, fmt.Errorf("if condition is not a bool")
+				return nil, ast.GetLine().Errorf("error in constant pre evaluation of if condition")
 			}
 		}
 	}
@@ -115,12 +114,12 @@ func (o optimizer[V]) Optimize(ast parser2.AST) (parser2.AST, error) {
 		if ident, ok := fc.Func.(*parser2.Ident); ok {
 			if fu, ok := o.g.staticFunctions[ident.Name]; ok && fu.IsPure {
 				if fu.Args >= 0 && fu.Args != len(fc.Args) {
-					return nil, fmt.Errorf("number of args wrong in: %v", fc)
+					return nil, ast.GetLine().Errorf("error in constant pre evaluation; number of args wrong in: %v", fc)
 				}
 				if c, ok := o.allConst(fc.Args); ok {
 					v, err := fu.Func(NewStack[V](c...), nil)
 					if err != nil {
-						return nil, fmt.Errorf("error in const function call: %s", ident)
+						return nil, ast.GetLine().EnhanceErrorf(err, "error in constant pre evaluation of function: %s", ident)
 					}
 					return &parser2.Const[V]{v, ident.Line}, nil
 				}

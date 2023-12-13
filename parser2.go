@@ -100,6 +100,10 @@ func (e errorWithLine) Error() string {
 	return m
 }
 
+func (e errorWithLine) Unwrap() error {
+	return e.cause
+}
+
 func (l Line) Errorf(m string, a ...any) error {
 	return errorWithLine{
 		message: fmt.Sprintf(m, a...),
