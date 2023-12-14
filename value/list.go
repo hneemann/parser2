@@ -290,8 +290,8 @@ func ToFloat(name string, st funcGen.Stack[Value], n int) (float64, error) {
 	}
 }
 
-func (l *List) Accept(st funcGen.Stack[Value]) (*List, error) {
-	f, err := ToFunc("accept", st, 1, 1)
+func (l *List) Accept(sta funcGen.Stack[Value]) (*List, error) {
+	f, err := ToFunc("accept", sta, 1, 1)
 	if err != nil {
 		return nil, err
 	}
@@ -310,8 +310,8 @@ func (l *List) Accept(st funcGen.Stack[Value]) (*List, error) {
 	})), nil
 }
 
-func (l *List) Map(st funcGen.Stack[Value]) (*List, error) {
-	f, err := ToFunc("map", st, 1, 1)
+func (l *List) Map(sta funcGen.Stack[Value]) (*List, error) {
+	f, err := ToFunc("map", sta, 1, 1)
 	if err != nil {
 		return nil, err
 	}
@@ -325,8 +325,8 @@ func (l *List) Map(st funcGen.Stack[Value]) (*List, error) {
 
 }
 
-func (l *List) Compact(st funcGen.Stack[Value]) (*List, error) {
-	f, err := ToFunc("compact", st, 1, 1)
+func (l *List) Compact(sta funcGen.Stack[Value]) (*List, error) {
+	f, err := ToFunc("compact", sta, 1, 1)
 	if err != nil {
 		return nil, err
 	}
@@ -343,9 +343,9 @@ func (l *List) Compact(st funcGen.Stack[Value]) (*List, error) {
 	})), nil
 }
 
-func (l *List) Cross(st funcGen.Stack[Value]) (*List, error) {
-	other := st.Get(1)
-	f, err := ToFunc("cross", st, 2, 2)
+func (l *List) Cross(sta funcGen.Stack[Value]) (*List, error) {
+	other := sta.Get(1)
+	f, err := ToFunc("cross", sta, 2, 2)
 	if err != nil {
 		return nil, err
 	}
@@ -360,9 +360,9 @@ func (l *List) Cross(st funcGen.Stack[Value]) (*List, error) {
 	}
 }
 
-func (l *List) Merge(st funcGen.Stack[Value]) (*List, error) {
-	other := st.Get(1)
-	f, err := ToFunc("merge", st, 2, 2)
+func (l *List) Merge(sta funcGen.Stack[Value]) (*List, error) {
+	other := sta.Get(1)
+	f, err := ToFunc("merge", sta, 2, 2)
 	if err != nil {
 		return nil, err
 	}
@@ -581,8 +581,8 @@ func (l *List) Reverse(st funcGen.Stack[Value]) (*List, error) {
 	return NewList(items...), nil
 }
 
-func (l *List) Combine(st funcGen.Stack[Value]) (*List, error) {
-	f, err := ToFunc("combine", st, 1, 2)
+func (l *List) Combine(sta funcGen.Stack[Value]) (*List, error) {
+	f, err := ToFunc("combine", sta, 1, 2)
 	if err != nil {
 		return nil, err
 	}
@@ -593,8 +593,8 @@ func (l *List) Combine(st funcGen.Stack[Value]) (*List, error) {
 	})), nil
 }
 
-func (l *List) Combine3(st funcGen.Stack[Value]) (*List, error) {
-	f, err := ToFunc("combine3", st, 1, 3)
+func (l *List) Combine3(sta funcGen.Stack[Value]) (*List, error) {
+	f, err := ToFunc("combine3", sta, 1, 3)
 	if err != nil {
 		return nil, err
 	}
@@ -606,9 +606,9 @@ func (l *List) Combine3(st funcGen.Stack[Value]) (*List, error) {
 	})), nil
 }
 
-func (l *List) CombineN(st funcGen.Stack[Value]) (*List, error) {
-	if n, ok := st.Get(1).ToInt(); ok {
-		f, err := ToFunc("combineN", st, 2, 1)
+func (l *List) CombineN(sta funcGen.Stack[Value]) (*List, error) {
+	if n, ok := sta.Get(1).ToInt(); ok {
+		f, err := ToFunc("combineN", sta, 2, 1)
 		if err != nil {
 			return nil, err
 		}
@@ -620,12 +620,12 @@ func (l *List) CombineN(st funcGen.Stack[Value]) (*List, error) {
 	return nil, errors.New("first argument in combineN needs to be an int")
 }
 
-func (l *List) IIr(st funcGen.Stack[Value]) (*List, error) {
-	initial, err := ToFunc("iir", st, 1, 1)
+func (l *List) IIr(sta funcGen.Stack[Value]) (*List, error) {
+	initial, err := ToFunc("iir", sta, 1, 1)
 	if err != nil {
 		return nil, err
 	}
-	function, err := ToFunc("iir", st, 2, 2)
+	function, err := ToFunc("iir", sta, 2, 2)
 	if err != nil {
 		return nil, err
 	}
@@ -640,12 +640,12 @@ func (l *List) IIr(st funcGen.Stack[Value]) (*List, error) {
 		})), nil
 }
 
-func (l *List) IIrCombine(st funcGen.Stack[Value]) (*List, error) {
-	initial, err := ToFunc("iirCombine", st, 1, 1)
+func (l *List) IIrCombine(sta funcGen.Stack[Value]) (*List, error) {
+	initial, err := ToFunc("iirCombine", sta, 1, 1)
 	if err != nil {
 		return nil, err
 	}
-	function, err := ToFunc("iirCombine", st, 2, 3)
+	function, err := ToFunc("iirCombine", sta, 2, 3)
 	if err != nil {
 		return nil, err
 	}
@@ -661,8 +661,8 @@ func (l *List) IIrCombine(st funcGen.Stack[Value]) (*List, error) {
 		})), nil
 }
 
-func (l *List) IIrApply(st funcGen.Stack[Value]) (*List, error) {
-	if m, ok := st.Get(1).ToMap(); ok {
+func (l *List) IIrApply(sta funcGen.Stack[Value]) (*List, error) {
+	if m, ok := sta.Get(1).ToMap(); ok {
 		initial, err := funcFromMap(m, "initial", 1)
 		if err != nil {
 			return nil, err
@@ -726,8 +726,8 @@ func createState(s int) Value {
 	return NewMap(listMap.New[Value](1).Append("state", Int(s)))
 }
 
-func (l *List) FSM(st funcGen.Stack[Value]) (Value, error) {
-	function, err := ToFunc("fsm", st, 1, 2)
+func (l *List) FSM(sta funcGen.Stack[Value]) (Value, error) {
+	function, err := ToFunc("fsm", sta, 1, 2)
 	if err != nil {
 		return nil, err
 	}
@@ -899,8 +899,8 @@ func (l *List) Replace(st funcGen.Stack[Value]) (Value, error) {
 	return f.Eval(st, l)
 }
 
-func (l *List) Number(st funcGen.Stack[Value]) (*List, error) {
-	f, err := ToFunc("number", st, 1, 2)
+func (l *List) Number(sta funcGen.Stack[Value]) (*List, error) {
+	f, err := ToFunc("number", sta, 1, 2)
 	if err != nil {
 		return nil, err
 	}
