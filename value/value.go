@@ -83,6 +83,10 @@ func (n nilType) ToString(funcGen.Stack[Value]) (string, error) {
 	return "nil", nil
 }
 
+func (n nilType) String() string {
+	return "nil"
+}
+
 func (n nilType) ToBool() (bool, bool) {
 	return false, false
 }
