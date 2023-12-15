@@ -330,17 +330,13 @@ func (l *List) Compact(sta funcGen.Stack[Value]) (*List, error) {
 	if err != nil {
 		return nil, err
 	}
-	return NewListFromIterable(iterator.Compact[Value](l.iterable, func(st funcGen.Stack[Value], a, b Value) (bool, error) {
-		aVal, err := f.Eval(st, a)
-		if err != nil {
-			return false, err
-		}
-		bVal, err := f.Eval(st, b)
-		if err != nil {
-			return false, err
-		}
-		return Equal(st, aVal, bVal)
-	})), nil
+	return NewListFromIterable(iterator.Compact[Value](l.iterable,
+		func(st funcGen.Stack[Value], val Value) (Value, error) {
+			return f.Eval(st, val)
+		},
+		func(st funcGen.Stack[Value], a, b Value) (bool, error) {
+			return Equal(st, a, b)
+		})), nil
 }
 
 func (l *List) Cross(sta funcGen.Stack[Value]) (*List, error) {
@@ -1305,9 +1301,9 @@ var ListMethods = MethodMap{
 	"uniqueInt": MethodAtType(1, func(list *List, stack funcGen.Stack[Value]) (Value, error) { return list.UniqueInt(stack) }).
 		SetMethodDescription("func(item) int", "Returns a list of unique integers returned by the given function."),
 	"compact": MethodAtType(1, func(list *List, stack funcGen.Stack[Value]) (Value, error) { return list.Compact(stack) }).
-		SetMethodDescription("func(a,b) bool", "Returns a new list with the items compacted. "+
-			"The function is called for each pair of items in the list and needs to return true if a=b holds."+
-			"Compacting means that an item is removed if the function returns true for the item and the previous item."),
+		SetMethodDescription("func(item) value", "Returns a new list with the items compacted. "+
+			"The given function is called for each item in the list."+
+			"Compacting means that a item is removed if it's value equals it's predecessors value."),
 	"cross": MethodAtType(2, func(list *List, stack funcGen.Stack[Value]) (Value, error) { return list.Cross(stack) }).
 		SetMethodDescription("other_list", "func(a,b) newItem",
 			"Returns a new list with the given function applied to each pair of items in the list and the given list. "+
