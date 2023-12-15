@@ -36,7 +36,7 @@ type Stack[V any] struct {
 
 func NewEmptyStack[V any]() Stack[V] {
 	return Stack[V]{
-		storage: &stackStorage[V]{data: make([]V, 0, 10)},
+		storage: &stackStorage[V]{data: make([]V, 0, 50)},
 		offs:    0,
 		size:    0,
 	}
