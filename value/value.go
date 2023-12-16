@@ -615,7 +615,7 @@ func New() *funcGen.FunctionGenerator[Value] {
 			},
 			Args:   1,
 			IsPure: true,
-		}.SetDescription("n", "Returns a list with n integer values, starting with 0.")).
+		}.SetDescription("n", "Returns a map with the key 'state' set to the given value.")).
 		AddStaticFunction("sprintf", funcGen.Function[Value]{Func: sprintf, Args: -1, IsPure: true}.
 			SetDescription("format", "args", "the classic, well known sprintf function")).
 		AddStaticFunction("sqrt", simpleOnlyFloatFunc("sqrt", func(x float64) float64 { return math.Sqrt(x) })).
