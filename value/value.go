@@ -95,7 +95,7 @@ func (n nilType) ToClosure() (funcGen.Function[Value], bool) {
 	return funcGen.Function[Value]{}, false
 }
 
-func (n nilType) GetMethod(name string) (funcGen.Function[Value], error) {
+func (n nilType) GetMethod(string) (funcGen.Function[Value], error) {
 	return funcGen.Function[Value]{}, fmt.Errorf("nil has no methods")
 }
 
