@@ -57,7 +57,7 @@ func (s String) IndexOf(st funcGen.Stack[Value]) (Value, error) {
 
 func (s String) Split(st funcGen.Stack[Value]) (Value, error) {
 	if s2, ok := st.Get(1).(String); ok {
-		return NewListConvert(func(s string) Value { return String(s) }, strings.Split(string(s), string(s2))...), nil
+		return NewListConvert(func(s string) Value { return String(s) }, strings.Split(string(s), string(s2))), nil
 	} else {
 		return nil, errors.New("split needs a string as argument")
 	}

@@ -13,7 +13,7 @@ import (
 
 // NewListConvert creates a list containing the given elements if the elements
 // do not implement the Value interface. The given function converts the type.
-func NewListConvert[I any](conv func(I) Value, items ...I) *List {
+func NewListConvert[I any](conv func(I) Value, items []I) *List {
 	return NewListFromIterable(func(st funcGen.Stack[Value]) iterator.Iterator[Value] {
 		return func(yield func(Value) bool) (bool, error) {
 			for _, item := range items {
