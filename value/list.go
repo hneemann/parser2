@@ -842,7 +842,9 @@ func (l *List) MinMax(st funcGen.Stack[Value]) (Value, error) {
 	}
 	first := true
 	var minVal Value = Int(0)
+	var minItem Value = NIL
 	var maxVal Value = Int(0)
+	var maxItem Value = NIL
 	var innerErr error
 	_, err = l.Iterator(st)(func(value Value) bool {
 		st.Push(value)
@@ -855,6 +857,8 @@ func (l *List) MinMax(st funcGen.Stack[Value]) (Value, error) {
 			first = false
 			minVal = r
 			maxVal = r
+			minItem = value
+			maxItem = value
 		} else {
 			less, err := Less(st, r, minVal)
 			if err != nil {
@@ -863,6 +867,7 @@ func (l *List) MinMax(st funcGen.Stack[Value]) (Value, error) {
 			}
 			if less {
 				minVal = r
+				minItem = value
 			}
 			b, err := Less(st, maxVal, r)
 			if err != nil {
@@ -871,6 +876,7 @@ func (l *List) MinMax(st funcGen.Stack[Value]) (Value, error) {
 			}
 			if b {
 				maxVal = r
+				maxItem = value
 			}
 		}
 		return true
@@ -884,6 +890,8 @@ func (l *List) MinMax(st funcGen.Stack[Value]) (Value, error) {
 	return NewMap(listMap.New[Value](3).
 		Append("min", minVal).
 		Append("max", maxVal).
+		Append("minItem", minItem).
+		Append("maxItem", maxItem).
 		Append("valid", Bool(!first))), nil
 }
 
@@ -1331,7 +1339,8 @@ var ListMethods = MethodMap{
 	"reverse": MethodAtType(0, func(list *List, stack funcGen.Stack[Value]) (Value, error) { return list.Reverse(stack) }).
 		SetMethodDescription("Returns the list in reverse order."),
 	"append": MethodAtType(1, func(list *List, stack funcGen.Stack[Value]) (Value, error) { return list.Append(stack) }).
-		SetMethodDescription("item", "Returns a new list with the given item appended."),
+		SetMethodDescription("item", "Returns a new list with the given item appended. "+
+			"If a list is to be created by adding element by element, this method is more efficient than using the '+' operator."),
 	"iir": MethodAtType(2, func(list *List, stack funcGen.Stack[Value]) (Value, error) { return list.IIr(stack) }).
 		SetMethodDescription("func(first_item) first_new_item", "func(item, last_new_item) new_item",
 			"Returns a new list with the given functions applied to the items in the list. "+

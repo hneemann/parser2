@@ -21,6 +21,11 @@ const startTimeout = 2 // seconds
 // have to use the same list multiple times and the list is both expensive to
 // create and expensive to store. This is because MultiUse allows you to use the
 // list multiple times without having to store the list elements for later reuse.
+// An example could be reading a csv file. Reading such a file is expensive, so
+// you want to do it only once. But if the file is a large file, you also do not
+// want to store the content of the file in memory to be able to use it multiple
+// times. MultiUse allows you to read the file once and then use the list
+// multiple times without having to store the content of the file.
 func (l *List) MultiUse(st funcGen.Stack[Value]) (Map, error) {
 	if m, ok := st.Get(1).ToMap(); ok {
 		var muList multiUseList
