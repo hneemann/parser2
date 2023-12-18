@@ -741,6 +741,26 @@ func (g *FunctionGenerator[V]) GenerateFunc(ast parser2.AST, gc GeneratorContext
 				return defaultFunc(st, cs)
 			}, nil
 		}
+	case *parser2.TryCatch:
+		tryFunc, err := g.GenerateFunc(a.Try, gc)
+		if err != nil {
+			return nil, err
+		}
+		catchFunc, err := g.GenerateFunc(a.Catch, gc)
+		if err != nil {
+			return nil, err
+		}
+		return func(st Stack[V], cs []V) (V, error) {
+			v, err := tryFunc(st, cs)
+			if err == nil {
+				return v, nil
+			}
+			v2, err := catchFunc(st, cs)
+			if err != nil {
+				return zero, a.EnhanceErrorf(err, "error in catch")
+			}
+			return v2, err
+		}, nil
 	case *parser2.Unary:
 		valFunc, err := g.GenerateFunc(a.Value, gc)
 		if err != nil {
@@ -916,7 +936,7 @@ func (g *FunctionGenerator[V]) GenerateFunc(ast parser2.AST, gc GeneratorContext
 			if err != nil {
 				return zero, a.EnhanceErrorf(err, "error in getting function")
 			}
-			theFunc, ok := g.extractFunction(funcVal)
+			theFunc, ok := g.ExtractFunction(funcVal)
 			if !ok {
 				return zero, a.Errorf("not a function: %v", a.Func)
 			}
@@ -951,7 +971,7 @@ func (g *FunctionGenerator[V]) GenerateFunc(ast parser2.AST, gc GeneratorContext
 			// If it is a closure field, this should be a map access!
 			if g.mapHandler != nil && g.mapHandler.IsMap(value) {
 				if va, err := g.mapHandler.AccessMap(value, name); err == nil {
-					if theFunc, ok := g.extractFunction(va); ok {
+					if theFunc, ok := g.ExtractFunction(va); ok {
 						for _, argFunc := range argsFuncList {
 							v, err := argFunc(st, cs)
 							if err != nil {
@@ -1062,9 +1082,9 @@ func (g *FunctionGenerator[V]) genFuncList(a []parser2.AST, gc GeneratorContext)
 	return args, nil
 }
 
-// extractFunction is used to extract a function from a value
+// ExtractFunction is used to extract a function from a value
 // Up to now only closures are supported.
-func (g *FunctionGenerator[V]) extractFunction(fu V) (Function[V], bool) {
+func (g *FunctionGenerator[V]) ExtractFunction(fu V) (Function[V], bool) {
 	if g.closureHandler != nil {
 		if c, ok := g.closureHandler.ToClosure(fu); ok {
 			return c, true

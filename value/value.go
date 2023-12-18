@@ -9,6 +9,7 @@ import (
 	"github.com/hneemann/parser2/funcGen"
 	"github.com/hneemann/parser2/listMap"
 	"math"
+	"math/rand"
 	"sort"
 	"strconv"
 )
@@ -317,7 +318,7 @@ func (f factory) AccessMap(mapValue Value, key string) (Value, error) {
 		if v, ok := m.Get(key); ok {
 			return v, nil
 		} else {
-			return nil, fmt.Errorf("key %s not found in map", key)
+			return nil, fmt.Errorf("key '%s' not found in map", key)
 		}
 	} else {
 		return nil, fmt.Errorf("'.%s' not possible; not a map", key)
@@ -358,6 +359,36 @@ func (f factory) AccessList(list Value, index Value) (Value, error) {
 }
 
 func (f factory) Generate(ast parser2.AST, gc funcGen.GeneratorContext, g *funcGen.FunctionGenerator[Value]) (funcGen.Func[Value], error) {
+	if tc, ok := ast.(*parser2.TryCatch); ok {
+		if cl, ok := tc.Catch.(*parser2.ClosureLiteral); ok && len(cl.Names) == 1 {
+			tryFunc, err := g.GenerateFunc(tc.Try, gc)
+			if err != nil {
+				return nil, tc.EnhanceErrorf(err, "error in try expression")
+			}
+			catchFunc, err := g.GenerateFunc(tc.Catch, gc)
+			if err != nil {
+				return nil, tc.EnhanceErrorf(err, "error in catch expression")
+			}
+			l := tc.GetLine()
+			return func(st funcGen.Stack[Value], cs []Value) (Value, error) {
+				tryVal, tryErr := tryFunc(st, cs)
+				if tryErr == nil {
+					return tryVal, nil
+				}
+				catchVal, err := catchFunc(st, cs)
+				if err != nil {
+					return nil, l.EnhanceErrorf(err, "error in getting catch function")
+				}
+				theFunc, ok := g.ExtractFunction(catchVal)
+				if !ok || theFunc.Args != 1 {
+					// impossible because condition is checked above
+					return nil, l.Errorf("internal catch error")
+				}
+				st.Push(String(tryErr.Error()))
+				return theFunc.Func(st.CreateFrame(1), cs)
+			}, nil
+		}
+	}
 	if op, ok := ast.(*parser2.Operate); ok {
 		// AND and OR with short evaluation
 		switch op.Operator {
@@ -565,6 +596,17 @@ func New() *funcGen.FunctionGenerator[Value] {
 			Args:   1,
 			IsPure: true,
 		}.SetDescription("value", "Returns the square of the value.")).
+		AddStaticFunction("rnd", funcGen.Function[Value]{
+			Func: func(st funcGen.Stack[Value], cs []Value) (Value, error) {
+				v := st.Get(0)
+				if n, ok := v.ToInt(); ok {
+					return Int(rand.Intn(n)), nil
+				}
+				return nil, errors.New("rnd only allowed on int")
+			},
+			Args:   1,
+			IsPure: false,
+		}.SetDescription("n", "Returns a random integer between 0 and n-1.")).
 		AddStaticFunction("round", funcGen.Function[Value]{
 			Func: func(st funcGen.Stack[Value], cs []Value) (Value, error) {
 				v := st.Get(0)

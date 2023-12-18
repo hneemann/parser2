@@ -202,6 +202,31 @@ func (i *If) String() string {
 	return "if " + i.Cond.String() + " then " + i.Then.String() + " else " + i.Else.String()
 }
 
+type TryCatch struct {
+	Try   AST
+	Catch AST
+	Line
+}
+
+func (t *TryCatch) Traverse(visitor Visitor) {
+	if visitor.Visit(t) {
+		t.Try.Traverse(visitor)
+		t.Catch.Traverse(visitor)
+	}
+}
+
+func (t *TryCatch) Optimize(optimizer Optimizer) error {
+	err := opt(&t.Try, optimizer)
+	if err != nil {
+		return err
+	}
+	return opt(&t.Catch, optimizer)
+}
+
+func (t *TryCatch) String() string {
+	return "try " + t.Try.String() + " catch " + t.Catch.String()
+}
+
 type Case[V any] struct {
 	CaseConst AST
 	Value     AST
@@ -1021,6 +1046,24 @@ func (p *Parser[V]) parseLiteral(tokenizer *Tokenizer, constants Constants[V], l
 			return &ClosureLiteral{
 				Names: []string{name},
 				Func:  e,
+				Line:  t.Line,
+			}, nil
+		} else if name == "try" {
+			tryExp, err := p.parseExpression(tokenizer, constants, letAllowed)
+			if err != nil {
+				return nil, err
+			}
+			t := tokenizer.Next()
+			if !(t.typ == tIdent && t.image == "catch") {
+				return nil, unexpected("catch", t)
+			}
+			catchExp, err := p.parseExpression(tokenizer, constants, letAllowed)
+			if err != nil {
+				return nil, err
+			}
+			return &TryCatch{
+				Try:   tryExp,
+				Catch: catchExp,
 				Line:  t.Line,
 			}, nil
 		} else if name == "if" {

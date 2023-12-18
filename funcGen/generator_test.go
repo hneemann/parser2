@@ -2,6 +2,7 @@ package funcGen
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"github.com/hneemann/parser2"
 	"github.com/stretchr/testify/assert"
@@ -12,13 +13,13 @@ import (
 )
 
 type Value interface {
-	Float() float64
+	Float() (float64, error)
 }
 
 type Float float64
 
-func (f Float) Float() float64 {
-	return float64(f)
+func (f Float) Float() (float64, error) {
+	return float64(f), nil
 }
 
 func (f Float) Sqrt() Float {
@@ -31,8 +32,8 @@ func (f Float) String() string {
 
 type vClosure Function[Value]
 
-func (v vClosure) Float() float64 {
-	panic("a function is not a float value")
+func (v vClosure) Float() (float64, error) {
+	return 0, errors.New("a function is not a float value")
 }
 
 func (v vClosure) String() string {
@@ -54,10 +55,42 @@ func (th typeHandler) ToClosure(fu Value) (Function[Value], bool) {
 
 func NewGen() *FunctionGenerator[Value] {
 	return New[Value]().
-		AddOp("+", true, func(st Stack[Value], a Value, b Value) (Value, error) { return Float(a.Float() + b.Float()), nil }).
-		AddOp("*", true, func(st Stack[Value], a Value, b Value) (Value, error) { return Float(a.Float() * b.Float()), nil }).
-		AddUnary("-", func(a Value) (Value, error) { return Float(-a.Float()), nil }).
-		SetToBool(func(c Value) (bool, bool) { return c.Float() != 0, true }).
+		AddOp("+", true, func(st Stack[Value], a Value, b Value) (Value, error) {
+			aVal, err := a.Float()
+			if err != nil {
+				return nil, err
+			}
+			bVal, err := b.Float()
+			if err != nil {
+				return nil, err
+			}
+			return Float(aVal + bVal), nil
+		}).
+		AddOp("*", true, func(st Stack[Value], a Value, b Value) (Value, error) {
+			aVal, err := a.Float()
+			if err != nil {
+				return nil, err
+			}
+			bVal, err := b.Float()
+			if err != nil {
+				return nil, err
+			}
+			return Float(aVal * bVal), nil
+		}).
+		AddUnary("-", func(a Value) (Value, error) {
+			fl, err := a.Float()
+			if err != nil {
+				return nil, err
+			}
+			return Float(-fl), nil
+		}).
+		SetToBool(func(c Value) (bool, bool) {
+			fl, err := c.Float()
+			if err != nil {
+				return false, false
+			}
+			return fl != 0, true
+		}).
 		SetClosureHandler(th).
 		SetNumberParser(
 			parser2.NumberParserFunc[Value](
@@ -150,6 +183,18 @@ func TestFunctionGenerator_Generate(t *testing.T) {
 			exp:      "a.sqrt()",
 			result:   math.Sqrt(2),
 		},
+		{
+			args:     []string{"a"},
+			argsVals: []Value{Float(2)},
+			exp:      "try a+(a->a) catch 1",
+			result:   1,
+		},
+		{
+			args:     []string{"a"},
+			argsVals: []Value{Float(2)},
+			exp:      "try a catch 1",
+			result:   2,
+		},
 	}
 
 	for _, te := range tests {
@@ -162,7 +207,9 @@ func TestFunctionGenerator_Generate(t *testing.T) {
 				res, err := f(NewStack(test.argsVals...))
 				assert.NoError(t, err)
 				if res != nil {
-					assert.InDelta(t, test.result, res.Float(), 1e-6)
+					fl, err := res.Float()
+					assert.NoError(t, err)
+					assert.InDelta(t, test.result, fl, 1e-6)
 				}
 			}
 		})

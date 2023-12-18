@@ -137,6 +137,10 @@ func TestBasic(t *testing.T) {
                 ft:bool(1.5),
                 if:bool(0),
                 it:bool(1)}.string()`, res: String("{ff:false, ft:true, if:false, it:true}")},
+
+		{exp: "let p={a:1,b:2}; try p.a catch 5", res: Int(1)},
+		{exp: "let p={a:1,b:2}; try p.c catch 5", res: Int(5)},
+		{exp: "let p={a:1,b:2}; try p.c catch e->e", res: String("key 'c' not found in map")},
 	})
 }
 

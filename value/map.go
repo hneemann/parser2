@@ -244,7 +244,7 @@ func (v Map) GetM(stack funcGen.Stack[Value]) (Value, error) {
 		if v, ok := v.m.Get(string(key)); ok {
 			return v, nil
 		} else {
-			return nil, fmt.Errorf("key %v not found in map", key)
+			return nil, fmt.Errorf("key '%v' not found in map", key)
 		}
 	}
 	return nil, errors.New("get requires a string as argument")
