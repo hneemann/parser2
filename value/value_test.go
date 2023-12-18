@@ -140,7 +140,7 @@ func TestBasic(t *testing.T) {
 
 		{exp: "let p={a:1,b:2}; try p.a catch 5", res: Int(1)},
 		{exp: "let p={a:1,b:2}; try p.c catch 5", res: Int(5)},
-		{exp: "let p={a:1,b:2}; try p.c catch e->e", res: String("key 'c' not found in map")},
+		{exp: "let p={a:1,b:2}; try p.c catch e->\"caught error: \"+e", res: String("caught error: key 'c' not found in map")},
 	})
 }
 
