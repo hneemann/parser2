@@ -1013,60 +1013,35 @@ func (g *FunctionGenerator[V]) createClosureLiteralFunc(a *parser2.ClosureLitera
 		return nil, err
 	}
 
-	type copyMode int
-	const (
-		stack copyMode = iota
-		closure
-		this
-	)
-
-	type copyAction struct {
-		index int
-		mode  copyMode
-	}
-	copyActions := make([]copyAction, len(innerContext.cm))
+	type accessContextOperation func(st Stack[V], cs []V, this V) V
+	accessContextOperations := make([]accessContextOperation, len(innerContext.cm))
 	for n, ci := range innerContext.cm {
 		if i, ok := gc.am[n]; ok {
-			copyActions[ci] = copyAction{
-				index: i,
-				mode:  stack,
-			}
+			accessContextOperations[ci] = func(st Stack[V], cs []V, this V) V { return st.Get(i) }
 		} else {
 			if i, ok := gc.cm[n]; ok {
-				copyActions[ci] = copyAction{
-					index: i,
-					mode:  closure,
-				}
+				accessContextOperations[ci] = func(st Stack[V], cs []V, this V) V { return cs[i] }
 			} else {
 				if n == recursiveName {
-					copyActions[ci] = copyAction{
-						mode: this,
-					}
+					accessContextOperations[ci] = func(st Stack[V], cs []V, this V) V { return this }
 				} else {
-					return nil, a.Errorf("not found: %s", n)
+					return nil, a.Errorf("outer value '%s' found", n)
 				}
 			}
 		}
 	}
 	return func(st Stack[V], cs []V) (V, error) {
-		closureStore := make([]V, len(copyActions))
-		cl := g.closureHandler.FromClosure(Function[V]{
+		closureContext := make([]V, len(accessContextOperations))
+		closure := g.closureHandler.FromClosure(Function[V]{
 			Func: func(st Stack[V], cs []V) (V, error) {
-				return closureFunc(st, closureStore)
+				return closureFunc(st, closureContext)
 			},
 			Args: len(a.Names),
 		})
-		for i, ca := range copyActions {
-			switch ca.mode {
-			case stack:
-				closureStore[i] = st.Get(ca.index)
-			case closure:
-				closureStore[i] = cs[ca.index]
-			case this:
-				closureStore[i] = cl
-			}
+		for i, accessContext := range accessContextOperations {
+			closureContext[i] = accessContext(st, cs, closure)
 		}
-		return cl, nil
+		return closure, nil
 	}, nil
 }
 
