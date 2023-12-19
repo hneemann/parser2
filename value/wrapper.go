@@ -1,11 +1,15 @@
 package value
 
+import "reflect"
+
+type funcMap[S any] map[string]func(S) Value
+
 type ToMap[S any] struct {
-	attr map[string]func(S) Value
+	attr funcMap[S]
 }
 
 func NewToMap[S any]() *ToMap[S] {
-	return &ToMap[S]{attr: make(map[string]func(S) Value)}
+	return &ToMap[S]{attr: make(funcMap[S])}
 }
 
 func (wt *ToMap[S]) Attr(name string, val func(S) Value) *ToMap[S] {
@@ -19,7 +23,7 @@ func (wt *ToMap[S]) Create(container S) Map {
 
 type toMapWrapper[S any] struct {
 	container S
-	attr      map[string]func(S) Value
+	attr      funcMap[S]
 }
 
 func (w toMapWrapper[S]) Get(key string) (Value, bool) {
@@ -41,4 +45,42 @@ func (w toMapWrapper[S]) Iter(yield func(string, Value) bool) bool {
 
 func (w toMapWrapper[S]) Size() int {
 	return len(w.attr)
+}
+
+type ToMapReflection[S any] struct {
+	ToMap[reflect.Value]
+}
+
+func (wt *ToMapReflection[S]) Create(s S) Map {
+	return Map{toMapWrapper[reflect.Value]{container: reflect.ValueOf(s), attr: wt.attr}}
+}
+
+func NewToMapReflection[S any]() *ToMapReflection[S] {
+	var zero S
+	t := reflect.TypeOf(zero)
+	tm := &ToMapReflection[S]{ToMap[reflect.Value]{attr: make(funcMap[reflect.Value])}}
+	for i := 0; i < t.NumField(); i++ {
+		i := i
+		field := t.Field(i)
+		name := field.Name
+		switch field.Type.Kind() {
+		case reflect.Int8:
+			fallthrough
+		case reflect.Int16:
+			fallthrough
+		case reflect.Int32:
+			fallthrough
+		case reflect.Int:
+			tm.Attr(name, func(s reflect.Value) Value { return Int(s.Field(i).Int()) })
+		case reflect.Bool:
+			tm.Attr(name, func(s reflect.Value) Value { return Bool(s.Field(i).Bool()) })
+		case reflect.Float32:
+			fallthrough
+		case reflect.Float64:
+			tm.Attr(name, func(s reflect.Value) Value { return Float(s.Field(i).Float()) })
+		case reflect.String:
+			tm.Attr(name, func(s reflect.Value) Value { return String(s.Field(i).String()) })
+		}
+	}
+	return tm
 }

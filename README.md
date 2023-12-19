@@ -44,10 +44,16 @@ faster, but a bit more cumbersome. We create a wrapper for the data:
 
 ``` Go
 var PersonToMap = value.NewToMap[Person]().
-	Attr("name",         func(p Person) value.Value { return value.String(p.Name) }).
-	Attr("surname",      func(p Person) value.Value { return value.String(p.Surname) }).
-	Attr("placeOfBirth", func(p Person) value.Value { return value.String(p.PlaceOfBirth) }).
-	Attr("age",          func(p Person) value.Value { return value.Int(p.Age) })
+	Attr("Name",         func(p Person) value.Value { return value.String(p.Name) }).
+	Attr("Surname",      func(p Person) value.Value { return value.String(p.Surname) }).
+	Attr("PlaceOfBirth", func(p Person) value.Value { return value.String(p.PlaceOfBirth) }).
+	Attr("Age",          func(p Person) value.Value { return value.Int(p.Age) })
+```
+
+If you don't mind a small loss of performance or flexibility, you can simply write:
+
+``` Go
+var PersonToMap = value.NewToMapReflection[Person]()
 ```
 
 Low let's do some operations on the data. At first we have to create the parser, and the list of persons:
@@ -66,7 +72,7 @@ Now we can make some queries on the data. Let's create a list of all names:
 	// The argument 'people' is passed to the function.
 	fu, err := parser.Generate(`
 
-people.map(p->p.name).reduce((a,b)->a+", "+b)
+people.map(p->p.Name).reduce((a,b)->a+", "+b)
 
        `, "people")
 	if err != nil {
@@ -91,8 +97,8 @@ A more sophisticated example would be to create a list of all people that are ol
 	fu, err := parser.Generate(`
 
 people
-  .accept(p->p.placeOfBirth="New York" & p.age>21)
-  .map(e->e.name+": "+e.age)
+  .accept(p->p.PlaceOfBirth="New York" & p.Age>21)
+  .map(e->e.Name+": "+e.Age)
   .reduce((a,b)->a+", "+b)
 
     `, "people")
@@ -110,7 +116,7 @@ Or find out, which surnames are used and how often, ordered by the number of peo
 	fu, err := parser.Generate(`
 
 people
-  .groupByString(p->p.surname)
+  .groupByString(p->p.Surname)
   .orderRev(e->e.values.size())
   .map(l->l.key+":"+l.values.size())
   .reduce((a,b)->a+", "+b)

@@ -51,3 +51,86 @@ func TestToMap(t *testing.T) {
 	})
 	assert.Equal(t, Map{RealMap{"a": Int(1), "b": Int(2), "c": Float(1.5)}}, Map{RealMap(is)})
 }
+
+type dataType struct {
+	MyInt8   int8
+	MyInt    int
+	MyString string
+	MyFloat  float64
+}
+
+func TestNewReflection(t *testing.T) {
+	m := NewToMapReflection[dataType]()
+	data := dataType{
+		MyInt8:   8,
+		MyInt:    7,
+		MyString: "Hello",
+		MyFloat:  1.1,
+	}
+
+	v := m.Create(data)
+	assert.Equal(t, 4, v.Size())
+	{
+		val, ok := v.Get("MyInt8")
+		assert.True(t, ok)
+		assert.Equal(t, Int(8), val)
+	}
+	{
+		val, ok := v.Get("MyInt")
+		assert.True(t, ok)
+		assert.Equal(t, Int(7), val)
+	}
+	{
+		val, ok := v.Get("MyString")
+		assert.True(t, ok)
+		assert.Equal(t, String("Hello"), val)
+	}
+	{
+		val, ok := v.Get("MyFloat")
+		assert.True(t, ok)
+		assert.Equal(t, Float(1.1), val)
+	}
+}
+
+func Benchmark(b *testing.B) {
+
+	data := dataType{
+		MyInt8:   8,
+		MyInt:    7,
+		MyString: "Hello",
+		MyFloat:  1.1,
+	}
+
+	type creator interface {
+		Create(dataType) Map
+	}
+
+	benchmarks := []struct {
+		name  string
+		toMap creator
+	}{
+		{
+			name: "manual",
+			toMap: NewToMap[dataType]().
+				Attr("MyInt", func(t dataType) Value { return Int(t.MyInt) }).
+				Attr("MyString", func(t dataType) Value { return String(t.MyString) }).
+				Attr("MyFloat", func(t dataType) Value { return Float(t.MyFloat) }),
+		},
+		{
+			name:  "reflect",
+			toMap: NewToMapReflection[dataType](),
+		},
+	}
+	for _, bm := range benchmarks {
+		b.Run(bm.name, func(b *testing.B) {
+			m := bm.toMap.Create(data)
+			for i := 0; i < b.N; i++ {
+				for i := 0; i < 100; i++ {
+					m.Get("MyInt")
+					m.Get("MyString")
+					m.Get("MyFloat")
+				}
+			}
+		})
+	}
+}

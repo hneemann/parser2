@@ -21,11 +21,7 @@ var People = []Person{
 	{"Jake", "Muller", "Washington", 22},
 }
 
-var PersonToMap = value.NewToMap[Person]().
-	Attr("name", func(p Person) value.Value { return value.String(p.Name) }).
-	Attr("surname", func(p Person) value.Value { return value.String(p.Surname) }).
-	Attr("placeOfBirth", func(p Person) value.Value { return value.String(p.PlaceOfBirth) }).
-	Attr("age", func(p Person) value.Value { return value.Int(p.Age) })
+var PersonToMap = value.NewToMapReflection[Person]()
 
 func main() {
 	// Create a parser.
@@ -37,7 +33,7 @@ func main() {
 		// The argument 'people' is passed to the function.
 		fu, err := parser.Generate(`
 
-people.map(p->p.name).reduce((a,b)->a+", "+b)
+people.map(p->p.Name).reduce((a,b)->a+", "+b)
 
         `, "people")
 		if err != nil {
@@ -55,9 +51,9 @@ people.map(p->p.name).reduce((a,b)->a+", "+b)
 		fu, err := parser.Generate(`
 
 people
-  .accept(p->p.placeOfBirth="New York" & p.age>21)
-  .map(e->e.name+": "+e.age)
-  .reduce((a,b)->a+"; "+b)
+  .accept(p->p.PlaceOfBirth="New York" & p.Age>21)
+  .map(e->e.Name+": "+e.Age)
+  .reduce((a,b)->a+", "+b)
 
         `, "people")
 		if err != nil {
@@ -75,7 +71,7 @@ people
 		fu, err := parser.Generate(`
 
 people
-  .groupByString(p->p.surname)
+  .groupByString(p->p.Surname)
   .orderRev(e->e.values.size())
   .map(l->l.key+":"+l.values.size())
   .reduce((a,b)->a+", "+b)
