@@ -56,7 +56,7 @@ If you don't mind a small loss of performance or flexibility, you can simply wri
 var PersonToMap = value.NewToMapReflection[Person]()
 ```
 
-Low let's do some operations on the data. At first we have to create the parser, and the list of persons:
+Now let's do some operations on the data. At first we have to create the parser, and the list of persons:
 
 ``` Go
 func main() {
