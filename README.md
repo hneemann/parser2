@@ -39,8 +39,8 @@ var People = []Person{
 }
 ```
 
-The parser has to access the data somehow. This could be done using reflection, but this way is more flexible and faster.
-We create a wrappers for the data:
+The parser must somehow access the data. This could be done using reflection, but this way is more flexible and also 
+faster, but a bit more cumbersome. We create a wrapper for the data:
 
 ``` Go
 var PersonToMap = value.NewToMap[Person]().
