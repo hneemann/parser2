@@ -88,14 +88,14 @@ John, Jane, Bob, Frank, Mary, Jake
 A more sophisticated example would be to create a list of all people that are older than 21 and live in New York:
 
 ``` Go
-		fu, err := parser.Generate(`
+	fu, err := parser.Generate(`
 
 people
   .accept(p->p.placeOfBirth="New York" & p.age>21)
   .map(e->e.name+": "+e.age)
   .reduce((a,b)->a+", "+b)
 
-        `, "people")
+    `, "people")
 ```
 
 Results in
@@ -107,7 +107,7 @@ Frank: 22
 Or find out, which surnames are used and how often, ordered by the number of people with that surname:
 
 ``` Go
-		fu, err := parser.Generate(`
+	fu, err := parser.Generate(`
 
 people
   .groupByString(p->p.surname)
@@ -115,7 +115,7 @@ people
   .map(l->l.key+":"+l.values.size())
   .reduce((a,b)->a+", "+b)
 
-        `, "people")
+    `, "people")
 ```
 This results in:
 
