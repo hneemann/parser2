@@ -358,7 +358,7 @@ func (f factory) AccessList(list Value, index Value) (Value, error) {
 	}
 }
 
-func (f factory) Generate(ast parser2.AST, gc funcGen.GeneratorContext, g *funcGen.FunctionGenerator[Value]) (funcGen.Func[Value], error) {
+func (f factory) Generate(ast parser2.AST, gc funcGen.GeneratorContext, g *funcGen.FunctionGenerator[Value]) (funcGen.ParserFunc[Value], error) {
 	if tc, ok := ast.(*parser2.TryCatch); ok {
 		if cl, ok := tc.Catch.(*parser2.ClosureLiteral); ok && len(cl.Names) == 1 {
 			tryFunc, err := g.GenerateFunc(tc.Try, gc)

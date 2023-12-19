@@ -63,7 +63,7 @@ func (l *List) MultiUse(st funcGen.Stack[Value]) (Map, error) {
 
 type multiUseEntry struct {
 	name            string
-	fu              funcGen.Func[Value]
+	fu              funcGen.ParserFunc[Value]
 	writerLock      sync.Mutex
 	writer          chan<- Value
 	requestClose    chan struct{}
