@@ -1244,6 +1244,22 @@ func (l *List) CreateInterpolation(st funcGen.Stack[Value]) (Value, error) {
 	}, nil
 }
 
+func (l *List) Set(st funcGen.Stack[Value]) (Value, error) {
+	index, err := MustInt(st.Get(1), nil)
+	if err != nil {
+		return nil, err
+	}
+	sl, err := l.CopyToSlice(st)
+	if err != nil {
+		return nil, err
+	}
+	if index < 0 || index >= len(sl) {
+		return nil, fmt.Errorf("index %d out of range", index)
+	}
+	sl[index] = st.Get(2)
+	return NewList(sl...), nil
+}
+
 var ListMethods = MethodMap{
 	"accept": MethodAtType(1, func(list *List, stack funcGen.Stack[Value]) (Value, error) { return list.Accept(stack) }).
 		SetMethodDescription("func(item) bool",
@@ -1377,6 +1393,8 @@ var ListMethods = MethodMap{
 				"The function is called with the index of the item and the item itself."),
 	"present": MethodAtType(1, func(list *List, stack funcGen.Stack[Value]) (Value, error) { return list.Present(stack) }).
 		SetMethodDescription("func(item) bool", "Returns true if the given function returns true for any item in the list."),
+	"set": MethodAtType(2, func(list *List, stack funcGen.Stack[Value]) (Value, error) { return list.Set(stack) }).
+		SetMethodDescription("index", "item", "Replaces the item at the given index with the given item. Returns the new list."),
 	"size": MethodAtType(0, func(list *List, stack funcGen.Stack[Value]) (Value, error) {
 		size, err := list.Size(stack)
 		return Int(size), err

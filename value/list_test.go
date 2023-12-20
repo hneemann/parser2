@@ -80,6 +80,10 @@ func TestList(t *testing.T) {
 		{exp: "[1,2,3].reverse().string()", res: String("[3, 2, 1]")},
 		{exp: "[1,2,3,4].reverse().string()", res: String("[4, 3, 2, 1]")},
 
+		{exp: "[1,2,3].set(0,7).string()", res: String("[7, 2, 3]")},
+		{exp: "[1,2,3].set(1,7).string()", res: String("[1, 7, 3]")},
+		{exp: "[1,2,3].set(2,7).string()", res: String("[1, 2, 7]")},
+
 		{exp: "[1,2,3].top(0).string()", res: String("[]")},
 		{exp: "[1,2,3].top(1).string()", res: String("[1]")},
 		{exp: "[1,2,3].top(2).string()", res: String("[1, 2]")},
