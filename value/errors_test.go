@@ -51,7 +51,14 @@ func TestErrors(t *testing.T) {
 		{"list(10).multiUse({a:l->l.notFound(0,(s,i)->s+i), b:l->l.notFound(i->i+1)})", "notFound"},
 		{"{a:1,b:2}.put(\"b\", 3)", "key 'b' already present in map"},
 		{"{a:1,b:2}+{b:3,c:4}", "first map already contains key 'b'"},
-		{"func f(x) x+b; f(2)", "outer value 'b' found"},
+		{"{a:1,b:2,c:3}.d", "available are: a, b, c"},
+		{"true.d", "not possible; Bool is not a map"},
+		{"(2).d", "not possible; Int is not a map"},
+		{"(2.2).d", "not possible; Float is not a map"},
+		{"[1,2,3,4].d", "not possible; List is not a map"},
+		{"[1,2,3,4]+\"test\"", "not allowed on List, String"},
+		{"true-2", "not allowed on Bool, Int"},
+		{"func f(x) x+b; f(2)", "outer value 'b' not found"},
 	}
 
 	fg := SetUpParser(New().AddStaticFunction("error", toLargeErrorFunc(100)))

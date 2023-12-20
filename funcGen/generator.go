@@ -1032,7 +1032,7 @@ func (g *FunctionGenerator[V]) createClosureLiteralFunc(a *parser2.ClosureLitera
 				if n == recursiveName {
 					accessContextOperations[ci] = func(st Stack[V], cs []V, this V) V { return this }
 				} else {
-					return nil, a.Errorf("outer value '%s' found", n)
+					return nil, a.Errorf("outer value '%s' not found", n)
 				}
 			}
 		}

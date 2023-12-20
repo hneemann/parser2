@@ -396,3 +396,15 @@ var MapMethods = MethodMap{
 func (v Map) GetMethod(name string) (funcGen.Function[Value], error) {
 	return MapMethods.Get(name)
 }
+
+func (v Map) availList() string {
+	var b bytes.Buffer
+	v.Iter(func(key string, v Value) bool {
+		if b.Len() > 0 {
+			b.WriteString(", ")
+		}
+		b.WriteString(key)
+		return true
+	})
+	return b.String()
+}

@@ -59,7 +59,11 @@ func LessEqual(st funcGen.Stack[Value], a Value, b Value) (Value, error) {
 			return Bool(aa <= bb), nil
 		}
 	}
-	return nil, fmt.Errorf("less not allowed on %v<%v", a, b)
+	return nil, notAllowed("lessEqual", a, b)
+}
+
+func notAllowed(name string, a Value, b Value) error {
+	return fmt.Errorf("'%s' not allowed on %s, %s", name, typeName(a), typeName(b))
 }
 
 func In(st funcGen.Stack[Value], a Value, b Value) (Value, error) {
@@ -82,7 +86,7 @@ func In(st funcGen.Stack[Value], a Value, b Value) (Value, error) {
 			return Bool(strings.Contains(string(strToLookIn), string(strToLookFor))), nil
 		}
 	}
-	return nil, fmt.Errorf("~ not allowed on %v~%v", a, b)
+	return nil, notAllowed("~", a, b)
 }
 
 func Less(st funcGen.Stack[Value], a Value, b Value) (bool, error) {
@@ -101,7 +105,7 @@ func Less(st funcGen.Stack[Value], a Value, b Value) (bool, error) {
 			return aa < bb, nil
 		}
 	}
-	return false, fmt.Errorf("less not allowed on %v<%v", a, b)
+	return false, notAllowed("less", a, b)
 }
 
 func Swap(inner func(st funcGen.Stack[Value], a, b Value) (Value, error)) func(st funcGen.Stack[Value], a, b Value) (Value, error) {
@@ -138,7 +142,7 @@ func Add(st funcGen.Stack[Value], a, b Value) (Value, error) {
 			return Float(aa + bb), nil
 		}
 	}
-	return nil, fmt.Errorf("add not allowed on %v+%v", a, b)
+	return nil, notAllowed("add", a, b)
 }
 
 func Sub(st funcGen.Stack[Value], a, b Value) (Value, error) {
@@ -152,7 +156,7 @@ func Sub(st funcGen.Stack[Value], a, b Value) (Value, error) {
 			return Float(aa - bb), nil
 		}
 	}
-	return nil, fmt.Errorf("sub not allowed on %v-%v", a, b)
+	return nil, notAllowed("sub", a, b)
 }
 
 func Left(st funcGen.Stack[Value], a, b Value) (Value, error) {
@@ -161,7 +165,7 @@ func Left(st funcGen.Stack[Value], a, b Value) (Value, error) {
 			return aa << bb, nil
 		}
 	}
-	return nil, fmt.Errorf("<< not allowed on %v<<%v", a, b)
+	return nil, notAllowed("<<", a, b)
 }
 func Right(st funcGen.Stack[Value], a, b Value) (Value, error) {
 	if aa, ok := a.(Int); ok {
@@ -169,7 +173,7 @@ func Right(st funcGen.Stack[Value], a, b Value) (Value, error) {
 			return aa >> bb, nil
 		}
 	}
-	return nil, fmt.Errorf(">> not allowed on %v>>%v", a, b)
+	return nil, notAllowed(">>", a, b)
 }
 func Mod(st funcGen.Stack[Value], a, b Value) (Value, error) {
 	if aa, ok := a.(Int); ok {
@@ -177,7 +181,7 @@ func Mod(st funcGen.Stack[Value], a, b Value) (Value, error) {
 			return aa % bb, nil
 		}
 	}
-	return nil, fmt.Errorf("%% not allowed on %v%%%v", a, b)
+	return nil, notAllowed("%%", a, b)
 }
 
 func Mul(st funcGen.Stack[Value], a, b Value) (Value, error) {
@@ -191,7 +195,7 @@ func Mul(st funcGen.Stack[Value], a, b Value) (Value, error) {
 			return Float(aa * bb), nil
 		}
 	}
-	return nil, fmt.Errorf("mul not allowed on %v*%v", a, b)
+	return nil, notAllowed("mul", a, b)
 }
 
 func Div(st funcGen.Stack[Value], a, b Value) (Value, error) {
@@ -200,7 +204,7 @@ func Div(st funcGen.Stack[Value], a, b Value) (Value, error) {
 			return Float(aa / bb), nil
 		}
 	}
-	return nil, fmt.Errorf("div not allowed on %v/%v", a, b)
+	return nil, notAllowed("div", a, b)
 }
 
 func Pow(st funcGen.Stack[Value], a, b Value) (Value, error) {
@@ -222,7 +226,7 @@ func Pow(st funcGen.Stack[Value], a, b Value) (Value, error) {
 			return Float(math.Pow(aa, bb)), nil
 		}
 	}
-	return nil, fmt.Errorf("^ not allowed on %v^%v", a, b)
+	return nil, notAllowed("^", a, b)
 }
 
 func Neg(a Value) (Value, error) {
@@ -232,14 +236,14 @@ func Neg(a Value) (Value, error) {
 	if aa, ok := a.ToFloat(); ok {
 		return Float(-aa), nil
 	}
-	return nil, fmt.Errorf("neg not allowed on -%v", a)
+	return nil, fmt.Errorf("neg not allowed on -%s", typeName(a))
 }
 
 func Not(a Value) (Value, error) {
 	if aa, ok := a.(Bool); ok {
 		return !aa, nil
 	}
-	return nil, fmt.Errorf("not not allowed on !%v", a)
+	return nil, fmt.Errorf("not not allowed on !%s", typeName(a))
 }
 
 func And(st funcGen.Stack[Value], a, b Value) (Value, error) {
@@ -248,7 +252,7 @@ func And(st funcGen.Stack[Value], a, b Value) (Value, error) {
 			return Bool(aa && bb), nil
 		}
 	}
-	return nil, fmt.Errorf("& not allowed on %v&%v", a, b)
+	return nil, notAllowed("&", a, b)
 }
 
 func Or(st funcGen.Stack[Value], a, b Value) (Value, error) {
@@ -257,5 +261,5 @@ func Or(st funcGen.Stack[Value], a, b Value) (Value, error) {
 			return Bool(aa || bb), nil
 		}
 	}
-	return nil, fmt.Errorf("| not allowed on %v&%v", a, b)
+	return nil, notAllowed("|", a, b)
 }
