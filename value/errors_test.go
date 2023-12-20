@@ -57,6 +57,8 @@ func TestErrors(t *testing.T) {
 		{"(2.2).d", "not possible; Float is not a map"},
 		{"[1,2,3,4].d", "not possible; List is not a map"},
 		{"[1,2,3,4]+\"test\"", "not allowed on List, String"},
+		{"[1,2,3,4].set(-1,0)", "index -1 out of range"},
+		{"[1,2,3,4].set(4,0)", "index 4 out of range"},
 		{"true-2", "not allowed on Bool, Int"},
 		{"func f(x) x+b; f(2)", "outer value 'b' not found"},
 	}

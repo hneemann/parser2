@@ -811,3 +811,13 @@ func MustFloat(v Value, err error) (float64, error) {
 	}
 	return 0, fmt.Errorf("not a float: %s", typeName(v))
 }
+
+func MustInt(v Value, err error) (int, error) {
+	if err != nil {
+		return 0, err
+	}
+	if i, ok := v.ToInt(); ok {
+		return i, nil
+	}
+	return 0, fmt.Errorf("not an int: %s", typeName(v))
+}

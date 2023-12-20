@@ -21,5 +21,8 @@ func TestString(t *testing.T) {
 		{exp: "\"0123456789\".cut(8,2)", res: String("89")},
 		{exp: "\"0123456789\".cut(8,6)", res: String("89")},
 		{exp: "\"0123456789\".cut(5,0)", res: String("56789")}, // zero takes all runes left
+		{exp: "\"01\\nval:23\\n456789\".behind(\"val:\")", res: String("23")},
+		{exp: "\"01\\nval:23\".behind(\"val:\")", res: String("23")},
+		{exp: "\"12.4\".toFloat()", res: Float(12.4)},
 	})
 }
