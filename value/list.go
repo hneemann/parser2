@@ -429,19 +429,28 @@ func (l *List) Last(st funcGen.Stack[Value]) (Value, error) {
 	return nil, errors.New("error in first, no items in list")
 }
 
-func (l *List) IndexOf(st funcGen.Stack[Value]) (Int, error) {
-	v := st.Get(1)
+func (l *List) IndexWhere(st funcGen.Stack[Value]) (Int, error) {
+	f, err := ToFunc("indexOf", st, 1, 1)
+	if err != nil {
+		return 0, err
+	}
 	index := -1
 	i := 0
 	var innerErr error
-	_, err := l.iterable(st)(func(value Value) bool {
-		equal, err := Equal(st, v, value)
+	_, err = l.iterable(st)(func(value Value) bool {
+		st.Push(value)
+		found, err := f.Func(st.CreateFrame(1), nil)
 		if err != nil {
 			innerErr = err
 			return false
 		}
-		if equal {
-			index = i
+		if f, ok := found.ToBool(); ok {
+			if f {
+				index = i
+				return false
+			}
+		} else {
+			innerErr = errors.New("function in indexOf needs to return a bool")
 			return false
 		}
 		i++
@@ -1307,9 +1316,9 @@ var ListMethods = MethodMap{
 				"is a map of functions. "+
 				"All the functions are called with the list as argument and the result is returned in a map. "+
 				"The keys in the result map are the same keys used to pass the functions."),
-	"indexOf": MethodAtType(1, func(list *List, stack funcGen.Stack[Value]) (Value, error) { return list.IndexOf(stack) }).
-		SetMethodDescription("item",
-			"Returns the index of the first occurrence of the given item in the list. If the item is not found, -1 is returned."),
+	"indexWhere": MethodAtType(1, func(list *List, stack funcGen.Stack[Value]) (Value, error) { return list.IndexWhere(stack) }).
+		SetMethodDescription("func(item) condition",
+			"Returns the index of the first occurrence of the given function returning true. If this never happens, -1 is returned."),
 	"groupByString": MethodAtType(1, func(list *List, stack funcGen.Stack[Value]) (Value, error) { return list.GroupByString(stack) }).
 		SetMethodDescription("func(item) string", "Returns a list of lists grouped by the given function. "+
 			"The function is called for each item in the list and the returned string is used as the key for the group. "+
