@@ -607,13 +607,13 @@ func New() *funcGen.FunctionGenerator[Value] {
 			Args:   1,
 			IsPure: true,
 		}.SetDescription("value", "Returns the square of the value.")).
-		AddStaticFunction("rnd", funcGen.Function[Value]{
+		AddStaticFunction("random", funcGen.Function[Value]{
 			Func: func(st funcGen.Stack[Value], cs []Value) (Value, error) {
 				v := st.Get(0)
 				if n, ok := v.ToInt(); ok {
 					return Int(rand.Intn(n)), nil
 				}
-				return nil, errors.New("rnd only allowed on int")
+				return nil, errors.New("random only allowed on int")
 			},
 			Args:   1,
 			IsPure: false,
