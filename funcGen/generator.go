@@ -19,7 +19,7 @@ type stackStorage[V any] struct {
 func (s *stackStorage[V]) set(n int, v V) {
 	if n == len(s.data) {
 		if n > 10000 {
-			panic("stack overflow")
+			panic("stack overflow; maybe a recursive function does not terminate")
 		}
 		s.data = append(s.data, v)
 	} else {
