@@ -13,7 +13,7 @@ func TestList(t *testing.T) {
 		{exp: "let a=2; [1,a,3]", res: NewList(Int(1), Int(2), Int(3))},
 		{exp: "let a=2;[1,a]+[3,4]", res: NewList(Int(1), Int(2), Int(3), Int(4))},
 		{exp: "[1,2,3][2]", res: Int(3)},
-		{exp: "[1,2].replace(l->l[0]+l[1])", res: Int(3)},
+		{exp: "[1,2].replaceList(l->l[0]+l[1])", res: Int(3)},
 		{exp: "[1,2,3].indexWhere(e->e=1)", res: Int(0)},
 		{exp: "[1,2,3].indexWhere(e->e=2)", res: Int(1)},
 		{exp: "[1,2,3].indexWhere(e->e=3)", res: Int(2)},

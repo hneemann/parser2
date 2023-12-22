@@ -904,8 +904,8 @@ func (l *List) MinMax(st funcGen.Stack[Value]) (Value, error) {
 		Append("valid", Bool(!first))), nil
 }
 
-func (l *List) Replace(st funcGen.Stack[Value]) (Value, error) {
-	f, err := ToFunc("replace", st, 1, 1)
+func (l *List) ReplaceList(st funcGen.Stack[Value]) (Value, error) {
+	f, err := ToFunc("replaceList", st, 1, 1)
 	if err != nil {
 		return nil, err
 	}
@@ -1292,7 +1292,7 @@ var ListMethods = MethodMap{
 		SetMethodDescription("func(item) value",
 			"Returns the minimum and maximum value of the list. The function is called for each item in the list and the "+
 				"result is compared to the previous minimum and maximum."),
-	"replace": MethodAtType(1, func(list *List, stack funcGen.Stack[Value]) (Value, error) { return list.Replace(stack) }).
+	"replaceList": MethodAtType(1, func(list *List, stack funcGen.Stack[Value]) (Value, error) { return list.ReplaceList(stack) }).
 		SetMethodDescription("func(list) newItem",
 			"Replaces the list by the result of the given function. The function is called with the list as argument."),
 	"combine": MethodAtType(1, func(list *List, stack funcGen.Stack[Value]) (Value, error) { return list.Combine(stack) }).

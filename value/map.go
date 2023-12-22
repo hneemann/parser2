@@ -195,7 +195,7 @@ func (v Map) Map(st funcGen.Stack[Value]) (Map, error) {
 	return Map{m: newMap}, nil
 }
 
-func (v Map) Replace(st funcGen.Stack[Value]) (Value, error) {
+func (v Map) ReplaceMap(st funcGen.Stack[Value]) (Value, error) {
 	f, err := ToFunc("replace", st, 1, 1)
 	if err != nil {
 		return nil, err
@@ -359,6 +359,32 @@ func (v Map) Combine(st funcGen.Stack[Value]) (Map, error) {
 	}
 }
 
+func (v Map) Replace(stack funcGen.Stack[Value]) (Map, error) {
+	f, err := ToFunc("replace", stack, 1, 1)
+	if err != nil {
+		return Map{}, err
+	}
+
+	repMap, err := f.Eval(stack, v)
+	if err != nil {
+		return Map{}, err
+	}
+
+	if other, ok := repMap.ToMap(); ok {
+		result := listMap.New[Value](v.Size())
+		v.Iter(func(key string, val Value) bool {
+			if r, ok := other.Get(key); ok {
+				result = result.Append(key, r)
+			} else {
+				result = result.Append(key, val)
+			}
+			return true
+		})
+		return NewMap(result), nil
+	}
+	return Map{}, errors.New("the result of the function passed to replace must be a map")
+}
+
 var MapMethods = MethodMap{
 	"accept": MethodAtType(1, func(m Map, stack funcGen.Stack[Value]) (Value, error) { return m.Accept(stack) }).
 		SetMethodDescription("func(key, value) bool",
@@ -366,7 +392,7 @@ var MapMethods = MethodMap{
 	"map": MethodAtType(1, func(m Map, stack funcGen.Stack[Value]) (Value, error) { return m.Map(stack) }).
 		SetMethodDescription("func(key, value) value",
 			"Map takes a function as argument and returns a new map with the same keys and all values replaced by the function."),
-	"replace": MethodAtType(1, func(m Map, stack funcGen.Stack[Value]) (Value, error) { return m.Replace(stack) }).
+	"replaceMap": MethodAtType(1, func(m Map, stack funcGen.Stack[Value]) (Value, error) { return m.ReplaceMap(stack) }).
 		SetMethodDescription("func(map) value",
 			"Replace takes a function as argument and returns the result of the function. "+
 				"The function is called with the map as argument."),
@@ -385,7 +411,11 @@ var MapMethods = MethodMap{
 		SetMethodDescription("key", "Returns the value for the given key."),
 	"put": MethodAtType(2, func(m Map, stack funcGen.Stack[Value]) (Value, error) { return m.PutM(stack) }).
 		SetMethodDescription("key", "value",
-			"Returns a new map with the given key and value added. The original map is not changed."),
+			"Returns a new map with the given key and value added."),
+	"replace": MethodAtType(1, func(m Map, stack funcGen.Stack[Value]) (Value, error) { return m.Replace(stack) }).
+		SetMethodDescription("func(map) rep_map",
+			"Calls the given function with the original map as argument and returns a 'replacement' map. "+
+				"The key/values from the 'replacement' map are used to replace the key/values in the original map."),
 	"combine": MethodAtType(2, func(m Map, stack funcGen.Stack[Value]) (Value, error) { return m.Combine(stack) }).
 		SetMethodDescription("other_map", "func(a,b) r",
 			"Combines the two maps with the given funktion to a new map. The function is called for each key that is in both maps. "+

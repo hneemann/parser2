@@ -37,7 +37,7 @@ func TestMap(t *testing.T) {
 				Append("value", Int(3))),
 		)},
 		{exp: "{a:1,b:2,c:3,d:-1}.size()", res: Int(4)},
-		{exp: "{a:1,b:2}.replace(m->m.a+m.b)", res: Int(3)},
+		{exp: "{a:1,b:2}.replaceMap(m->m.a+m.b)", res: Int(3)},
 		{exp: "{a:1,b:2}.isAvail(\"a\")", res: Bool(true)},
 		{exp: "{a:1,b:2}.isAvail(\"c\")", res: Bool(false)},
 		{exp: "{a:1,b:2,c:3}.isAvail(\"a\",\"b\")", res: Bool(true)},
@@ -53,6 +53,9 @@ func TestMap(t *testing.T) {
 		{exp: "{a:1,b:2}.put(\"c\",3).b", res: Int(2)},
 		{exp: "{a:1,b:2}.put(\"c\",3).size()", res: Int(3)},
 		{exp: "{a:1,b:2}.combine({a:3,b:4},(a,b)->a+b).string()", res: String("{a:4, b:6}")},
+
+		{exp: "{a:1,b:2,c:3}.replace(m->{b:m.b+5}).string()", res: String("{a:1, b:7, c:3}")},
+		{exp: "{a:1,b:2,c:3}.replace(m->{b:m.b+5,c:m.c+5}).string()", res: String("{a:1, b:7, c:8}")},
 	})
 }
 
