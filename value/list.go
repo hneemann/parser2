@@ -806,6 +806,8 @@ func (l *List) Reduce(st funcGen.Stack[Value]) (Value, error) {
 	})
 }
 
+var SumAdd = Add
+
 func (l *List) Sum(st funcGen.Stack[Value]) (Value, error) {
 	var sum Value
 	var innerErr error
@@ -814,7 +816,7 @@ func (l *List) Sum(st funcGen.Stack[Value]) (Value, error) {
 			sum = value
 		} else {
 			var err error
-			sum, err = Add(st, sum, value)
+			sum, err = SumAdd(st, sum, value)
 			if err != nil {
 				innerErr = err
 				return false
@@ -1333,7 +1335,7 @@ var ListMethods = MethodMap{
 			"Reduces the list by the given function. The function is called with the first two list items, and the result "+
 				"is used as the first argument for the third item and so on."),
 	"sum": MethodAtType(0, func(list *List, stack funcGen.Stack[Value]) (Value, error) { return list.Sum(stack) }).
-		SetMethodDescription("Returns the sum of all items in the list."),
+		SetMethodDescription("Returns the sum of all items in the list. Shorthand for reduce((a,b)->a+b)."),
 	"mapReduce": MethodAtType(2, func(list *List, stack funcGen.Stack[Value]) (Value, error) { return list.MapReduce(stack) }).
 		SetMethodDescription("initialSum", "func(sum, item) sum",
 			"MapReduce reduces the list to a single value. The initial value is given as the first argument. The function "+
