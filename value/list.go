@@ -943,6 +943,57 @@ func (l *List) Number(sta funcGen.Stack[Value]) (*List, error) {
 	}), nil
 }
 
+func (l *List) GroupByEqual(st funcGen.Stack[Value]) (*List, error) {
+	keyFunc, err := ToFunc("groupByEqual", st, 1, 1)
+	if err != nil {
+		return nil, err
+	}
+
+	type item struct {
+		key    Value
+		values []Value
+	}
+
+	var items []item
+
+	var innerErr error
+	_, err = l.iterable(st)(func(value Value) bool {
+		key, err := keyFunc.Eval(st, value)
+		if err != nil {
+			innerErr = err
+			return false
+		}
+
+		for ind, item := range items {
+			if equal, err := Equal(st, item.key, key); err != nil {
+				innerErr = err
+				return false
+			} else {
+				if equal {
+					items[ind].values = append(items[ind].values, value)
+					return true
+				}
+			}
+		}
+		items = append(items, item{key: key, values: []Value{value}})
+		return true
+	})
+	if innerErr != nil {
+		return nil, innerErr
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	result := make([]Value, 0, len(items))
+	for _, v := range items {
+		result = append(result, Map{listMap.New[Value](2).
+			Append("key", v.key).
+			Append("values", NewList(v.values...))})
+	}
+	return NewList(result...), nil
+}
+
 func (l *List) GroupByString(st funcGen.Stack[Value]) (*List, error) {
 	keyFunc, err := ToFunc("groupByString", st, 1, 1)
 	if err != nil {
@@ -1329,6 +1380,13 @@ var ListMethods = MethodMap{
 			"The function is called for each item in the list and the returned integer is used as the key for the group. "+
 			"The result is a list of maps with the keys 'key' and 'values'. The 'key' contains the integer returned by the function "+
 			"and 'values' contains a list of items that have the same key."),
+	"groupByEqual": MethodAtType(1, func(list *List, stack funcGen.Stack[Value]) (Value, error) { return list.GroupByEqual(stack) }).
+		SetMethodDescription("func(item) key", "Returns a list of lists grouped by the given function. "+
+			"The function is called for each item in the list and the returned value is used as the key for the group. "+
+			"The result is a list of maps with the keys 'key' and 'values'. The 'key' contains the value returned by the function "+
+			"and 'values' contains a list of items that have the same key. "+
+			"This method relies only on the Equal operator to determine if two keys are equal. This way no hash can be computed, "+
+			"which makes this method much slower than the other groupBy methods, if the list is large (O(n²))."),
 	"uniqueString": MethodAtType(1, func(list *List, stack funcGen.Stack[Value]) (Value, error) { return list.UniqueString(stack) }).
 		SetMethodDescription("func(item) string", "Returns a list of unique strings returned by the given function."),
 	"uniqueInt": MethodAtType(1, func(list *List, stack funcGen.Stack[Value]) (Value, error) { return list.UniqueInt(stack) }).
