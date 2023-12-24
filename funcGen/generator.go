@@ -736,11 +736,11 @@ func (g *FunctionGenerator[V]) GenerateFunc(ast parser2.AST, gc GeneratorContext
 					return zero, a.EnhanceErrorf(err, "error in switch")
 				}
 				for _, c := range cases {
-					constval, err := c.constFunc(st, cs)
+					constVal, err := c.constFunc(st, cs)
 					if err != nil {
 						return zero, a.EnhanceErrorf(err, "error in switch-case")
 					}
-					equal, err := g.isEqual(st, val, constval)
+					equal, err := g.isEqual(st, val, constVal)
 					if err != nil {
 						return zero, a.EnhanceErrorf(err, "error in switch-case")
 					}
