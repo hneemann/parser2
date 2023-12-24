@@ -474,13 +474,6 @@ func (f factory) Generate(ast parser2.AST, gc funcGen.GeneratorContext, g *funcG
 
 var theFactory = factory{}
 
-func SetUpParser(fc *funcGen.FunctionGenerator[Value]) *funcGen.FunctionGenerator[Value] {
-	fc.ModifyParser(func(p *parser2.Parser[Value]) {
-		p.SetNumberParser(theFactory)
-	})
-	return fc
-}
-
 func simpleOnlyFloatFunc(name string, f func(float64) float64) funcGen.Function[Value] {
 	return funcGen.Function[Value]{
 		Func: func(st funcGen.Stack[Value], cs []Value) (Value, error) {
@@ -501,6 +494,7 @@ func New() *funcGen.FunctionGenerator[Value] {
 		AddConstant("pi", Float(math.Pi)).
 		AddConstant("true", Bool(true)).
 		AddConstant("false", Bool(false)).
+		SetNumberParser(theFactory).
 		SetListHandler(theFactory).
 		SetMapHandler(theFactory).
 		SetClosureHandler(theFactory).

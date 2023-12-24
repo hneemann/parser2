@@ -63,7 +63,7 @@ func TestErrors(t *testing.T) {
 		{"func f(x) x+b; f(2)", "outer value 'b' not found"},
 	}
 
-	fg := SetUpParser(New().AddStaticFunction("error", toLargeErrorFunc(100)))
+	fg := New().AddStaticFunction("error", toLargeErrorFunc(100))
 	for _, tt := range tests {
 		test := tt
 		t.Run(test.exp, func(t *testing.T) {

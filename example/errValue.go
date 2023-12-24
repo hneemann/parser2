@@ -108,7 +108,7 @@ func toErr(stack funcGen.Stack[value.Value], store []value.Value) (value.Value, 
 	return nil, fmt.Errorf("err requires a float value")
 }
 
-var ErrValueParser = value.SetUpParser(value.New().
+var ErrValueParser = value.New().
 	AddOp("+", false, errOperation("+", value.Add,
 		func(a, b ErrValue) (ErrValue, error) {
 			return ErrValue{a.val + b.val, a.err + b.err}, nil
@@ -142,4 +142,4 @@ var ErrValueParser = value.SetUpParser(value.New().
 		Func:   toErr,
 		Args:   1,
 		IsPure: true,
-	}.SetDescription("float", "Creates an error value with the given float as the error. The value is set to 0.")))
+	}.SetDescription("float", "Creates an error value with the given float as the error. The value is set to 0."))
