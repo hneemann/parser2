@@ -209,11 +209,11 @@ func (l *List) Equals(st funcGen.Stack[Value], other *List) (bool, error) {
 		return false, nil
 	}
 	for i, aa := range a {
-		equal, err := Equal(st, aa, b[i])
+		eq, err := Equal(st, aa, b[i])
 		if err != nil {
 			return false, err
 		}
-		if !equal {
+		if !eq {
 			return false, nil
 		}
 	}
@@ -1155,16 +1155,16 @@ func (l *List) MovingWindow(st funcGen.Stack[Value]) (*List, error) {
 	return NewList(mainList...), nil
 }
 
-func (l *List) containsItem(st funcGen.Stack[Value], item Value) (bool, error) {
+func (l *List) containsItem(st funcGen.Stack[Value], item Value, equal funcGen.BoolFunc[Value]) (bool, error) {
 	found := false
 	var innerErr error
 	_, err := l.iterable(st)(func(value Value) bool {
-		equal, err := Equal(st, item, value)
+		eq, err := equal(st, item, value)
 		if err != nil {
 			innerErr = err
 			return false
 		}
-		if equal {
+		if eq {
 			found = true
 			return false
 		}
@@ -1180,7 +1180,7 @@ func (l *List) containsItem(st funcGen.Stack[Value], item Value) (bool, error) {
 	return found, nil
 }
 
-func (l *List) containsAllItems(st funcGen.Stack[Value], lookForList *List) (bool, error) {
+func (l *List) containsAllItems(st funcGen.Stack[Value], lookForList *List, equal funcGen.BoolFunc[Value]) (bool, error) {
 	lookFor, err := lookForList.CopyToSlice(st)
 	if err != nil {
 		return false, err
@@ -1193,12 +1193,12 @@ func (l *List) containsAllItems(st funcGen.Stack[Value], lookForList *List) (boo
 	var innerErr error
 	_, err = l.iterable(st)(func(value Value) bool {
 		for i, lf := range lookFor {
-			equal, err2 := Equal(st, lf, value)
+			eq, err2 := equal(st, lf, value)
 			if err2 != nil {
 				innerErr = err2
 				return false
 			}
-			if equal {
+			if eq {
 				lookFor = append(lookFor[0:i], lookFor[i+1:]...)
 				break
 			}

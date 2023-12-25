@@ -44,6 +44,18 @@ func (e ErrValue) ToBool() (bool, bool) {
 	return false, false
 }
 
+func (e ErrValue) GetMin() float64 {
+	return e.val - e.err
+}
+
+func (e ErrValue) GetMax() float64 {
+	return e.val + e.err
+}
+
+func (e ErrValue) Matches(b ErrValue) bool {
+	return e.GetMin() <= b.GetMax() && e.GetMax() >= b.GetMin()
+}
+
 func (e ErrValue) ToClosure() (funcGen.Function[value.Value], bool) {
 	return funcGen.Function[value.Value]{}, false
 }
@@ -70,6 +82,39 @@ const errValType = value.Type(10)
 
 func (e ErrValue) GetType() value.Type {
 	return errValType
+}
+
+func Equal(st funcGen.Stack[value.Value], aVal, bVal value.Value) (bool, error) {
+	if a, ok := aVal.(ErrValue); ok {
+		if b, ok := bVal.(ErrValue); ok {
+			return a.Matches(b), nil
+		} else {
+			if bf, ok := bVal.ToFloat(); ok {
+				return a.Matches(ErrValue{val: bf}), nil
+			} else {
+				return false, fmt.Errorf("= not alowed on %s=%s", value.TypeName(a), value.TypeName(b))
+			}
+		}
+	} else {
+		if b, ok := bVal.(ErrValue); ok {
+			if af, ok := aVal.ToFloat(); ok {
+				return b.Matches(ErrValue{val: af}), nil
+			} else {
+				return false, fmt.Errorf("= not alowed on %s=%s", value.TypeName(a), value.TypeName(b))
+			}
+		}
+	}
+	return value.Equal(st, aVal, bVal)
+}
+
+func Less(st funcGen.Stack[value.Value], aVal, bVal value.Value) (bool, error) {
+	if a, ok := aVal.(ErrValue); ok {
+		aVal = value.Float(a.val)
+	}
+	if b, ok := bVal.(ErrValue); ok {
+		bVal = value.Float(b.val)
+	}
+	return value.Less(st, aVal, bVal)
 }
 
 func errOperation(name string,
@@ -114,6 +159,7 @@ func toErr(stack funcGen.Stack[value.Value], store []value.Value) (value.Value, 
 
 var ErrValueParser = value.New().
 	RegisterMethods(errValType, createErrValueMethods()).
+	SetEqualLess(Equal, Less).
 	AddOp("+", false, errOperation("+", value.Add,
 		func(a, b ErrValue) (ErrValue, error) {
 			return ErrValue{a.val + b.val, a.err + b.err}, nil

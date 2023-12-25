@@ -5,7 +5,6 @@ import (
 	"github.com/hneemann/iterator"
 	"github.com/hneemann/parser2/funcGen"
 	"math"
-	"strings"
 )
 
 func Equal(st funcGen.Stack[Value], a Value, b Value) (bool, error) {
@@ -44,6 +43,11 @@ func Equal(st funcGen.Stack[Value], a Value, b Value) (bool, error) {
 }
 
 func Less(st funcGen.Stack[Value], a Value, b Value) (bool, error) {
+	if aa, ok := a.(Float); ok {
+		if bb, ok := b.(Float); ok {
+			return aa < bb, nil
+		}
+	}
 	if aa, ok := a.(Int); ok {
 		if bb, ok := b.(Int); ok {
 			return aa < bb, nil
@@ -54,39 +58,11 @@ func Less(st funcGen.Stack[Value], a Value, b Value) (bool, error) {
 			return aa < bb, nil
 		}
 	}
-	if aa, ok := a.ToFloat(); ok {
-		if bb, ok := b.ToFloat(); ok {
-			return aa < bb, nil
-		}
-	}
 	return false, notAllowed("less", a, b)
 }
 
 func notAllowed(name string, a Value, b Value) error {
 	return fmt.Errorf("'%s' not allowed on %s, %s", name, TypeName(a), TypeName(b))
-}
-
-func In(st funcGen.Stack[Value], a Value, b Value) (Value, error) {
-	if list, ok := b.(*List); ok {
-		if search, ok := a.(*List); ok {
-			items, err := list.containsAllItems(st, search)
-			return Bool(items), err
-		} else {
-			item, err := list.containsItem(st, a)
-			return Bool(item), err
-		}
-	}
-	if m, ok := b.(Map); ok {
-		if key, ok := a.(String); ok {
-			return m.ContainsKey(key), nil
-		}
-	}
-	if strToLookFor, ok := a.(String); ok {
-		if strToLookIn, ok := b.(String); ok {
-			return Bool(strings.Contains(string(strToLookIn), string(strToLookFor))), nil
-		}
-	}
-	return nil, notAllowed("~", a, b)
 }
 
 func Add(st funcGen.Stack[Value], a, b Value) (Value, error) {

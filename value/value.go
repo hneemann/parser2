@@ -589,6 +589,30 @@ func (fg *FunctionGenerator) SetEqualLess(equal, less funcGen.BoolFunc[Value]) *
 		eq, err := equal(st, a, b)
 		return Bool(eq), err
 	})
+
+	fg.AddOp("~", false, func(st funcGen.Stack[Value], a Value, b Value) (Value, error) {
+		if list, ok := b.(*List); ok {
+			if search, ok := a.(*List); ok {
+				items, err := list.containsAllItems(st, search, equal)
+				return Bool(items), err
+			} else {
+				item, err := list.containsItem(st, a, equal)
+				return Bool(item), err
+			}
+		}
+		if m, ok := b.(Map); ok {
+			if key, ok := a.(String); ok {
+				return m.ContainsKey(key), nil
+			}
+		}
+		if strToLookFor, ok := a.(String); ok {
+			if strToLookIn, ok := b.(String); ok {
+				return Bool(strings.Contains(string(strToLookIn), string(strToLookFor))), nil
+			}
+		}
+		return nil, notAllowed("~", a, b)
+	})
+
 	return fg
 }
 
@@ -611,7 +635,7 @@ func New() *FunctionGenerator {
 		AddOp("&", true, And).
 		AddOp("=", true, notAvail("=")).
 		AddOp("!=", true, notAvail("!=")).
-		AddOp("~", false, In).
+		AddOp("~", false, notAvail("~")).
 		AddOp("<", false, notAvail("<")).
 		AddOp(">", false, notAvail(">")).
 		AddOp("<=", false, notAvail("<=")).
