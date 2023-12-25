@@ -276,7 +276,9 @@ func (i Int) ToFloat() (float64, bool) {
 	return float64(i), true
 }
 
-type factory struct{}
+type factory struct {
+	fg *FunctionGenerator
+}
 
 func (f factory) ParseNumber(n string) (Value, error) {
 	i, err := strconv.Atoi(n)
@@ -292,15 +294,6 @@ func (f factory) ParseNumber(n string) (Value, error) {
 
 func (f factory) FromString(s string) Value {
 	return String(s)
-}
-
-func (f factory) GetMethod(value Value, methodName string) (funcGen.Function[Value], error) {
-	m, err := value.GetMethod(methodName)
-	if err != nil {
-		return funcGen.Function[Value]{}, err
-	} else {
-		return m, nil
-	}
 }
 
 func (f factory) FromClosure(c funcGen.Function[Value]) Value {
@@ -472,8 +465,6 @@ func (f factory) Generate(ast parser2.AST, gc funcGen.GeneratorContext, g *funcG
 	return nil, nil
 }
 
-var theFactory = factory{}
-
 func simpleOnlyFloatFunc(name string, f func(float64) float64) funcGen.Function[Value] {
 	return funcGen.Function[Value]{
 		Func: func(st funcGen.Stack[Value], cs []Value) (Value, error) {
@@ -496,9 +487,29 @@ func notAvail(name string) func(st funcGen.Stack[Value], a Value, b Value) (Valu
 
 type FunctionGenerator struct {
 	*funcGen.FunctionGenerator[Value]
+	equal funcGen.BoolFunc[Value]
+	less  funcGen.BoolFunc[Value]
+	add   func(st funcGen.Stack[Value], a Value, b Value) (Value, error)
 }
 
+func (f factory) GetMethod(value Value, methodName string) (funcGen.Function[Value], error) {
+	m, err := value.GetMethod(methodName)
+	if err != nil {
+		return funcGen.Function[Value]{}, err
+	} else {
+		return m, nil
+	}
+}
+
+func (fg *FunctionGenerator) setupMethods(factory) {
+	fg.add = fg.GetOpImpl("+")
+}
+
+// SetEqualLess is a helper to create the operators '=', '!=', '<', '>', '<=' and '>=' using the
+// given equal and less functions.
 func (fg *FunctionGenerator) SetEqualLess(equal, less funcGen.BoolFunc[Value]) *FunctionGenerator {
+	fg.equal = equal
+	fg.less = less
 	fg.SetIsEqual(equal)
 	fg.AddOp("=", false, func(st funcGen.Stack[Value], a Value, b Value) (Value, error) {
 		eq, err := equal(st, a, b)
@@ -517,31 +528,32 @@ func (fg *FunctionGenerator) SetEqualLess(equal, less funcGen.BoolFunc[Value]) *
 		return Bool(le), err
 	})
 	fg.AddOp("<=", false, func(st funcGen.Stack[Value], a Value, b Value) (Value, error) {
-		eq, err := equal(st, a, b)
+		le, err := less(st, a, b)
 		if err != nil {
 			return nil, err
 		}
-		if eq {
+		if le {
 			return Bool(true), nil
 		}
-		le, err := less(st, a, b)
-		return Bool(le), err
+		eq, err := equal(st, a, b)
+		return Bool(eq), err
 	})
 	fg.AddOp(">=", false, func(st funcGen.Stack[Value], a Value, b Value) (Value, error) {
-		eq, err := equal(st, a, b)
+		le, err := less(st, b, a)
 		if err != nil {
 			return nil, err
 		}
-		if eq {
+		if le {
 			return Bool(true), nil
 		}
-		le, err := less(st, b, a)
-		return Bool(le), err
+		eq, err := equal(st, a, b)
+		return Bool(eq), err
 	})
 	return fg
 }
 
 func New() *FunctionGenerator {
+	var theFactory = factory{}
 	fg := funcGen.New[Value]().
 		AddConstant("nil", NIL).
 		AddConstant("pi", Float(math.Pi)).
@@ -709,7 +721,11 @@ func New() *FunctionGenerator {
 		AddStaticFunction("acos", simpleOnlyFloatFunc("acos", func(x float64) float64 { return math.Acos(x) })).
 		AddStaticFunction("atan", simpleOnlyFloatFunc("atan", func(x float64) float64 { return math.Atan(x) }))
 
-	f := &FunctionGenerator{fg}
+	f := &FunctionGenerator{FunctionGenerator: fg}
+	f.AddFinalizer(func(fg *funcGen.FunctionGenerator[Value]) {
+		f.setupMethods(theFactory)
+	})
+	theFactory.fg = f
 	return f.SetEqualLess(Equal, Less)
 }
 

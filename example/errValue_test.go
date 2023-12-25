@@ -44,6 +44,8 @@ func TestErrValue(t *testing.T) {
 		{exp: `let a=10+-1;let b=20+-1;let c=30+-1;(a+b)/c`, res: ErrValue{val: 1, err: 32.0/29.0 - 1}},
 		{exp: `let a=10+-1;let b=20+-1;let c=-30+-1;(a+b)/c`, res: ErrValue{val: -1, err: 32.0/29.0 - 1}},
 		{exp: `let a=-10+-1;let b=-20+-1;let c=30+-1;(a+b)/c`, res: ErrValue{val: -1, err: 32.0/29.0 - 1}},
+		{exp: "[1+-1,2+-1,3+-1].sum()", res: ErrValue{val: 6, err: 3}},
+		{exp: "let a=[1+-1,2+-1,3+-1];a.sum()", res: ErrValue{val: 6, err: 3}},
 	}
 
 	for _, test := range tests {

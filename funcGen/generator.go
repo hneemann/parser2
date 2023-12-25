@@ -292,6 +292,7 @@ type FunctionGenerator[V any] struct {
 	opMap           map[string]Operator[V]
 	uMap            map[string]UnaryOperator[V]
 	customGenerator Generator[V]
+	finalizer       func(g *FunctionGenerator[V])
 }
 
 // New creates a new FunctionGenerator
@@ -412,6 +413,15 @@ func (g *FunctionGenerator[V]) AddOpPure(operator string, isCommutative bool, im
 	return g
 }
 
+func (g *FunctionGenerator[V]) GetOpImpl(name string) func(st Stack[V], a, b V) (V, error) {
+	for _, op := range g.operators {
+		if op.Operator == name {
+			return op.Impl
+		}
+	}
+	return nil
+}
+
 func (g *FunctionGenerator[V]) AddConstant(n string, c V) *FunctionGenerator[V] {
 	g.constants[n] = c
 	return g
@@ -448,12 +458,20 @@ func (g *FunctionGenerator[V]) SetCustomGenerator(generator Generator[V]) *Funct
 	return g
 }
 
-func (g *FunctionGenerator[V]) ModifyParser(modify func(a *parser2.Parser[V])) *FunctionGenerator[V] {
-	modify(g.getParser())
+func (g *FunctionGenerator[V]) AddFinalizer(finalizer func(*FunctionGenerator[V])) *FunctionGenerator[V] {
+	if g.finalizer == nil {
+		g.finalizer = finalizer
+	} else {
+		old := g.finalizer
+		g.finalizer = func(g *FunctionGenerator[V]) {
+			finalizer(g)
+			old(g)
+		}
+	}
 	return g
 }
 
-func (g *FunctionGenerator[V]) getParser() *parser2.Parser[V] {
+func (g *FunctionGenerator[V]) GetParser() *parser2.Parser[V] {
 	if g.parser == nil {
 		parser := parser2.NewParser[V]().
 			SetNumberParser(g.numberParser).
@@ -533,6 +551,11 @@ func (g *FunctionGenerator[V]) GenerateWithMap(exp string, mapName string) (Func
 }
 
 func (g *FunctionGenerator[V]) generateIntern(args []string, exp string, ThisName string) (Func[V], error) {
+	if g.finalizer != nil {
+		g.finalizer(g)
+		g.finalizer = nil
+	}
+
 	ast, err := g.CreateAst(exp)
 	if err != nil {
 		return nil, err
@@ -571,7 +594,7 @@ func (g *FunctionGenerator[V]) generateIntern(args []string, exp string, ThisNam
 // This method is public manly to inspect the AST in tests that live outside
 // this package.
 func (g *FunctionGenerator[V]) CreateAst(exp string) (parser2.AST, error) {
-	ast, err := g.getParser().Parse(exp)
+	ast, err := g.GetParser().Parse(exp)
 	if err != nil {
 		return nil, fmt.Errorf("error parsing expression: %w", err)
 	}
