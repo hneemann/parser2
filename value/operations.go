@@ -63,7 +63,7 @@ func LessEqual(st funcGen.Stack[Value], a Value, b Value) (Value, error) {
 }
 
 func notAllowed(name string, a Value, b Value) error {
-	return fmt.Errorf("'%s' not allowed on %s, %s", name, typeName(a), typeName(b))
+	return fmt.Errorf("'%s' not allowed on %s, %s", name, TypeName(a), TypeName(b))
 }
 
 func In(st funcGen.Stack[Value], a Value, b Value) (Value, error) {
@@ -236,14 +236,14 @@ func Neg(a Value) (Value, error) {
 	if aa, ok := a.ToFloat(); ok {
 		return Float(-aa), nil
 	}
-	return nil, fmt.Errorf("neg not allowed on -%s", typeName(a))
+	return nil, fmt.Errorf("neg not allowed on -%s", TypeName(a))
 }
 
 func Not(a Value) (Value, error) {
 	if aa, ok := a.(Bool); ok {
 		return !aa, nil
 	}
-	return nil, fmt.Errorf("not not allowed on !%s", typeName(a))
+	return nil, fmt.Errorf("not not allowed on !%s", TypeName(a))
 }
 
 func And(st funcGen.Stack[Value], a, b Value) (Value, error) {

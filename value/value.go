@@ -323,11 +323,11 @@ func (f factory) AccessMap(mapValue Value, key string) (Value, error) {
 			return nil, fmt.Errorf("key '%s' not found in map; available are: %s", key, m.availList())
 		}
 	} else {
-		return nil, fmt.Errorf("'.%s' not possible; %s is not a map", key, typeName(mapValue))
+		return nil, fmt.Errorf("'.%s' not possible; %s is not a map", key, TypeName(mapValue))
 	}
 }
 
-func typeName(v Value) string {
+func TypeName(v Value) string {
 	tName := reflect.TypeOf(v).String()
 	pos := strings.LastIndex(tName, ".")
 	if pos >= 0 {
@@ -362,10 +362,10 @@ func (f factory) AccessList(list Value, index Value) (Value, error) {
 				}
 			}
 		} else {
-			return nil, fmt.Errorf("not an int: %s", typeName(index))
+			return nil, fmt.Errorf("not an int: %s", TypeName(index))
 		}
 	} else {
-		return nil, fmt.Errorf("not a list: %s", typeName(list))
+		return nil, fmt.Errorf("not a list: %s", TypeName(list))
 	}
 }
 
@@ -428,11 +428,11 @@ func (f factory) Generate(ast parser2.AST, gc funcGen.GeneratorContext, g *funcG
 						if b, ok := bVal.ToBool(); ok {
 							return Bool(b), nil
 						} else {
-							return nil, fmt.Errorf("not a bool: %s", typeName(bVal))
+							return nil, fmt.Errorf("not a bool: %s", TypeName(bVal))
 						}
 					}
 				} else {
-					return nil, fmt.Errorf("not a bool: %s", typeName(aVal))
+					return nil, fmt.Errorf("not a bool: %s", TypeName(aVal))
 				}
 			}, nil
 		case "|":
@@ -460,11 +460,11 @@ func (f factory) Generate(ast parser2.AST, gc funcGen.GeneratorContext, g *funcG
 						if b, ok := bVal.ToBool(); ok {
 							return Bool(b), nil
 						} else {
-							return nil, fmt.Errorf("not a bool: %s", typeName(bVal))
+							return nil, fmt.Errorf("not a bool: %s", TypeName(bVal))
 						}
 					}
 				} else {
-					return nil, fmt.Errorf("not a bool: %s", typeName(aVal))
+					return nil, fmt.Errorf("not a bool: %s", TypeName(aVal))
 				}
 			}, nil
 		}
@@ -481,15 +481,68 @@ func simpleOnlyFloatFunc(name string, f func(float64) float64) funcGen.Function[
 			if fl, ok := v.ToFloat(); ok {
 				return Float(f(fl)), nil
 			}
-			return nil, fmt.Errorf("%s not alowed on %s", name, typeName(v))
+			return nil, fmt.Errorf("%s not alowed on %s", name, TypeName(v))
 		},
 		Args:   1,
 		IsPure: true,
 	}.SetDescription("float", "The mathematical "+name+" function.")
 }
 
-func New() *funcGen.FunctionGenerator[Value] {
-	return funcGen.New[Value]().
+func notAvail(name string) func(st funcGen.Stack[Value], a Value, b Value) (Value, error) {
+	return func(st funcGen.Stack[Value], a Value, b Value) (Value, error) {
+		return nil, fmt.Errorf("%s not available", name)
+	}
+}
+
+type FunctionGenerator struct {
+	*funcGen.FunctionGenerator[Value]
+}
+
+func (fg *FunctionGenerator) SetEqualLess(equal, less funcGen.BoolFunc[Value]) *FunctionGenerator {
+	fg.SetIsEqual(equal)
+	fg.AddOp("=", false, func(st funcGen.Stack[Value], a Value, b Value) (Value, error) {
+		eq, err := equal(st, a, b)
+		return Bool(eq), err
+	})
+	fg.AddOp("!=", false, func(st funcGen.Stack[Value], a Value, b Value) (Value, error) {
+		eq, err := equal(st, a, b)
+		return Bool(!eq), err
+	})
+	fg.AddOp("<", false, func(st funcGen.Stack[Value], a Value, b Value) (Value, error) {
+		le, err := less(st, a, b)
+		return Bool(le), err
+	})
+	fg.AddOp(">", false, func(st funcGen.Stack[Value], a Value, b Value) (Value, error) {
+		le, err := less(st, b, a)
+		return Bool(le), err
+	})
+	fg.AddOp("<=", false, func(st funcGen.Stack[Value], a Value, b Value) (Value, error) {
+		eq, err := equal(st, a, b)
+		if err != nil {
+			return nil, err
+		}
+		if eq {
+			return Bool(true), nil
+		}
+		le, err := less(st, a, b)
+		return Bool(le), err
+	})
+	fg.AddOp(">=", false, func(st funcGen.Stack[Value], a Value, b Value) (Value, error) {
+		eq, err := equal(st, a, b)
+		if err != nil {
+			return nil, err
+		}
+		if eq {
+			return Bool(true), nil
+		}
+		le, err := less(st, b, a)
+		return Bool(le), err
+	})
+	return fg
+}
+
+func New() *FunctionGenerator {
+	fg := funcGen.New[Value]().
 		AddConstant("nil", NIL).
 		AddConstant("pi", Float(math.Pi)).
 		AddConstant("true", Bool(true)).
@@ -501,35 +554,16 @@ func New() *funcGen.FunctionGenerator[Value] {
 		SetMethodHandler(theFactory).
 		SetCustomGenerator(theFactory).
 		SetStringConverter(theFactory).
-		SetIsEqual(Equal).
 		SetToBool(func(c Value) (bool, bool) { return c.ToBool() }).
 		AddOp("|", true, Or).
 		AddOp("&", true, And).
-		AddOp("=", true, func(st funcGen.Stack[Value], a Value, b Value) (Value, error) {
-			equal, err := Equal(st, a, b)
-			return Bool(equal), err
-		}).
-		AddOp("!=", true, func(st funcGen.Stack[Value], a, b Value) (Value, error) {
-			equal, err := Equal(st, a, b)
-			return Bool(!equal), err
-		}).
+		AddOp("=", true, notAvail("=")).
+		AddOp("!=", true, notAvail("!=")).
 		AddOp("~", false, In).
-		AddOp("<", false, func(st funcGen.Stack[Value], a Value, b Value) (Value, error) {
-			less, err := Less(st, a, b)
-			if err != nil {
-				return nil, err
-			}
-			return Bool(less), nil
-		}).
-		AddOp(">", false, func(st funcGen.Stack[Value], a Value, b Value) (Value, error) {
-			less, err := Less(st, b, a)
-			if err != nil {
-				return nil, err
-			}
-			return Bool(less), nil
-		}).
-		AddOp("<=", false, LessEqual).
-		AddOp(">=", false, Swap(LessEqual)).
+		AddOp("<", false, notAvail("<")).
+		AddOp(">", false, notAvail(">")).
+		AddOp("<=", false, notAvail("<=")).
+		AddOp(">=", false, notAvail(">=")).
 		AddOp("+", false, Add).
 		AddOp("-", false, Sub).
 		AddOp("<<", false, Left).
@@ -554,7 +588,7 @@ func New() *funcGen.FunctionGenerator[Value] {
 				if f, ok := v.ToFloat(); ok {
 					return Float(f), nil
 				}
-				return nil, fmt.Errorf("float not alowed on %s", typeName(v))
+				return nil, fmt.Errorf("float not alowed on %s", TypeName(v))
 			},
 			Args:   1,
 			IsPure: true,
@@ -565,7 +599,7 @@ func New() *funcGen.FunctionGenerator[Value] {
 				if i, ok := v.ToInt(); ok {
 					return Int(i), nil
 				}
-				return nil, fmt.Errorf("int not alowed on %s", typeName(v))
+				return nil, fmt.Errorf("int not alowed on %s", TypeName(v))
 			},
 			Args:   1,
 			IsPure: true,
@@ -582,7 +616,7 @@ func New() *funcGen.FunctionGenerator[Value] {
 				if f, ok := v.ToFloat(); ok {
 					return Float(math.Abs(f)), nil
 				}
-				return nil, fmt.Errorf("abs not alowed on %s", typeName(v))
+				return nil, fmt.Errorf("abs not alowed on %s", TypeName(v))
 			},
 			Args:   1,
 			IsPure: true,
@@ -596,7 +630,7 @@ func New() *funcGen.FunctionGenerator[Value] {
 				if f, ok := v.ToFloat(); ok {
 					return Float(f * f), nil
 				}
-				return nil, fmt.Errorf("sqr not alowed on %s", typeName(v))
+				return nil, fmt.Errorf("sqr not alowed on %s", TypeName(v))
 			},
 			Args:   1,
 			IsPure: true,
@@ -621,7 +655,7 @@ func New() *funcGen.FunctionGenerator[Value] {
 				if f, ok := v.ToFloat(); ok {
 					return Int(math.Round(f)), nil
 				}
-				return nil, fmt.Errorf("sqr not alowed on %s", typeName(v))
+				return nil, fmt.Errorf("sqr not alowed on %s", TypeName(v))
 			},
 			Args:   1,
 			IsPure: true,
@@ -647,7 +681,7 @@ func New() *funcGen.FunctionGenerator[Value] {
 				if size, ok := v.ToInt(); ok {
 					return NewListFromIterable(iterator.Generate[Value, funcGen.Stack[Value]](size, func(i int) (Value, error) { return Int(i), nil })), nil
 				}
-				return nil, fmt.Errorf("list not alowed on %s", typeName(v))
+				return nil, fmt.Errorf("list not alowed on %s", TypeName(v))
 			},
 			Args:   1,
 			IsPure: true,
@@ -674,6 +708,9 @@ func New() *funcGen.FunctionGenerator[Value] {
 		AddStaticFunction("asin", simpleOnlyFloatFunc("asin", func(x float64) float64 { return math.Asin(x) })).
 		AddStaticFunction("acos", simpleOnlyFloatFunc("acos", func(x float64) float64 { return math.Acos(x) })).
 		AddStaticFunction("atan", simpleOnlyFloatFunc("atan", func(x float64) float64 { return math.Atan(x) }))
+
+	f := &FunctionGenerator{fg}
+	return f.SetEqualLess(Equal, Less)
 }
 
 func minFunc(st funcGen.Stack[Value], cs []Value) (Value, error) {
@@ -803,7 +840,7 @@ func MustFloat(v Value, err error) (float64, error) {
 	if f, ok := v.ToFloat(); ok {
 		return f, nil
 	}
-	return 0, fmt.Errorf("not a float: %s", typeName(v))
+	return 0, fmt.Errorf("not a float: %s", TypeName(v))
 }
 
 func MustInt(v Value, err error) (int, error) {
@@ -813,5 +850,5 @@ func MustInt(v Value, err error) (int, error) {
 	if i, ok := v.ToInt(); ok {
 		return i, nil
 	}
-	return 0, fmt.Errorf("not an int: %s", typeName(v))
+	return 0, fmt.Errorf("not an int: %s", TypeName(v))
 }

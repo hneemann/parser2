@@ -265,7 +265,7 @@ type Generator[V any] interface {
 
 type ToBool[V any] func(c V) (bool, bool)
 
-type IsEqual[V any] func(st Stack[V], a, b V) (bool, error)
+type BoolFunc[V any] func(st Stack[V], a, b V) (bool, error)
 
 type constMap[V any] map[string]V
 
@@ -287,7 +287,7 @@ type FunctionGenerator[V any] struct {
 	optimizer       parser2.Optimizer
 	constants       constMap[V]
 	toBool          ToBool[V]
-	isEqual         IsEqual[V]
+	isEqual         BoolFunc[V]
 	staticFunctions map[string]Function[V]
 	opMap           map[string]Operator[V]
 	uMap            map[string]UnaryOperator[V]
@@ -346,7 +346,7 @@ func (g *FunctionGenerator[V]) SetToBool(toBool ToBool[V]) *FunctionGenerator[V]
 	return g
 }
 
-func (g *FunctionGenerator[V]) SetIsEqual(isEqual IsEqual[V]) *FunctionGenerator[V] {
+func (g *FunctionGenerator[V]) SetIsEqual(isEqual BoolFunc[V]) *FunctionGenerator[V] {
 	g.isEqual = isEqual
 	return g
 }
