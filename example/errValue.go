@@ -37,7 +37,7 @@ func (e ErrValue) ToString(st funcGen.Stack[value.Value]) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return string(va + "±" + er), nil
+	return va + "±" + er, nil
 }
 
 func (e ErrValue) ToBool() (bool, bool) {
@@ -107,16 +107,6 @@ func Equal(st funcGen.Stack[value.Value], aVal, bVal value.Value) (bool, error) 
 	return value.Equal(st, aVal, bVal)
 }
 
-func Less(st funcGen.Stack[value.Value], aVal, bVal value.Value) (bool, error) {
-	if a, ok := aVal.(ErrValue); ok {
-		aVal = value.Float(a.val)
-	}
-	if b, ok := bVal.(ErrValue); ok {
-		bVal = value.Float(b.val)
-	}
-	return value.Less(st, aVal, bVal)
-}
-
 func errOperation(name string,
 	def func(st funcGen.Stack[value.Value], a value.Value, b value.Value) (value.Value, error),
 	f func(a, b ErrValue) (ErrValue, error)) func(st funcGen.Stack[value.Value], a value.Value, b value.Value) (value.Value, error) {
@@ -159,7 +149,7 @@ func toErr(stack funcGen.Stack[value.Value], store []value.Value) (value.Value, 
 
 var ErrValueParser = value.New().
 	RegisterMethods(errValType, createErrValueMethods()).
-	SetEqualLess(Equal, Less).
+	SetEqualLess(Equal, value.Less).
 	AddOp("+", false, errOperation("+", value.Add,
 		func(a, b ErrValue) (ErrValue, error) {
 			return ErrValue{a.val + b.val, a.err + b.err}, nil

@@ -43,11 +43,6 @@ func Equal(st funcGen.Stack[Value], a Value, b Value) (bool, error) {
 }
 
 func Less(st funcGen.Stack[Value], a Value, b Value) (bool, error) {
-	if aa, ok := a.(Float); ok {
-		if bb, ok := b.(Float); ok {
-			return aa < bb, nil
-		}
-	}
 	if aa, ok := a.(Int); ok {
 		if bb, ok := b.(Int); ok {
 			return aa < bb, nil
@@ -55,6 +50,12 @@ func Less(st funcGen.Stack[Value], a Value, b Value) (bool, error) {
 	}
 	if aa, ok := a.(String); ok {
 		if bb, ok := b.(String); ok {
+			return aa < bb, nil
+		}
+	}
+	// allows int-float comparison also
+	if aa, ok := a.ToFloat(); ok {
+		if bb, ok := b.ToFloat(); ok {
 			return aa < bb, nil
 		}
 	}
