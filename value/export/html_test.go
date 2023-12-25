@@ -60,12 +60,3 @@ func styleCell(v value.Value) value.Value {
 	}
 	return st
 }
-
-func TestFormat_GetMethod(t *testing.T) {
-	v := style(value.String("test"))
-	m, err := v.GetMethod("len")
-	assert.NoError(t, err)
-	got, err := m.Func(funcGen.NewStack(v), nil)
-	assert.NoError(t, err)
-	assert.Equal(t, value.Int(4), got)
-}

@@ -117,39 +117,41 @@ func (s String) ParseToFloat() (Value, error) {
 	return Float(f), nil
 }
 
-var StringMethods = MethodMap{
-	"len": MethodAtType(0, func(str String, stack funcGen.Stack[Value]) (Value, error) { return Int(len(string(str))), nil }).
-		SetMethodDescription("Returns the length of the string."),
-	"string": MethodAtType(0, func(str String, stack funcGen.Stack[Value]) (Value, error) { return str, nil }).
-		SetMethodDescription("Returns the string itself."),
-	"trim": MethodAtType(0, func(str String, stack funcGen.Stack[Value]) (Value, error) {
-		return String(strings.TrimSpace(string(str))), nil
-	}).SetMethodDescription("Returns the string without leading and trailing spaces."),
-	"toLower": MethodAtType(0, func(str String, stack funcGen.Stack[Value]) (Value, error) {
-		return String(strings.ToLower(string(str))), nil
-	}).SetMethodDescription("Returns the string in lower case."),
-	"toUpper": MethodAtType(0, func(str String, stack funcGen.Stack[Value]) (Value, error) {
-		return String(strings.ToUpper(string(str))), nil
-	}).SetMethodDescription("Returns the string in upper case."),
-	"contains": MethodAtType(1, func(str String, stack funcGen.Stack[Value]) (Value, error) { return str.Contains(stack) }).
-		SetMethodDescription("substr",
-			"Returns true if the string contains the substr."),
-	"indexOf": MethodAtType(1, func(str String, stack funcGen.Stack[Value]) (Value, error) { return str.IndexOf(stack) }).
-		SetMethodDescription("substr",
-			"Returns the index of the first occurrence of substr in the string. Returns -1 if not found."),
-	"split": MethodAtType(1, func(str String, stack funcGen.Stack[Value]) (Value, error) { return str.Split(stack) }).
-		SetMethodDescription("sep",
-			"Splits the string at the separator and returns a list of strings."),
-	"cut": MethodAtType(2, func(str String, stack funcGen.Stack[Value]) (Value, error) { return str.Cut(stack) }).
-		SetMethodDescription("pos", "len",
-			"Returns a substring starting at pos with length len. "+
-				"If len is negative, the rest of the string is returned."),
-	"behind": MethodAtType(1, func(str String, stack funcGen.Stack[Value]) (Value, error) { return str.Behind(stack) }).
-		SetMethodDescription("prefix", "Returns the string behind the prefix up to the next newline."),
-	"toFloat": MethodAtType(0, func(str String, stack funcGen.Stack[Value]) (Value, error) { return str.ParseToFloat() }).
-		SetMethodDescription("Parses the string to a float."),
+func createStringMethods(fg *FunctionGenerator) MethodMap {
+	return MethodMap{
+		"len": MethodAtType(0, func(str String, stack funcGen.Stack[Value]) (Value, error) { return Int(len(string(str))), nil }).
+			SetMethodDescription("Returns the length of the string."),
+		"string": MethodAtType(0, func(str String, stack funcGen.Stack[Value]) (Value, error) { return str, nil }).
+			SetMethodDescription("Returns the string itself."),
+		"trim": MethodAtType(0, func(str String, stack funcGen.Stack[Value]) (Value, error) {
+			return String(strings.TrimSpace(string(str))), nil
+		}).SetMethodDescription("Returns the string without leading and trailing spaces."),
+		"toLower": MethodAtType(0, func(str String, stack funcGen.Stack[Value]) (Value, error) {
+			return String(strings.ToLower(string(str))), nil
+		}).SetMethodDescription("Returns the string in lower case."),
+		"toUpper": MethodAtType(0, func(str String, stack funcGen.Stack[Value]) (Value, error) {
+			return String(strings.ToUpper(string(str))), nil
+		}).SetMethodDescription("Returns the string in upper case."),
+		"contains": MethodAtType(1, func(str String, stack funcGen.Stack[Value]) (Value, error) { return str.Contains(stack) }).
+			SetMethodDescription("substr",
+				"Returns true if the string contains the substr."),
+		"indexOf": MethodAtType(1, func(str String, stack funcGen.Stack[Value]) (Value, error) { return str.IndexOf(stack) }).
+			SetMethodDescription("substr",
+				"Returns the index of the first occurrence of substr in the string. Returns -1 if not found."),
+		"split": MethodAtType(1, func(str String, stack funcGen.Stack[Value]) (Value, error) { return str.Split(stack) }).
+			SetMethodDescription("sep",
+				"Splits the string at the separator and returns a list of strings."),
+		"cut": MethodAtType(2, func(str String, stack funcGen.Stack[Value]) (Value, error) { return str.Cut(stack) }).
+			SetMethodDescription("pos", "len",
+				"Returns a substring starting at pos with length len. "+
+					"If len is negative, the rest of the string is returned."),
+		"behind": MethodAtType(1, func(str String, stack funcGen.Stack[Value]) (Value, error) { return str.Behind(stack) }).
+			SetMethodDescription("prefix", "Returns the string behind the prefix up to the next newline."),
+		"toFloat": MethodAtType(0, func(str String, stack funcGen.Stack[Value]) (Value, error) { return str.ParseToFloat() }).
+			SetMethodDescription("Parses the string to a float."),
+	}
 }
 
-func (s String) GetMethod(name string) (funcGen.Function[Value], error) {
-	return StringMethods.Get(name)
+func (s String) GetType() Type {
+	return StringTypeId
 }

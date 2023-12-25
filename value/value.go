@@ -16,6 +16,20 @@ import (
 	"strings"
 )
 
+type Type int
+
+const (
+	nilTypeId Type = iota
+	IntTypeId
+	FloatTypeId
+	StringTypeId
+	BoolTypeId
+	ListTypeId
+	MapTypeId
+	closureTypeId
+	FormatTypeId
+)
+
 type Value interface {
 	ToList() (*List, bool)
 	ToMap() (Map, bool)
@@ -24,7 +38,7 @@ type Value interface {
 	ToString(st funcGen.Stack[Value]) (string, error)
 	ToBool() (bool, bool)
 	ToClosure() (funcGen.Function[Value], bool)
-	GetMethod(name string) (funcGen.Function[Value], error)
+	GetType() Type
 }
 
 func MethodAtType[V Value](args int, method func(obj V, stack funcGen.Stack[Value]) (Value, error)) funcGen.Function[Value] {
@@ -60,6 +74,12 @@ func (mm MethodMap) Get(name string) (funcGen.Function[Value], error) {
 		fe.fu.Description.WriteTo(&b, fe.name)
 	}
 	return funcGen.Function[Value]{}, fmt.Errorf("method '%s' not found; available are:\n%s", name, b.String())
+}
+
+func (mm MethodMap) add(more MethodMap) {
+	for k, m := range more {
+		mm[k] = m
+	}
 }
 
 const NIL = nilType(0)
@@ -98,8 +118,8 @@ func (n nilType) ToClosure() (funcGen.Function[Value], bool) {
 	return funcGen.Function[Value]{}, false
 }
 
-func (n nilType) GetMethod(string) (funcGen.Function[Value], error) {
-	return funcGen.Function[Value]{}, fmt.Errorf("nil has no methods")
+func (n nilType) GetType() Type {
+	return nilTypeId
 }
 
 type Closure funcGen.Function[Value]
@@ -133,8 +153,8 @@ var ClosureMethods = MethodMap{
 		SetMethodDescription("Returns the number of arguments the function takes."),
 }
 
-func (c Closure) GetMethod(name string) (funcGen.Function[Value], error) {
-	return ClosureMethods.Get(name)
+func (c Closure) GetType() Type {
+	return closureTypeId
 }
 
 func (c Closure) ToClosure() (funcGen.Function[Value], bool) {
@@ -170,16 +190,18 @@ func (b Bool) ToClosure() (funcGen.Function[Value], bool) {
 	return funcGen.Function[Value]{}, false
 }
 
-var BoolMethods = MethodMap{
-	"string": MethodAtType(0, func(b Bool, stack funcGen.Stack[Value]) (Value, error) {
-		s, err := b.ToString(stack)
-		return String(s), err
-	}).
-		SetMethodDescription("Returns the string 'true' or 'false'."),
+func createBoolMethods(fg *FunctionGenerator) MethodMap {
+	return MethodMap{
+		"string": MethodAtType(0, func(b Bool, stack funcGen.Stack[Value]) (Value, error) {
+			s, err := b.ToString(stack)
+			return String(s), err
+		}).
+			SetMethodDescription("Returns the string 'true' or 'false'."),
+	}
 }
 
-func (b Bool) GetMethod(name string) (funcGen.Function[Value], error) {
-	return BoolMethods.Get(name)
+func (b Bool) GetType() Type {
+	return BoolTypeId
 }
 
 func (b Bool) ToBool() (bool, bool) {
@@ -204,16 +226,18 @@ func (f Float) ToClosure() (funcGen.Function[Value], bool) {
 	return funcGen.Function[Value]{}, false
 }
 
-var FloatMethods = MethodMap{
-	"string": MethodAtType(0, func(f Float, stack funcGen.Stack[Value]) (Value, error) {
-		s, err := f.ToString(stack)
-		return String(s), err
-	}).
-		SetMethodDescription("Returns a string representation of the float."),
+func createFloatMethods(fg *FunctionGenerator) MethodMap {
+	return MethodMap{
+		"string": MethodAtType(0, func(f Float, stack funcGen.Stack[Value]) (Value, error) {
+			s, err := f.ToString(stack)
+			return String(s), err
+		}).
+			SetMethodDescription("Returns a string representation of the float."),
+	}
 }
 
-func (f Float) GetMethod(name string) (funcGen.Function[Value], error) {
-	return FloatMethods.Get(name)
+func (f Float) GetType() Type {
+	return FloatTypeId
 }
 
 func (f Float) ToBool() (bool, bool) {
@@ -249,16 +273,18 @@ func (i Int) ToClosure() (funcGen.Function[Value], bool) {
 	return funcGen.Function[Value]{}, false
 }
 
-var IntMethods = MethodMap{
-	"string": MethodAtType(0, func(i Int, stack funcGen.Stack[Value]) (Value, error) {
-		s, err := i.ToString(stack)
-		return String(s), err
-	}).
-		SetMethodDescription("Returns a string representation of the int."),
+func createIntMethods(fg *FunctionGenerator) MethodMap {
+	return MethodMap{
+		"string": MethodAtType(0, func(i Int, stack funcGen.Stack[Value]) (Value, error) {
+			s, err := i.ToString(stack)
+			return String(s), err
+		}).
+			SetMethodDescription("Returns a string representation of the int."),
+	}
 }
 
-func (i Int) GetMethod(name string) (funcGen.Function[Value], error) {
-	return IntMethods.Get(name)
+func (i Int) GetType() Type {
+	return IntTypeId
 }
 
 func (i Int) ToBool() (bool, bool) {
@@ -277,7 +303,8 @@ func (i Int) ToFloat() (float64, bool) {
 }
 
 type factory struct {
-	fg *FunctionGenerator
+	fg      *FunctionGenerator
+	methods [20]MethodMap
 }
 
 func (f factory) ParseNumber(n string) (Value, error) {
@@ -487,13 +514,19 @@ func notAvail(name string) func(st funcGen.Stack[Value], a Value, b Value) (Valu
 
 type FunctionGenerator struct {
 	*funcGen.FunctionGenerator[Value]
+	fac   *factory
 	equal funcGen.BoolFunc[Value]
 	less  funcGen.BoolFunc[Value]
 	add   func(st funcGen.Stack[Value], a Value, b Value) (Value, error)
 }
 
-func (f factory) GetMethod(value Value, methodName string) (funcGen.Function[Value], error) {
-	m, err := value.GetMethod(methodName)
+func (f *factory) GetMethod(value Value, methodName string) (funcGen.Function[Value], error) {
+	typ := value.GetType()
+	methodMap := f.methods[typ]
+	if methodMap == nil {
+		return funcGen.Function[Value]{}, fmt.Errorf("no methods for type %s", TypeName(value))
+	}
+	m, err := methodMap.Get(methodName)
 	if err != nil {
 		return funcGen.Function[Value]{}, err
 	} else {
@@ -501,8 +534,20 @@ func (f factory) GetMethod(value Value, methodName string) (funcGen.Function[Val
 	}
 }
 
-func (fg *FunctionGenerator) setupMethods(factory) {
-	fg.add = fg.GetOpImpl("+")
+func (fg *FunctionGenerator) RegisterMethods(id Type, methods MethodMap) *FunctionGenerator {
+	if fg.fac.methods[id] == nil {
+		fg.fac.methods[id] = methods
+	} else {
+		fg.fac.methods[id].add(methods)
+	}
+	return fg
+}
+
+func (fg *FunctionGenerator) AddFinalizerValue(f func(f *FunctionGenerator)) *FunctionGenerator {
+	fg.AddFinalizer(func(raw *funcGen.FunctionGenerator[Value]) {
+		f(fg)
+	})
+	return fg
 }
 
 // SetEqualLess is a helper to create the operators '=', '!=', '<', '>', '<=' and '>=' using the
@@ -563,7 +608,7 @@ func New() *FunctionGenerator {
 		SetListHandler(theFactory).
 		SetMapHandler(theFactory).
 		SetClosureHandler(theFactory).
-		SetMethodHandler(theFactory).
+		SetMethodHandler(&theFactory).
 		SetCustomGenerator(theFactory).
 		SetStringConverter(theFactory).
 		SetToBool(func(c Value) (bool, bool) { return c.ToBool() }).
@@ -721,9 +766,15 @@ func New() *FunctionGenerator {
 		AddStaticFunction("acos", simpleOnlyFloatFunc("acos", func(x float64) float64 { return math.Acos(x) })).
 		AddStaticFunction("atan", simpleOnlyFloatFunc("atan", func(x float64) float64 { return math.Atan(x) }))
 
-	f := &FunctionGenerator{FunctionGenerator: fg}
-	f.AddFinalizer(func(fg *funcGen.FunctionGenerator[Value]) {
-		f.setupMethods(theFactory)
+	f := &FunctionGenerator{FunctionGenerator: fg, fac: &theFactory}
+	f.AddFinalizerValue(func(f *FunctionGenerator) {
+		f.add = f.GetOpImpl("+")
+		f.RegisterMethods(ListTypeId, createListMethods(f))
+		f.RegisterMethods(MapTypeId, createMapMethods(f))
+		f.RegisterMethods(StringTypeId, createStringMethods(f))
+		f.RegisterMethods(BoolTypeId, createBoolMethods(f))
+		f.RegisterMethods(IntTypeId, createIntMethods(f))
+		f.RegisterMethods(FloatTypeId, createFloatMethods(f))
 	})
 	theFactory.fg = f
 	return f.SetEqualLess(Equal, Less)

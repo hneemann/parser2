@@ -85,24 +85,28 @@ func (f Format) ToClosure() (funcGen.Function[value.Value], bool) {
 	return f.Value.ToClosure()
 }
 
-func (f Format) GetMethod(name string) (funcGen.Function[value.Value], error) {
-	m, err := f.Value.GetMethod(name)
-	if err != nil {
-		return funcGen.Function[value.Value]{}, err
-	}
-	return funcGen.Function[value.Value]{
-		Func: func(st funcGen.Stack[value.Value], closureStore []value.Value) (value.Value, error) {
-			ss := st.Size()
-			st.Push((st.Get(0).(Format)).Value)
-			for i := 1; i < ss; i++ {
-				st.Push(st.Get(i))
-			}
-			return m.Func(st.CreateFrame(ss), closureStore)
-		},
-		Args:   m.Args,
-		IsPure: m.IsPure,
-	}, nil
+func (f Format) GetType() value.Type {
+	return value.FormatTypeId
 }
+
+//func (f Format) GetMethod(name string) (funcGen.Function[value.Value], error) {
+//	m, err := f.Value.GetMethod(name)
+//	if err != nil {
+//		return funcGen.Function[value.Value]{}, err
+//	}
+//	return funcGen.Function[value.Value]{
+//		Func: func(st funcGen.Stack[value.Value], closureStore []value.Value) (value.Value, error) {
+//			ss := st.Size()
+//			st.Push((st.Get(0).(Format)).Value)
+//			for i := 1; i < ss; i++ {
+//				st.Push(st.Get(i))
+//			}
+//			return m.Func(st.CreateFrame(ss), closureStore)
+//		},
+//		Args:   m.Args,
+//		IsPure: m.IsPure,
+//	}, nil
+//}
 
 type CustomHTML func(value.Value) (template.HTML, bool, error)
 

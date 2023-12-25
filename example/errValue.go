@@ -48,24 +48,28 @@ func (e ErrValue) ToClosure() (funcGen.Function[value.Value], bool) {
 	return funcGen.Function[value.Value]{}, false
 }
 
-var ErrValueMethods = value.MethodMap{
-	"val": value.MethodAtType(0, func(ev ErrValue, stack funcGen.Stack[value.Value]) (value.Value, error) {
-		return value.Float(ev.val), nil
-	}).
-		SetMethodDescription("Returns the value of the error value"),
-	"err": value.MethodAtType(0, func(ev ErrValue, stack funcGen.Stack[value.Value]) (value.Value, error) {
-		return value.Float(ev.err), nil
-	}).
-		SetMethodDescription("Returns the error of the error value"),
-	"string": value.MethodAtType(0, func(ev ErrValue, stack funcGen.Stack[value.Value]) (value.Value, error) {
-		s, err := ev.ToString(stack)
-		return value.String(s), err
-	}).
-		SetMethodDescription("Returns the string representation of the error value"),
+func createErrValueMethods() value.MethodMap {
+	return value.MethodMap{
+		"val": value.MethodAtType(0, func(ev ErrValue, stack funcGen.Stack[value.Value]) (value.Value, error) {
+			return value.Float(ev.val), nil
+		}).
+			SetMethodDescription("Returns the value of the error value"),
+		"err": value.MethodAtType(0, func(ev ErrValue, stack funcGen.Stack[value.Value]) (value.Value, error) {
+			return value.Float(ev.err), nil
+		}).
+			SetMethodDescription("Returns the error of the error value"),
+		"string": value.MethodAtType(0, func(ev ErrValue, stack funcGen.Stack[value.Value]) (value.Value, error) {
+			s, err := ev.ToString(stack)
+			return value.String(s), err
+		}).
+			SetMethodDescription("Returns the string representation of the error value"),
+	}
 }
 
-func (e ErrValue) GetMethod(name string) (funcGen.Function[value.Value], error) {
-	return ErrValueMethods.Get(name)
+const errValType = value.Type(10)
+
+func (e ErrValue) GetType() value.Type {
+	return errValType
 }
 
 func errOperation(name string,
@@ -109,6 +113,7 @@ func toErr(stack funcGen.Stack[value.Value], store []value.Value) (value.Value, 
 }
 
 var ErrValueParser = value.New().
+	RegisterMethods(errValType, createErrValueMethods()).
 	AddOp("+", false, errOperation("+", value.Add,
 		func(a, b ErrValue) (ErrValue, error) {
 			return ErrValue{a.val + b.val, a.err + b.err}, nil
