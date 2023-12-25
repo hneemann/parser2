@@ -302,12 +302,7 @@ func (i Int) ToFloat() (float64, bool) {
 	return float64(i), true
 }
 
-type factory struct {
-	fg      *FunctionGenerator
-	methods [20]MethodMap
-}
-
-func (f factory) ParseNumber(n string) (Value, error) {
+func (f *FunctionGenerator) ParseNumber(n string) (Value, error) {
 	i, err := strconv.Atoi(n)
 	if err == nil {
 		return Int(i), nil
@@ -319,23 +314,23 @@ func (f factory) ParseNumber(n string) (Value, error) {
 	return nil, err
 }
 
-func (f factory) FromString(s string) Value {
+func (f *FunctionGenerator) FromString(s string) Value {
 	return String(s)
 }
 
-func (f factory) FromClosure(c funcGen.Function[Value]) Value {
+func (f *FunctionGenerator) FromClosure(c funcGen.Function[Value]) Value {
 	return Closure(c)
 }
 
-func (f factory) ToClosure(value Value) (funcGen.Function[Value], bool) {
+func (f *FunctionGenerator) ToClosure(value Value) (funcGen.Function[Value], bool) {
 	return value.ToClosure()
 }
 
-func (f factory) FromMap(items listMap.ListMap[Value]) Value {
+func (f *FunctionGenerator) FromMap(items listMap.ListMap[Value]) Value {
 	return Map{m: items}
 }
 
-func (f factory) AccessMap(mapValue Value, key string) (Value, error) {
+func (f *FunctionGenerator) AccessMap(mapValue Value, key string) (Value, error) {
 	if m, ok := mapValue.ToMap(); ok {
 		if v, ok := m.Get(key); ok {
 			return v, nil
@@ -356,16 +351,16 @@ func TypeName(v Value) string {
 	return tName
 }
 
-func (f factory) IsMap(mapValue Value) bool {
+func (f *FunctionGenerator) IsMap(mapValue Value) bool {
 	_, ok := mapValue.ToMap()
 	return ok
 }
 
-func (f factory) FromList(items []Value) Value {
+func (f *FunctionGenerator) FromList(items []Value) Value {
 	return NewList(items...)
 }
 
-func (f factory) AccessList(list Value, index Value) (Value, error) {
+func (f *FunctionGenerator) AccessList(list Value, index Value) (Value, error) {
 	if l, ok := list.ToList(); ok {
 		if i, ok := index.ToInt(); ok {
 			if i < 0 {
@@ -389,7 +384,7 @@ func (f factory) AccessList(list Value, index Value) (Value, error) {
 	}
 }
 
-func (f factory) Generate(ast parser2.AST, gc funcGen.GeneratorContext, g *funcGen.FunctionGenerator[Value]) (funcGen.ParserFunc[Value], error) {
+func (f *FunctionGenerator) GenerateCustom(ast parser2.AST, gc funcGen.GeneratorContext, g *funcGen.FunctionGenerator[Value]) (funcGen.ParserFunc[Value], error) {
 	if tc, ok := ast.(*parser2.TryCatch); ok {
 		if cl, ok := tc.Catch.(*parser2.ClosureLiteral); ok && len(cl.Names) == 1 {
 			tryFunc, err := g.GenerateFunc(tc.Try, gc)
@@ -514,13 +509,13 @@ func notAvail(name string) func(st funcGen.Stack[Value], a Value, b Value) (Valu
 
 type FunctionGenerator struct {
 	*funcGen.FunctionGenerator[Value]
-	fac   *factory
-	equal funcGen.BoolFunc[Value]
-	less  funcGen.BoolFunc[Value]
-	add   func(st funcGen.Stack[Value], a Value, b Value) (Value, error)
+	methods [20]MethodMap
+	equal   funcGen.BoolFunc[Value]
+	less    funcGen.BoolFunc[Value]
+	add     func(st funcGen.Stack[Value], a Value, b Value) (Value, error)
 }
 
-func (f *factory) GetMethod(value Value, methodName string) (funcGen.Function[Value], error) {
+func (f *FunctionGenerator) GetMethod(value Value, methodName string) (funcGen.Function[Value], error) {
 	typ := value.GetType()
 	methodMap := f.methods[typ]
 	if methodMap == nil {
@@ -535,10 +530,10 @@ func (f *factory) GetMethod(value Value, methodName string) (funcGen.Function[Va
 }
 
 func (fg *FunctionGenerator) RegisterMethods(id Type, methods MethodMap) *FunctionGenerator {
-	if fg.fac.methods[id] == nil {
-		fg.fac.methods[id] = methods
+	if fg.methods[id] == nil {
+		fg.methods[id] = methods
 	} else {
-		fg.fac.methods[id].add(methods)
+		fg.methods[id].add(methods)
 	}
 	return fg
 }
@@ -598,19 +593,19 @@ func (fg *FunctionGenerator) SetEqualLess(equal, less funcGen.BoolFunc[Value]) *
 }
 
 func New() *FunctionGenerator {
-	var theFactory = factory{}
+	f := &FunctionGenerator{}
 	fg := funcGen.New[Value]().
 		AddConstant("nil", NIL).
 		AddConstant("pi", Float(math.Pi)).
 		AddConstant("true", Bool(true)).
 		AddConstant("false", Bool(false)).
-		SetNumberParser(theFactory).
-		SetListHandler(theFactory).
-		SetMapHandler(theFactory).
-		SetClosureHandler(theFactory).
-		SetMethodHandler(&theFactory).
-		SetCustomGenerator(theFactory).
-		SetStringConverter(theFactory).
+		SetNumberParser(f).
+		SetListHandler(f).
+		SetMapHandler(f).
+		SetClosureHandler(f).
+		SetMethodHandler(f).
+		SetCustomGenerator(f).
+		SetStringConverter(f).
 		SetToBool(func(c Value) (bool, bool) { return c.ToBool() }).
 		AddOp("|", true, Or).
 		AddOp("&", true, And).
@@ -766,8 +761,9 @@ func New() *FunctionGenerator {
 		AddStaticFunction("acos", simpleOnlyFloatFunc("acos", func(x float64) float64 { return math.Acos(x) })).
 		AddStaticFunction("atan", simpleOnlyFloatFunc("atan", func(x float64) float64 { return math.Atan(x) }))
 
-	f := &FunctionGenerator{FunctionGenerator: fg, fac: &theFactory}
-	f.AddFinalizerValue(func(f *FunctionGenerator) {
+	f.FunctionGenerator = fg
+
+	return f.AddFinalizerValue(func(f *FunctionGenerator) {
 		f.add = f.GetOpImpl("+")
 		f.RegisterMethods(ListTypeId, createListMethods(f))
 		f.RegisterMethods(MapTypeId, createMapMethods(f))
@@ -775,9 +771,8 @@ func New() *FunctionGenerator {
 		f.RegisterMethods(BoolTypeId, createBoolMethods(f))
 		f.RegisterMethods(IntTypeId, createIntMethods(f))
 		f.RegisterMethods(FloatTypeId, createFloatMethods(f))
-	})
-	theFactory.fg = f
-	return f.SetEqualLess(Equal, Less)
+	}).
+		SetEqualLess(Equal, Less)
 }
 
 func minFunc(st funcGen.Stack[Value], cs []Value) (Value, error) {
