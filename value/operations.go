@@ -43,23 +43,23 @@ func Equal(st funcGen.Stack[Value], a Value, b Value) (bool, error) {
 	return false, nil
 }
 
-func LessEqual(st funcGen.Stack[Value], a Value, b Value) (Value, error) {
+func Less(st funcGen.Stack[Value], a Value, b Value) (bool, error) {
 	if aa, ok := a.(Int); ok {
 		if bb, ok := b.(Int); ok {
-			return Bool(aa <= bb), nil
+			return aa < bb, nil
 		}
 	}
 	if aa, ok := a.(String); ok {
 		if bb, ok := b.(String); ok {
-			return Bool(aa <= bb), nil
+			return aa < bb, nil
 		}
 	}
 	if aa, ok := a.ToFloat(); ok {
 		if bb, ok := b.ToFloat(); ok {
-			return Bool(aa <= bb), nil
+			return aa < bb, nil
 		}
 	}
-	return nil, notAllowed("lessEqual", a, b)
+	return false, notAllowed("less", a, b)
 }
 
 func notAllowed(name string, a Value, b Value) error {
@@ -87,31 +87,6 @@ func In(st funcGen.Stack[Value], a Value, b Value) (Value, error) {
 		}
 	}
 	return nil, notAllowed("~", a, b)
-}
-
-func Less(st funcGen.Stack[Value], a Value, b Value) (bool, error) {
-	if aa, ok := a.(Int); ok {
-		if bb, ok := b.(Int); ok {
-			return aa < bb, nil
-		}
-	}
-	if aa, ok := a.(String); ok {
-		if bb, ok := b.(String); ok {
-			return aa < bb, nil
-		}
-	}
-	if aa, ok := a.ToFloat(); ok {
-		if bb, ok := b.ToFloat(); ok {
-			return aa < bb, nil
-		}
-	}
-	return false, notAllowed("less", a, b)
-}
-
-func Swap(inner func(st funcGen.Stack[Value], a, b Value) (Value, error)) func(st funcGen.Stack[Value], a, b Value) (Value, error) {
-	return func(st funcGen.Stack[Value], a, b Value) (Value, error) {
-		return inner(st, b, a)
-	}
 }
 
 func Add(st funcGen.Stack[Value], a, b Value) (Value, error) {

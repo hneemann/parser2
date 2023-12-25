@@ -519,6 +519,7 @@ type Sortable struct {
 	st       funcGen.Stack[Value]
 	pickFunc funcGen.Function[Value]
 	err      error
+	less     funcGen.BoolFunc[Value]
 }
 
 func (s *Sortable) Len() int {
@@ -543,11 +544,11 @@ func (s *Sortable) Less(i, j int) bool {
 	pj, okj := s.pick(j)
 	if oki && okj {
 		if s.rev {
-			less, err := Less(s.st, pj, pi)
+			less, err := s.less(s.st, pj, pi)
 			s.registerError(err)
 			return less
 		} else {
-			less, err := Less(s.st, pi, pj)
+			less, err := s.less(s.st, pi, pj)
 			s.registerError(err)
 			return less
 		}
@@ -560,7 +561,7 @@ func (s *Sortable) Swap(i, j int) {
 	s.items[i], s.items[j] = s.items[j], s.items[i]
 }
 
-func (l *List) Order(st funcGen.Stack[Value], rev bool) (*List, error) {
+func (l *List) Order(st funcGen.Stack[Value], rev bool, less funcGen.BoolFunc[Value]) (*List, error) {
 	f, err := ToFunc("order", st, 1, 1)
 	if err != nil {
 		return nil, err
@@ -569,7 +570,7 @@ func (l *List) Order(st funcGen.Stack[Value], rev bool) (*List, error) {
 	if err != nil {
 		return nil, err
 	}
-	s := Sortable{items: items, rev: rev, st: st, pickFunc: f}
+	s := Sortable{items: items, rev: rev, st: st, pickFunc: f, less: less}
 	sort.Sort(&s)
 	return NewList(items...), s.err
 }
@@ -844,7 +845,7 @@ func (l *List) MapReduce(st funcGen.Stack[Value]) (Value, error) {
 	})
 }
 
-func (l *List) MinMax(st funcGen.Stack[Value]) (Value, error) {
+func (l *List) MinMax(st funcGen.Stack[Value], less funcGen.BoolFunc[Value]) (Value, error) {
 	f, err := ToFunc("minMax", st, 1, 1)
 	if err != nil {
 		return nil, err
@@ -869,21 +870,21 @@ func (l *List) MinMax(st funcGen.Stack[Value]) (Value, error) {
 			minItem = value
 			maxItem = value
 		} else {
-			less, err := Less(st, r, minVal)
+			le, err := less(st, r, minVal)
 			if err != nil {
 				innerErr = err
 				return false
 			}
-			if less {
+			if le {
 				minVal = r
 				minItem = value
 			}
-			b, err := Less(st, maxVal, r)
+			gr, err := less(st, maxVal, r)
 			if err != nil {
 				innerErr = err
 				return false
 			}
-			if b {
+			if gr {
 				maxVal = r
 				maxItem = value
 			}
@@ -1322,6 +1323,7 @@ func (l *List) Set(st funcGen.Stack[Value]) (Value, error) {
 
 func createListMethods(fg *FunctionGenerator) MethodMap {
 	add := fg.add
+	less := fg.less
 	return MethodMap{
 		"accept": MethodAtType(1, func(list *List, stack funcGen.Stack[Value]) (Value, error) { return list.Accept(stack) }).
 			SetMethodDescription("func(item) bool",
@@ -1341,7 +1343,7 @@ func createListMethods(fg *FunctionGenerator) MethodMap {
 				"MapReduce reduces the list to a single value. The initial value is given as the first argument. The function "+
 					"is called with the initial value and the first item, and the result is used as the first argument for the "+
 					"second item and so on."),
-		"minMax": MethodAtType(1, func(list *List, stack funcGen.Stack[Value]) (Value, error) { return list.MinMax(stack) }).
+		"minMax": MethodAtType(1, func(list *List, stack funcGen.Stack[Value]) (Value, error) { return list.MinMax(stack, less) }).
 			SetMethodDescription("func(item) value",
 				"Returns the minimum and maximum value of the list. The function is called for each item in the list and the "+
 					"result is compared to the previous minimum and maximum."),
@@ -1409,11 +1411,11 @@ func createListMethods(fg *FunctionGenerator) MethodMap {
 					"return value is true the value of the original list is taken, otherwise the item from the other list. "+
 					"The is repeated until all items of both lists are processed. "+
 					"If the function returns true if a<b holds and both lists are ordered, also the new list is ordered."),
-		"order": MethodAtType(1, func(list *List, stack funcGen.Stack[Value]) (Value, error) { return list.Order(stack, false) }).
+		"order": MethodAtType(1, func(list *List, stack funcGen.Stack[Value]) (Value, error) { return list.Order(stack, false, less) }).
 			SetMethodDescription("func(item) value",
 				"Returns a new list with the items sorted in the order of the values returned by the given function. "+
 					"The function is called for each item in the list and the returned values determine the order."),
-		"orderRev": MethodAtType(1, func(list *List, stack funcGen.Stack[Value]) (Value, error) { return list.Order(stack, true) }).
+		"orderRev": MethodAtType(1, func(list *List, stack funcGen.Stack[Value]) (Value, error) { return list.Order(stack, true, less) }).
 			SetMethodDescription("func(item) value",
 				"Returns a new list with the items sorted in the reverse order of the values returned by the given function. "+
 					"The function is called for each item in the list and the returned values determine the order."),

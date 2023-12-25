@@ -712,16 +712,6 @@ func New() *FunctionGenerator {
 			Args:   1,
 			IsPure: true,
 		}.SetDescription("value", "Returns the value rounded to the nearest integer.")).
-		AddStaticFunction("min", funcGen.Function[Value]{
-			Func:   minFunc,
-			Args:   -1,
-			IsPure: true,
-		}.SetDescription("a", "b", "Returns the smaller of a and b.")).
-		AddStaticFunction("max", funcGen.Function[Value]{
-			Func:   maxFunc,
-			Args:   -1,
-			IsPure: true,
-		}.SetDescription("a", "b", "Returns the larger of a and b.")).
 		AddStaticFunction("createLowPass", funcGen.Function[Value]{
 			Func:   createLowPass,
 			Args:   4,
@@ -771,46 +761,54 @@ func New() *FunctionGenerator {
 		f.RegisterMethods(BoolTypeId, createBoolMethods(f))
 		f.RegisterMethods(IntTypeId, createIntMethods(f))
 		f.RegisterMethods(FloatTypeId, createFloatMethods(f))
+
+		less := f.less
+		f.AddStaticFunction("min", funcGen.Function[Value]{
+			Func: func(st funcGen.Stack[Value], cs []Value) (Value, error) {
+				var m Value
+				for i := 0; i < st.Size(); i++ {
+					v := st.Get(i)
+					if i == 0 {
+						m = v
+					} else {
+						le, err := less(st, v, m)
+						if err != nil {
+							return nil, err
+						}
+						if le {
+							m = v
+						}
+					}
+				}
+				return m, nil
+			},
+			Args:   -1,
+			IsPure: true,
+		}.SetDescription("a", "b", "Returns the smaller of a and b."))
+		f.AddStaticFunction("max", funcGen.Function[Value]{
+			Func: func(st funcGen.Stack[Value], cs []Value) (Value, error) {
+				var m Value
+				for i := 0; i < st.Size(); i++ {
+					v := st.Get(i)
+					if i == 0 {
+						m = v
+					} else {
+						le, err := less(st, m, v)
+						if err != nil {
+							return nil, err
+						}
+						if le {
+							m = v
+						}
+					}
+				}
+				return m, nil
+			},
+			Args:   -1,
+			IsPure: true,
+		}.SetDescription("a", "b", "Returns the larger of a and b."))
 	}).
 		SetEqualLess(Equal, Less)
-}
-
-func minFunc(st funcGen.Stack[Value], cs []Value) (Value, error) {
-	var m Value
-	for i := 0; i < st.Size(); i++ {
-		v := st.Get(i)
-		if i == 0 {
-			m = v
-		} else {
-			less, err := Less(st, v, m)
-			if err != nil {
-				return nil, err
-			}
-			if less {
-				m = v
-			}
-		}
-	}
-	return m, nil
-}
-
-func maxFunc(st funcGen.Stack[Value], cs []Value) (Value, error) {
-	var m Value
-	for i := 0; i < st.Size(); i++ {
-		v := st.Get(i)
-		if i == 0 {
-			m = v
-		} else {
-			less, err := Less(st, m, v)
-			if err != nil {
-				return nil, err
-			}
-			if less {
-				m = v
-			}
-		}
-	}
-	return m, nil
 }
 
 func sprintf(st funcGen.Stack[Value], cs []Value) (Value, error) {
