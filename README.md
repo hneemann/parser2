@@ -61,7 +61,7 @@ Now let's do some operations on the data. At first we have to create the parser,
 ``` Go
 func main() {
 	// Create a parser.
-	parser := value.SetUpParser(value.New())
+	parser := value.New()
 	// Create a list to be used containing the people.
 	people := value.NewListConvert(func(p Person) value.Value { return PersonToMap.Create(p) }, People)
 ```
