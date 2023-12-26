@@ -546,17 +546,33 @@ func (fg *FunctionGenerator) AddFinalizerValue(f func(f *FunctionGenerator)) *Fu
 }
 
 // SetEqualLess is a helper to create the operators '=', '!=', '<', '>', '<=' and '>=' using the
-// given equal and less functions.
+// given equal and less functions. This method also covers equality of lists and maps.
 func (fg *FunctionGenerator) SetEqualLess(equal, less funcGen.BoolFunc[Value]) *FunctionGenerator {
-	fg.equal = equal
+
+	var deepEqual funcGen.BoolFunc[Value]
+	deepEqual = func(st funcGen.Stack[Value], a Value, b Value) (bool, error) {
+		if aa, ok := a.(*List); ok {
+			if bb, ok := b.(*List); ok {
+				return aa.Equals(st, bb, deepEqual)
+			}
+		}
+		if aa, ok := a.(Map); ok {
+			if bb, ok := b.(Map); ok {
+				return aa.Equals(st, bb, deepEqual)
+			}
+		}
+		return equal(st, a, b)
+	}
+
+	fg.equal = deepEqual
 	fg.less = less
-	fg.SetIsEqual(equal)
+	fg.SetIsEqual(deepEqual)
 	fg.AddOp("=", false, func(st funcGen.Stack[Value], a Value, b Value) (Value, error) {
-		eq, err := equal(st, a, b)
+		eq, err := deepEqual(st, a, b)
 		return Bool(eq), err
 	})
 	fg.AddOp("!=", false, func(st funcGen.Stack[Value], a Value, b Value) (Value, error) {
-		eq, err := equal(st, a, b)
+		eq, err := deepEqual(st, a, b)
 		return Bool(!eq), err
 	})
 	fg.AddOp("<", false, func(st funcGen.Stack[Value], a Value, b Value) (Value, error) {
@@ -575,7 +591,7 @@ func (fg *FunctionGenerator) SetEqualLess(equal, less funcGen.BoolFunc[Value]) *
 		if le {
 			return Bool(true), nil
 		}
-		eq, err := equal(st, a, b)
+		eq, err := deepEqual(st, a, b)
 		return Bool(eq), err
 	})
 	fg.AddOp(">=", false, func(st funcGen.Stack[Value], a Value, b Value) (Value, error) {
@@ -586,7 +602,7 @@ func (fg *FunctionGenerator) SetEqualLess(equal, less funcGen.BoolFunc[Value]) *
 		if le {
 			return Bool(true), nil
 		}
-		eq, err := equal(st, a, b)
+		eq, err := deepEqual(st, a, b)
 		return Bool(eq), err
 	})
 

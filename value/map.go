@@ -114,30 +114,30 @@ func (v Map) Size() int {
 	return v.m.Size()
 }
 
-func (v Map) Equals(st funcGen.Stack[Value], other Map) (bool, error) {
+func (v Map) Equals(st funcGen.Stack[Value], other Map, equal funcGen.BoolFunc[Value]) (bool, error) {
 	if v.Size() != other.Size() {
 		return false, nil
 	}
-	equal := true
+	eq := true
 	var innerErr error
 	v.m.Iter(func(key string, v Value) bool {
 		if o, ok := other.Get(key); ok {
-			b, err := Equal(st, o, v)
+			b, err := equal(st, o, v)
 			if err != nil {
 				innerErr = err
 				return false
 			}
 			if !b {
-				equal = false
+				eq = false
 				return false
 			}
 		} else {
-			equal = false
+			eq = false
 			return false
 		}
 		return true
 	})
-	return equal, innerErr
+	return eq, innerErr
 }
 
 func (v Map) Accept(st funcGen.Stack[Value]) (Map, error) {

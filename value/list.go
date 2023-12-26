@@ -196,7 +196,7 @@ func deepEvalLists(st funcGen.Stack[Value], v Value) error {
 	return nil
 }
 
-func (l *List) Equals(st funcGen.Stack[Value], other *List) (bool, error) {
+func (l *List) Equals(st funcGen.Stack[Value], other *List, equal funcGen.BoolFunc[Value]) (bool, error) {
 	a, aErr := l.ToSlice(st)
 	if aErr != nil {
 		return false, aErr
@@ -209,7 +209,7 @@ func (l *List) Equals(st funcGen.Stack[Value], other *List) (bool, error) {
 		return false, nil
 	}
 	for i, aa := range a {
-		eq, err := Equal(st, aa, b[i])
+		eq, err := equal(st, aa, b[i])
 		if err != nil {
 			return false, err
 		}

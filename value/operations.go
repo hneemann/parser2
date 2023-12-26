@@ -21,14 +21,6 @@ func Equal(st funcGen.Stack[Value], a Value, b Value) (bool, error) {
 		if bb, ok := b.(String); ok {
 			return aa == bb, nil
 		}
-	case *List:
-		if bb, ok := b.(*List); ok {
-			return aa.Equals(st, bb)
-		}
-	case Map:
-		if bb, ok := b.(Map); ok {
-			return aa.Equals(st, bb)
-		}
 	case nilType:
 		if _, ok := b.(nilType); ok {
 			return true, nil
