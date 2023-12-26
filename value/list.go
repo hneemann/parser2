@@ -325,7 +325,7 @@ func (l *List) Map(sta funcGen.Stack[Value]) (*List, error) {
 
 }
 
-func (l *List) Compact(sta funcGen.Stack[Value]) (*List, error) {
+func (l *List) Compact(sta funcGen.Stack[Value], equal funcGen.BoolFunc[Value]) (*List, error) {
 	f, err := ToFunc("compact", sta, 1, 1)
 	if err != nil {
 		return nil, err
@@ -335,7 +335,7 @@ func (l *List) Compact(sta funcGen.Stack[Value]) (*List, error) {
 			return f.Eval(st, val)
 		},
 		func(st funcGen.Stack[Value], a, b Value) (bool, error) {
-			return Equal(st, a, b)
+			return equal(st, a, b)
 		})), nil
 }
 
@@ -944,7 +944,7 @@ func (l *List) Number(sta funcGen.Stack[Value]) (*List, error) {
 	}), nil
 }
 
-func (l *List) GroupByEqual(st funcGen.Stack[Value]) (*List, error) {
+func (l *List) GroupByEqual(st funcGen.Stack[Value], equal funcGen.BoolFunc[Value]) (*List, error) {
 	keyFunc, err := ToFunc("groupByEqual", st, 1, 1)
 	if err != nil {
 		return nil, err
@@ -966,11 +966,11 @@ func (l *List) GroupByEqual(st funcGen.Stack[Value]) (*List, error) {
 		}
 
 		for ind, item := range items {
-			if equal, err := Equal(st, item.key, key); err != nil {
+			if eq, err := equal(st, item.key, key); err != nil {
 				innerErr = err
 				return false
 			} else {
-				if equal {
+				if eq {
 					items[ind].values = append(items[ind].values, value)
 					return true
 				}
@@ -1324,6 +1324,7 @@ func (l *List) Set(st funcGen.Stack[Value]) (Value, error) {
 func createListMethods(fg *FunctionGenerator) MethodMap {
 	add := fg.add
 	less := fg.less
+	equal := fg.equal
 	return MethodMap{
 		"accept": MethodAtType(1, func(list *List, stack funcGen.Stack[Value]) (Value, error) { return list.Accept(stack) }).
 			SetMethodDescription("func(item) bool",
@@ -1384,7 +1385,7 @@ func createListMethods(fg *FunctionGenerator) MethodMap {
 				"The function is called for each item in the list and the returned integer is used as the key for the group. "+
 				"The result is a list of maps with the keys 'key' and 'values'. The 'key' contains the integer returned by the function "+
 				"and 'values' contains a list of items that have the same key."),
-		"groupByEqual": MethodAtType(1, func(list *List, stack funcGen.Stack[Value]) (Value, error) { return list.GroupByEqual(stack) }).
+		"groupByEqual": MethodAtType(1, func(list *List, stack funcGen.Stack[Value]) (Value, error) { return list.GroupByEqual(stack, equal) }).
 			SetMethodDescription("func(item) key", "Returns a list of lists grouped by the given function. "+
 				"The function is called for each item in the list and the returned value is used as the key for the group. "+
 				"The result is a list of maps with the keys 'key' and 'values'. The 'key' contains the value returned by the function "+
@@ -1395,7 +1396,7 @@ func createListMethods(fg *FunctionGenerator) MethodMap {
 			SetMethodDescription("func(item) string", "Returns a list of unique strings returned by the given function."),
 		"uniqueInt": MethodAtType(1, func(list *List, stack funcGen.Stack[Value]) (Value, error) { return list.UniqueInt(stack) }).
 			SetMethodDescription("func(item) int", "Returns a list of unique integers returned by the given function."),
-		"compact": MethodAtType(1, func(list *List, stack funcGen.Stack[Value]) (Value, error) { return list.Compact(stack) }).
+		"compact": MethodAtType(1, func(list *List, stack funcGen.Stack[Value]) (Value, error) { return list.Compact(stack, equal) }).
 			SetMethodDescription("func(item) value", "Returns a new list with the items compacted. "+
 				"The given function is called for each item in the list."+
 				"Compacting means that a item is removed if it's value equals it's predecessors value."),

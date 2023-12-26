@@ -7,6 +7,7 @@ import (
 	"math"
 )
 
+// Equal does not cover lists and maps
 func Equal(st funcGen.Stack[Value], a Value, b Value) (bool, error) {
 	switch aa := a.(type) {
 	case Bool:
