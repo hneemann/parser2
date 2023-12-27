@@ -384,7 +384,7 @@ func (v Map) Replace(stack funcGen.Stack[Value]) (Map, error) {
 	}
 	return Map{}, errors.New("the result of the function passed to replace must be a map")
 }
-func createMapMethods(fg *FunctionGenerator) MethodMap {
+func createMapMethods() MethodMap {
 	return MethodMap{
 		"accept": MethodAtType(1, func(m Map, stack funcGen.Stack[Value]) (Value, error) { return m.Accept(stack) }).
 			SetMethodDescription("func(key, value) bool",

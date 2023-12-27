@@ -148,9 +148,29 @@ func (c Closure) ToBool() (bool, bool) {
 	return false, false
 }
 
-var ClosureMethods = MethodMap{
-	"args": MethodAtType(0, func(c Closure, stack funcGen.Stack[Value]) (Value, error) { return Int(c.Args), nil }).
-		SetMethodDescription("Returns the number of arguments the function takes."),
+func createClosureMethods() MethodMap {
+	return MethodMap{
+		"args": MethodAtType(0, func(c Closure, stack funcGen.Stack[Value]) (Value, error) { return Int(c.Args), nil }).
+			SetMethodDescription("Returns the number of arguments the function takes."),
+		"invoke": MethodAtType(1, func(c Closure, stack funcGen.Stack[Value]) (Value, error) {
+			if l, ok := stack.Get(1).ToList(); ok {
+				args, err := l.ToSlice(stack)
+				if err != nil {
+					return nil, err
+				}
+				if len(args) != c.Args {
+					return nil, fmt.Errorf("wrong number of arguments in invoke: %d instead of %d", len(args), c.Args)
+				}
+				for _, arg := range args {
+					stack.Push(arg)
+				}
+				return c.Func(stack.CreateFrame(len(args)), nil)
+			} else {
+				return nil, fmt.Errorf("argument of invike needs to be a list, not: %s", TypeName(stack.Get(1)))
+			}
+		}).
+			SetMethodDescription("arg_list", "Invokes the function. The given list is passed to the function as arguments."),
+	}
 }
 
 func (c Closure) GetType() Type {
@@ -190,7 +210,7 @@ func (b Bool) ToClosure() (funcGen.Function[Value], bool) {
 	return funcGen.Function[Value]{}, false
 }
 
-func createBoolMethods(fg *FunctionGenerator) MethodMap {
+func createBoolMethods() MethodMap {
 	return MethodMap{
 		"string": MethodAtType(0, func(b Bool, stack funcGen.Stack[Value]) (Value, error) {
 			s, err := b.ToString(stack)
@@ -226,7 +246,7 @@ func (f Float) ToClosure() (funcGen.Function[Value], bool) {
 	return funcGen.Function[Value]{}, false
 }
 
-func createFloatMethods(fg *FunctionGenerator) MethodMap {
+func createFloatMethods() MethodMap {
 	return MethodMap{
 		"string": MethodAtType(0, func(f Float, stack funcGen.Stack[Value]) (Value, error) {
 			s, err := f.ToString(stack)
@@ -273,7 +293,7 @@ func (i Int) ToClosure() (funcGen.Function[Value], bool) {
 	return funcGen.Function[Value]{}, false
 }
 
-func createIntMethods(fg *FunctionGenerator) MethodMap {
+func createIntMethods() MethodMap {
 	return MethodMap{
 		"string": MethodAtType(0, func(i Int, stack funcGen.Stack[Value]) (Value, error) {
 			s, err := i.ToString(stack)
@@ -302,7 +322,7 @@ func (i Int) ToFloat() (float64, bool) {
 	return float64(i), true
 }
 
-func (f *FunctionGenerator) ParseNumber(n string) (Value, error) {
+func (fg *FunctionGenerator) ParseNumber(n string) (Value, error) {
 	i, err := strconv.Atoi(n)
 	if err == nil {
 		return Int(i), nil
@@ -314,23 +334,23 @@ func (f *FunctionGenerator) ParseNumber(n string) (Value, error) {
 	return nil, err
 }
 
-func (f *FunctionGenerator) FromString(s string) Value {
+func (fg *FunctionGenerator) FromString(s string) Value {
 	return String(s)
 }
 
-func (f *FunctionGenerator) FromClosure(c funcGen.Function[Value]) Value {
+func (fg *FunctionGenerator) FromClosure(c funcGen.Function[Value]) Value {
 	return Closure(c)
 }
 
-func (f *FunctionGenerator) ToClosure(value Value) (funcGen.Function[Value], bool) {
+func (fg *FunctionGenerator) ToClosure(value Value) (funcGen.Function[Value], bool) {
 	return value.ToClosure()
 }
 
-func (f *FunctionGenerator) FromMap(items listMap.ListMap[Value]) Value {
+func (fg *FunctionGenerator) FromMap(items listMap.ListMap[Value]) Value {
 	return Map{m: items}
 }
 
-func (f *FunctionGenerator) AccessMap(mapValue Value, key string) (Value, error) {
+func (fg *FunctionGenerator) AccessMap(mapValue Value, key string) (Value, error) {
 	if m, ok := mapValue.ToMap(); ok {
 		if v, ok := m.Get(key); ok {
 			return v, nil
@@ -351,16 +371,16 @@ func TypeName(v Value) string {
 	return tName
 }
 
-func (f *FunctionGenerator) IsMap(mapValue Value) bool {
+func (fg *FunctionGenerator) IsMap(mapValue Value) bool {
 	_, ok := mapValue.ToMap()
 	return ok
 }
 
-func (f *FunctionGenerator) FromList(items []Value) Value {
+func (fg *FunctionGenerator) FromList(items []Value) Value {
 	return NewList(items...)
 }
 
-func (f *FunctionGenerator) AccessList(list Value, index Value) (Value, error) {
+func (fg *FunctionGenerator) AccessList(list Value, index Value) (Value, error) {
 	if l, ok := list.ToList(); ok {
 		if i, ok := index.ToInt(); ok {
 			if i < 0 {
@@ -384,7 +404,7 @@ func (f *FunctionGenerator) AccessList(list Value, index Value) (Value, error) {
 	}
 }
 
-func (f *FunctionGenerator) GenerateCustom(ast parser2.AST, gc funcGen.GeneratorContext, g *funcGen.FunctionGenerator[Value]) (funcGen.ParserFunc[Value], error) {
+func (fg *FunctionGenerator) GenerateCustom(ast parser2.AST, gc funcGen.GeneratorContext, g *funcGen.FunctionGenerator[Value]) (funcGen.ParserFunc[Value], error) {
 	if tc, ok := ast.(*parser2.TryCatch); ok {
 		if cl, ok := tc.Catch.(*parser2.ClosureLiteral); ok && len(cl.Names) == 1 {
 			tryFunc, err := g.GenerateFunc(tc.Try, gc)
@@ -512,12 +532,11 @@ type FunctionGenerator struct {
 	methods [20]MethodMap
 	equal   funcGen.BoolFunc[Value]
 	less    funcGen.BoolFunc[Value]
-	add     func(st funcGen.Stack[Value], a Value, b Value) (Value, error)
 }
 
-func (f *FunctionGenerator) GetMethod(value Value, methodName string) (funcGen.Function[Value], error) {
+func (fg *FunctionGenerator) GetMethod(value Value, methodName string) (funcGen.Function[Value], error) {
 	typ := value.GetType()
-	methodMap := f.methods[typ]
+	methodMap := fg.methods[typ]
 	if methodMap == nil {
 		return funcGen.Function[Value]{}, fmt.Errorf("no methods for type %s", TypeName(value))
 	}
@@ -666,6 +685,17 @@ func New() *FunctionGenerator {
 		AddOp("^", false, Pow).
 		AddUnary("-", func(a Value) (Value, error) { return Neg(a) }).
 		AddUnary("!", func(a Value) (Value, error) { return Not(a) }).
+		AddStaticFunction("throw", funcGen.Function[Value]{
+			Func: func(st funcGen.Stack[Value], cs []Value) (Value, error) {
+				if s, ok := st.Get(0).(String); ok {
+					return nil, errors.New(string(s))
+				} else {
+					return nil, errors.New("fail needs a string as argument")
+				}
+			},
+			Args:   1,
+			IsPure: false,
+		}.SetDescription("value", "Returns the string representation of the value.")).
 		AddStaticFunction("string", funcGen.Function[Value]{
 			Func: func(st funcGen.Stack[Value], cs []Value) (Value, error) {
 				s, err := st.Get(0).ToString(st)
@@ -794,13 +824,13 @@ func New() *FunctionGenerator {
 	f.FunctionGenerator = fg
 
 	return f.AddFinalizerValue(func(f *FunctionGenerator) {
-		f.add = f.GetOpImpl("+")
-		f.RegisterMethods(ListTypeId, createListMethods(f))
-		f.RegisterMethods(MapTypeId, createMapMethods(f))
-		f.RegisterMethods(StringTypeId, createStringMethods(f))
-		f.RegisterMethods(BoolTypeId, createBoolMethods(f))
-		f.RegisterMethods(IntTypeId, createIntMethods(f))
-		f.RegisterMethods(FloatTypeId, createFloatMethods(f))
+		f.RegisterMethods(ListTypeId, createListMethods(f.GetOpImpl("+"), f.less, f.equal))
+		f.RegisterMethods(MapTypeId, createMapMethods())
+		f.RegisterMethods(StringTypeId, createStringMethods())
+		f.RegisterMethods(BoolTypeId, createBoolMethods())
+		f.RegisterMethods(IntTypeId, createIntMethods())
+		f.RegisterMethods(FloatTypeId, createFloatMethods())
+		f.RegisterMethods(closureTypeId, createClosureMethods())
 
 		less := f.less
 		f.AddStaticFunction("min", funcGen.Function[Value]{

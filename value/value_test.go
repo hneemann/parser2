@@ -138,9 +138,18 @@ func TestBasic(t *testing.T) {
                 if:bool(0),
                 it:bool(1)}.string()`, res: String("{ff:false, ft:true, if:false, it:true}")},
 
+		{exp: `func mySqrt(a)  
+                 if a<0 then throw("sqrt of neg value") else sqrt(a);
+
+               try 2*mySqrt(-1)+1 catch e-> "sqrt of neg value" ~ e`, res: Bool(true)},
+
 		{exp: "let p={a:1,b:2}; try p.a catch 5", res: Int(1)},
 		{exp: "let p={a:1,b:2}; try p.c catch 5", res: Int(5)},
 		{exp: "let p={a:1,b:2}; try p.c catch e->\"caught error: \"+e", res: String("caught error: key 'c' not found in map; available are: a, b")},
+
+		{exp: "func sqr(a) a*a; sqr.args()", res: Int(1)},
+		{exp: "func sqr(a) a*a; sqr.invoke([2])", res: Int(4)},
+		{exp: "func mul(a,b) a*b; mul.invoke([2,3])", res: Int(6)},
 	})
 }
 

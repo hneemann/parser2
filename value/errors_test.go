@@ -61,6 +61,8 @@ func TestErrors(t *testing.T) {
 		{"[1,2,3,4].set(4,0)", "index 4 out of range"},
 		{"true-2", "not allowed on Bool, Int"},
 		{"func f(x) x+b; f(2)", "outer value 'b' not found"},
+		{exp: "func mul(a,b) a*b; mul.invoke([2,3,4])", err: "wrong number of arguments in invoke: 3 instead of 2"},
+		{exp: "throw(\"error: zzzz\")", err: "error: zzzz"},
 	}
 
 	fg := New().AddStaticFunction("error", toLargeErrorFunc(100))

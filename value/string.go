@@ -117,7 +117,7 @@ func (s String) ParseToFloat() (Value, error) {
 	return Float(f), nil
 }
 
-func createStringMethods(fg *FunctionGenerator) MethodMap {
+func createStringMethods() MethodMap {
 	return MethodMap{
 		"len": MethodAtType(0, func(str String, stack funcGen.Stack[Value]) (Value, error) { return Int(len(string(str))), nil }).
 			SetMethodDescription("Returns the length of the string."),

@@ -1336,10 +1336,9 @@ func (l *List) Set(st funcGen.Stack[Value]) (Value, error) {
 	return NewList(sl...), nil
 }
 
-func createListMethods(fg *FunctionGenerator) MethodMap {
-	add := fg.add
-	less := fg.less
-	equal := fg.equal
+func createListMethods(
+	add func(st funcGen.Stack[Value], a Value, b Value) (Value, error),
+	less, equal funcGen.BoolFunc[Value]) MethodMap {
 	return MethodMap{
 		"accept": MethodAtType(1, func(list *List, stack funcGen.Stack[Value]) (Value, error) { return list.Accept(stack) }).
 			SetMethodDescription("func(item) bool",
