@@ -12,7 +12,7 @@ type Person struct {
 	Age          int
 }
 
-var People = []Person{
+var Persons = []Person{
 	{"John", "Doe", "London", 23},
 	{"Jane", "Doe", "London", 25},
 	{"Bob", "Smith", "New York", 21},
@@ -26,21 +26,21 @@ var PersonToMap = value.NewToMapReflection[Person]()
 func main() {
 	// Create a parser.
 	parser := value.New()
-	// Create a list to be used containing the people.
-	people := value.NewListConvert(func(p Person) value.Value { return PersonToMap.Create(p) }, People)
+	// Create a list to be used containing the persons.
+	persons := value.NewListOfMaps[Person](PersonToMap, Persons)
 	{
-		// Create a function that evaluates the list of people.
-		// The argument 'people' is passed to the function.
+		// Create a function that evaluates the list of persons.
+		// The argument 'persons' is passed to the function.
 		fu, err := parser.Generate(`
 
-people.map(p->p.Name).reduce((a,b)->a+", "+b)
+persons.map(p->p.Name).reduce((a,b)->a+", "+b)
 
-        `, "people")
+        `, "persons")
 		if err != nil {
 			panic(err)
 		}
 		// Evaluate the function.
-		result, err := fu.Eval(people)
+		result, err := fu.Eval(persons)
 		if err != nil {
 			panic(err)
 		}
@@ -50,17 +50,17 @@ people.map(p->p.Name).reduce((a,b)->a+", "+b)
 	{
 		fu, err := parser.Generate(`
 
-people
+persons
   .accept(p->p.PlaceOfBirth="New York" & p.Age>21)
   .map(e->e.Name+": "+e.Age)
   .reduce((a,b)->a+", "+b)
 
-        `, "people")
+        `, "persons")
 		if err != nil {
 			panic(err)
 		}
 		// Evaluate the function.
-		result, err := fu.Eval(people)
+		result, err := fu.Eval(persons)
 		if err != nil {
 			panic(err)
 		}
@@ -70,18 +70,18 @@ people
 	{
 		fu, err := parser.Generate(`
 
-people
+persons
   .groupByString(p->p.Surname)
   .orderRev(e->e.values.size())
   .map(l->l.key+":"+l.values.size())
   .reduce((a,b)->a+", "+b)
 
-        `, "people")
+        `, "persons")
 		if err != nil {
 			panic(err)
 		}
 		// Evaluate the function.
-		result, err := fu.Eval(people)
+		result, err := fu.Eval(persons)
 		if err != nil {
 			panic(err)
 		}

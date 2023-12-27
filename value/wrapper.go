@@ -1,6 +1,12 @@
 package value
 
-import "reflect"
+import (
+	"reflect"
+)
+
+type ToMapInterface[S any] interface {
+	Create(S) Map
+}
 
 type funcMap[S any] map[string]func(S) Value
 
@@ -55,7 +61,7 @@ func (wt *ToMapReflection[S]) Create(s S) Map {
 	return Map{toMapWrapper[reflect.Value]{container: reflect.ValueOf(s), attr: wt.attr}}
 }
 
-func NewToMapReflection[S any]() *ToMapReflection[S] {
+func NewToMapReflection[S any]() ToMapInterface[S] {
 	var zero S
 	t := reflect.TypeOf(zero)
 	tm := &ToMapReflection[S]{ToMap[reflect.Value]{attr: make(funcMap[reflect.Value])}}

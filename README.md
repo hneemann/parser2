@@ -29,7 +29,7 @@ type Person struct {
 now we create some data to play with:
 
 ``` Go
-var People = []Person{
+var Persons = []Person{
 	{"John", "Doe", "London", 23},
 	{"Jane", "Doe", "London", 25},
 	{"Bob", "Smith", "New York", 21},
@@ -62,24 +62,24 @@ Now let's do some operations on the data. At first we have to create the parser,
 func main() {
 	// Create a parser.
 	parser := value.New()
-	// Create a list to be used containing the people.
-	people := value.NewListConvert(func(p Person) value.Value { return PersonToMap.Create(p) }, People)
+	// Create a list to be used containing the persons.
+	persons := value.NewListOfMaps[Person](PersonToMap, Persons)
 ```
 Now we can make some queries on the data. Let's create a list of all names:
 
 ``` Go
-	// Create a function that evaluates the list of people.
-	// The argument 'people' is passed to the function.
+	// Create a function that evaluates the list of persons.
+	// The argument 'persons' is passed to the function.
 	fu, err := parser.Generate(`
 
-people.map(p->p.Name).reduce((a,b)->a+", "+b)
+persons.map(p->p.Name).reduce((a,b)->a+", "+b)
 
-       `, "people")
+       `, "persons")
 	if err != nil {
 		panic(err)
 	}
 	// Evaluate the function.
-	result, err := fu.Eval(people)
+	result, err := fu.Eval(persons)
 	if err != nil {
 		panic(err)
 	}
@@ -96,12 +96,12 @@ A more sophisticated example would be to create a list of all people that are ol
 ``` Go
 	fu, err := parser.Generate(`
 
-people
+persons
   .accept(p->p.PlaceOfBirth="New York" & p.Age>21)
   .map(e->e.Name+": "+e.Age)
   .reduce((a,b)->a+", "+b)
 
-    `, "people")
+    `, "persons")
 ```
 
 Results in
@@ -115,13 +115,13 @@ Or find out, which surnames are used and how often, ordered by the number of peo
 ``` Go
 	fu, err := parser.Generate(`
 
-people
+persons
   .groupByString(p->p.Surname)
   .orderRev(e->e.values.size())
   .map(l->l.key+":"+l.values.size())
   .reduce((a,b)->a+", "+b)
 
-    `, "people")
+    `, "persons")
 ```
 This results in:
 

@@ -26,6 +26,21 @@ func NewListConvert[I any](conv func(I) Value, items []I) *List {
 	})
 }
 
+// NewListOfMaps creates a list containing the given elements converted to a map using
+// the given ToMapInterface.
+func NewListOfMaps[I any](toMap ToMapInterface[I], items []I) *List {
+	return NewListFromIterable(func(st funcGen.Stack[Value]) iterator.Iterator[Value] {
+		return func(yield func(Value) bool) (bool, error) {
+			for _, item := range items {
+				if !yield(toMap.Create(item)) {
+					return false, nil
+				}
+			}
+			return true, nil
+		}
+	})
+}
+
 // NewList creates a new list containing the given elements
 func NewList(items ...Value) *List {
 	return &List{items: items, itemsPresent: true, iterable: createSliceIterable(items)}
