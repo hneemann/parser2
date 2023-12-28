@@ -169,7 +169,7 @@ func createClosureMethods() MethodMap {
 				return nil, fmt.Errorf("argument of invike needs to be a list, not: %s", TypeName(stack.Get(1)))
 			}
 		}).
-			SetMethodDescription("arg_list", "Invokes the function. The given list is passed to the function as arguments."),
+			SetMethodDescription("arg_list", "Invokes the function. The values of the given list are passed to the function as arguments."),
 	}
 }
 
