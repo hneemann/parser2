@@ -1230,6 +1230,9 @@ func (p *Parser[V]) parseMap(tokenizer *Tokenizer, constants Constants[V]) (*Map
 		case tCloseCurly:
 			return &MapLiteral{m, t.Line}, nil
 		case tIdent:
+			if _, ok := m.Get(t.image); ok {
+				return nil, t.Errorf("key %s used twice", t.image)
+			}
 			if c := tokenizer.Next(); c.typ != tColon {
 				return nil, unexpected(":", c)
 			}
