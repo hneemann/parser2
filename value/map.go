@@ -386,6 +386,9 @@ func (v Map) Replace(stack funcGen.Stack[Value]) (Map, error) {
 }
 func createMapMethods() MethodMap {
 	return MethodMap{
+		"eval": MethodAtType(0, func(m Map, stack funcGen.Stack[Value]) (Value, error) { return m.Eval() }).
+			SetMethodDescription("Evaluates the map to a real hash map. This is more efficient if the map has many " +
+				"keys and the associated values are requested often."),
 		"accept": MethodAtType(1, func(m Map, stack funcGen.Stack[Value]) (Value, error) { return m.Accept(stack) }).
 			SetMethodDescription("func(key, value) bool",
 				"Accept takes a function as argument and returns a new map with all entries for which the function returns true."),
@@ -438,4 +441,13 @@ func (v Map) availList() string {
 		return true
 	})
 	return b.String()
+}
+
+func (v Map) Eval() (Value, error) {
+	rm := make(RealMap)
+	v.Iter(func(key string, v Value) bool {
+		rm[key] = v
+		return true
+	})
+	return NewMap(rm), nil
 }

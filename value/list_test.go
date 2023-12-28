@@ -113,6 +113,8 @@ func TestList(t *testing.T) {
 		{exp: "[].minMax(n->n).string()", res: String("{min:0, max:0, minItem:nil, maxItem:nil, valid:false}")},
 		{exp: "[{a:1},{a:5},{a:3},{a:2},{a:4}].minMax(n->n.a).string()", res: String("{min:1, max:5, minItem:{a:1}, maxItem:{a:5}, valid:true}")},
 
+		{exp: "[1,5,3,2,4].mean()", res: Float(3)},
+
 		{exp: "[1,2,3].cross([10,20,30],(a,b)->a+b).string()", res: String("[11, 21, 31, 12, 22, 32, 13, 23, 33]")},
 
 		{exp: `let a=[{n:1, s:"eins"},{n:3, s:"drei"},{n:5, s:"fünf"}];

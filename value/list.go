@@ -920,6 +920,39 @@ func (l *List) MinMax(st funcGen.Stack[Value], less funcGen.BoolFunc[Value]) (Va
 		Append("valid", Bool(!first))), nil
 }
 
+func (l *List) Mean(st funcGen.Stack[Value], add, div func(st funcGen.Stack[Value], a Value, b Value) (Value, error)) (Value, error) {
+	var sum Value
+	n := 0
+	var innerErr error
+	_, err := l.Iterator(st)(func(value Value) bool {
+		if sum == nil {
+			sum = value
+			n = 1
+		} else {
+			var err error
+			sum, err = add(st, sum, value)
+			if err != nil {
+				innerErr = err
+				return false
+			}
+			n++
+		}
+		return true
+	})
+	if innerErr != nil {
+		return nil, innerErr
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	if n > 0 {
+		return div(st, sum, Int(n))
+	} else {
+		return nil, errors.New("mean of empty list")
+	}
+}
+
 func (l *List) ReplaceList(st funcGen.Stack[Value]) (Value, error) {
 	f, err := ToFunc("replaceList", st, 1, 1)
 	if err != nil {
@@ -1337,7 +1370,7 @@ func (l *List) Set(st funcGen.Stack[Value]) (Value, error) {
 }
 
 func createListMethods(
-	add func(st funcGen.Stack[Value], a Value, b Value) (Value, error),
+	add, div func(st funcGen.Stack[Value], a Value, b Value) (Value, error),
 	less, equal funcGen.BoolFunc[Value]) MethodMap {
 	return MethodMap{
 		"accept": MethodAtType(1, func(list *List, stack funcGen.Stack[Value]) (Value, error) { return list.Accept(stack) }).
@@ -1358,6 +1391,9 @@ func createListMethods(
 				"MapReduce reduces the list to a single value. The initial value is given as the first argument. The function "+
 					"is called with the initial value and the first item, and the result is used as the first argument for the "+
 					"second item and so on."),
+		"mean": MethodAtType(0, func(list *List, stack funcGen.Stack[Value]) (Value, error) { return list.Mean(stack, add, div) }).
+			SetMethodDescription(
+				"Returns the mean value of the list."),
 		"minMax": MethodAtType(1, func(list *List, stack funcGen.Stack[Value]) (Value, error) { return list.MinMax(stack, less) }).
 			SetMethodDescription("func(item) value",
 				"Returns the minimum and maximum value of the list. The function is called for each item in the list and the "+

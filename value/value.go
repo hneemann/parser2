@@ -824,7 +824,7 @@ func New() *FunctionGenerator {
 	f.FunctionGenerator = fg
 
 	return f.AddFinalizerValue(func(f *FunctionGenerator) {
-		f.RegisterMethods(ListTypeId, createListMethods(f.GetOpImpl("+"), f.less, f.equal))
+		f.RegisterMethods(ListTypeId, createListMethods(f.GetOpImpl("+"), f.GetOpImpl("/"), f.less, f.equal))
 		f.RegisterMethods(MapTypeId, createMapMethods())
 		f.RegisterMethods(StringTypeId, createStringMethods())
 		f.RegisterMethods(BoolTypeId, createBoolMethods())
