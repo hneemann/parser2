@@ -150,6 +150,10 @@ func TestBasic(t *testing.T) {
 		{exp: "func sqr(a) a*a; sqr.args()", res: Int(1)},
 		{exp: "func sqr(a) a*a; sqr.invoke([2])", res: Int(4)},
 		{exp: "func mul(a,b) a*b; mul.invoke([2,3])", res: Int(6)},
+
+		// Currying
+		{exp: "let m=a->b->a*b; [m(2)(3),m(4)(5),m(4.5)(5.5)].string()", res: String("[6, 20, 24.75]")},
+		{exp: "func mul(a) b->a*b; [mul(2)(3),mul(4)(5),mul(4.5)(5.5)].string()", res: String("[6, 20, 24.75]")},
 	})
 }
 
