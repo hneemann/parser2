@@ -141,7 +141,7 @@ func (c Closure) ToFloat() (float64, bool) {
 }
 
 func (c Closure) ToString(funcGen.Stack[Value]) (string, error) {
-	return "", errors.New("a function has no string representation")
+	return "<function>", nil
 }
 
 func (c Closure) ToBool() (bool, bool) {
