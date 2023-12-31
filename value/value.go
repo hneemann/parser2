@@ -28,6 +28,7 @@ const (
 	MapTypeId
 	closureTypeId
 	FormatTypeId
+	LinkTypeId
 )
 
 type Value interface {

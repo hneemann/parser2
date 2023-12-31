@@ -34,6 +34,9 @@ func TestToHtml(t *testing.T) {
 
 		{"list1", value.NewList(value.Int(4), value.Int(5)), 1, "<table>\n\t<tr>\n\t\t<td>1.</td>\n\t\t<td>4</td>\n\t</tr>\n\t<tr>\n\t\t<td>2.</td>\n\t\t<td>more...</td>\n\t</tr>\n</table>\n"},
 		{"table1", value.NewList(value.NewList(value.Int(1), value.Int(2)), value.NewList(value.Int(3), value.Int(4))), 1, "<table>\n\t<tr>\n\t\t<td>1</td>\n\t\t<td>more...</td>\n\t</tr>\n\t<tr>\n\t\t<td>more...</td>\n\t</tr>\n</table>\n"},
+
+		{"link", link(value.Int(12)), 1, "<a href=\"link\">12</a>\n"},
+		{"link", link(value.NewList(value.NewList(value.Int(1), value.Int(2)))), 1, "<a href=\"link\">\n\t<table>\n\t\t<tr>\n\t\t\t<td>1</td>\n\t\t\t<td>more...</td>\n\t\t</tr>\n\t</table>\n</a>\n"},
 	}
 	for _, tt := range tests {
 		test := tt
@@ -43,6 +46,14 @@ func TestToHtml(t *testing.T) {
 			assert.Equal(t, test.html, string(h))
 		})
 	}
+}
+
+func link(v value.Value) value.Value {
+	st, err := LinkFunc.EvalSt(funcGen.NewStack[value.Value](), value.String("link"), v)
+	if err != nil {
+		panic(err)
+	}
+	return st
 }
 
 func style(v value.Value) value.Value {

@@ -20,6 +20,21 @@ type Format struct {
 	Format string
 }
 
+// LinkFunc can be used to create a link
+var LinkFunc = funcGen.Function[value.Value]{
+	Func: func(st funcGen.Stack[value.Value], cs []value.Value) (value.Value, error) {
+		if l, ok := st.Get(0).(value.String); ok {
+			return Link{
+				Link:  string(l),
+				Value: st.Get(1),
+			}, nil
+		}
+		return nil, errors.New("link requires two strings (name,link)")
+	},
+	Args:   2,
+	IsPure: true,
+}.SetDescription("name", "link", "Used to create a link.")
+
 // StyleFunc can be used add a CSS style to a value
 var StyleFunc = funcGen.Function[value.Value]{
 	Func: func(st funcGen.Stack[value.Value], cs []value.Value) (value.Value, error) {
@@ -89,24 +104,42 @@ func (f Format) GetType() value.Type {
 	return value.FormatTypeId
 }
 
-//func (f Format) GetMethod(name string) (funcGen.Function[value.Value], error) {
-//	m, err := f.Value.GetMethod(name)
-//	if err != nil {
-//		return funcGen.Function[value.Value]{}, err
-//	}
-//	return funcGen.Function[value.Value]{
-//		Func: func(st funcGen.Stack[value.Value], closureStore []value.Value) (value.Value, error) {
-//			ss := st.Size()
-//			st.Push((st.Get(0).(Format)).Value)
-//			for i := 1; i < ss; i++ {
-//				st.Push(st.Get(i))
-//			}
-//			return m.Func(st.CreateFrame(ss), closureStore)
-//		},
-//		Args:   m.Args,
-//		IsPure: m.IsPure,
-//	}, nil
-//}
+type Link struct {
+	Link  string
+	Value value.Value
+}
+
+func (l Link) ToList() (*value.List, bool) {
+	return l.Value.ToList()
+}
+
+func (l Link) ToMap() (value.Map, bool) {
+	return l.Value.ToMap()
+}
+
+func (l Link) ToInt() (int, bool) {
+	return l.Value.ToInt()
+}
+
+func (l Link) ToFloat() (float64, bool) {
+	return l.Value.ToFloat()
+}
+
+func (l Link) ToString(st funcGen.Stack[value.Value]) (string, error) {
+	return l.Value.ToString(st)
+}
+
+func (l Link) ToBool() (bool, bool) {
+	return l.Value.ToBool()
+}
+
+func (l Link) ToClosure() (funcGen.Function[value.Value], bool) {
+	return funcGen.Function[value.Value]{}, false
+}
+
+func (l Link) GetType() value.Type {
+	return value.LinkTypeId
+}
 
 type CustomHTML func(value.Value) (template.HTML, bool, error)
 
@@ -152,6 +185,11 @@ func (ex *htmlExporter) toHtml(st funcGen.Stack[value.Value], v value.Value, sty
 	switch t := v.(type) {
 	case Format:
 		return ex.toHtml(st, t.Value, t.Format)
+	case Link:
+		ex.w.Open("a").Attr("href", t.Link)
+		err := ex.toHtml(st, t.Value, style)
+		ex.w.Close()
+		return err
 	case *value.List:
 		pit, f, err := iterator.Peek(t.Iterator(st))
 		if err != nil {
