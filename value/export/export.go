@@ -36,6 +36,8 @@ func Export[V any](st funcGen.Stack[value.Value], val value.Value, exporter Expo
 	switch v := val.(type) {
 	case Format:
 		return Export(st, v.Value, exporter)
+	case Link:
+		return Export(st, v.Value, exporter)
 	case *value.List:
 		le := exporter.List()
 		err := le.Open()
