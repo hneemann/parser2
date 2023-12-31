@@ -26,17 +26,20 @@ func TestToHtml(t *testing.T) {
 		{"table", value.NewList(value.NewList(value.Int(1), value.Int(2)), value.NewList(value.Int(3), value.Int(4))), 10, "<table>\n\t<tr>\n\t\t<td>1</td>\n\t\t<td>2</td>\n\t</tr>\n\t<tr>\n\t\t<td>3</td>\n\t\t<td>4</td>\n\t</tr>\n</table>\n"},
 		{"map", value.NewMap(listMap.New[value.Value](2).Append("a", value.Int(1)).Append("b", value.Int(2))), 10, "<table>\n\t<tr>\n\t\t<td>a:</td>\n\t\t<td>1</td>\n\t</tr>\n\t<tr>\n\t\t<td>b:</td>\n\t\t<td>2</td>\n\t</tr>\n</table>\n"},
 
-		{"f1", style(value.String("test")), 10, "<span style=\"zzz\">test</span>\n"},
-		{"f2", style(value.NewList(value.Int(4), value.Int(5))), 10, "<table style=\"zzz\">\n\t<tr>\n\t\t<td>1.</td>\n\t\t<td>4</td>\n\t</tr>\n\t<tr>\n\t\t<td>2.</td>\n\t\t<td>5</td>\n\t</tr>\n</table>\n"},
-		{"f3", value.NewList(style(value.Int(4)), value.Int(5)), 10, "<table>\n\t<tr>\n\t\t<td>1.</td>\n\t\t<td style=\"zzz\">4</td>\n\t</tr>\n\t<tr>\n\t\t<td>2.</td>\n\t\t<td>5</td>\n\t</tr>\n</table>\n"},
-		{"f41", value.NewList(style(value.NewList(value.Int(4), value.Int(5))), value.Int(5)), 10, "<table>\n\t<tr>\n\t\t<td>1.</td>\n\t\t<td>\n\t\t\t<table style=\"zzz\">\n\t\t\t\t<tr>\n\t\t\t\t\t<td>1.</td>\n\t\t\t\t\t<td>4</td>\n\t\t\t\t</tr>\n\t\t\t\t<tr>\n\t\t\t\t\t<td>2.</td>\n\t\t\t\t\t<td>5</td>\n\t\t\t\t</tr>\n\t\t\t</table>\n\t\t</td>\n\t</tr>\n\t<tr>\n\t\t<td>2.</td>\n\t\t<td>5</td>\n\t</tr>\n</table>\n"},
+		{"f1", style("zzz", value.String("test")), 10, "<span style=\"zzz\">test</span>\n"},
+		{"f2", style("zzz", value.NewList(value.Int(4), value.Int(5))), 10, "<table style=\"zzz\">\n\t<tr>\n\t\t<td>1.</td>\n\t\t<td>4</td>\n\t</tr>\n\t<tr>\n\t\t<td>2.</td>\n\t\t<td>5</td>\n\t</tr>\n</table>\n"},
+		{"f3", value.NewList(style("zzz", value.Int(4)), value.Int(5)), 10, "<table>\n\t<tr>\n\t\t<td>1.</td>\n\t\t<td style=\"zzz\">4</td>\n\t</tr>\n\t<tr>\n\t\t<td>2.</td>\n\t\t<td>5</td>\n\t</tr>\n</table>\n"},
+		{"f41", value.NewList(style("zzz", value.NewList(value.Int(4), value.Int(5))), value.Int(5)), 10, "<table>\n\t<tr>\n\t\t<td>1.</td>\n\t\t<td>\n\t\t\t<table style=\"zzz\">\n\t\t\t\t<tr>\n\t\t\t\t\t<td>1.</td>\n\t\t\t\t\t<td>4</td>\n\t\t\t\t</tr>\n\t\t\t\t<tr>\n\t\t\t\t\t<td>2.</td>\n\t\t\t\t\t<td>5</td>\n\t\t\t\t</tr>\n\t\t\t</table>\n\t\t</td>\n\t</tr>\n\t<tr>\n\t\t<td>2.</td>\n\t\t<td>5</td>\n\t</tr>\n</table>\n"},
 		{"f42", value.NewList(styleCell(value.NewList(value.Int(4), value.Int(5))), value.Int(5)), 10, "<table>\n\t<tr>\n\t\t<td>1.</td>\n\t\t<td style=\"zzz\">\n\t\t\t<table>\n\t\t\t\t<tr>\n\t\t\t\t\t<td>1.</td>\n\t\t\t\t\t<td>4</td>\n\t\t\t\t</tr>\n\t\t\t\t<tr>\n\t\t\t\t\t<td>2.</td>\n\t\t\t\t\t<td>5</td>\n\t\t\t\t</tr>\n\t\t\t</table>\n\t\t</td>\n\t</tr>\n\t<tr>\n\t\t<td>2.</td>\n\t\t<td>5</td>\n\t</tr>\n</table>\n"},
 
 		{"list1", value.NewList(value.Int(4), value.Int(5)), 1, "<table>\n\t<tr>\n\t\t<td>1.</td>\n\t\t<td>4</td>\n\t</tr>\n\t<tr>\n\t\t<td>2.</td>\n\t\t<td>more...</td>\n\t</tr>\n</table>\n"},
 		{"table1", value.NewList(value.NewList(value.Int(1), value.Int(2)), value.NewList(value.Int(3), value.Int(4))), 1, "<table>\n\t<tr>\n\t\t<td>1</td>\n\t\t<td>more...</td>\n\t</tr>\n\t<tr>\n\t\t<td>more...</td>\n\t</tr>\n</table>\n"},
 
 		{"link", link(value.Int(12)), 1, "<a href=\"link\">12</a>\n"},
-		{"link", link(value.NewList(value.NewList(value.Int(1), value.Int(2)))), 1, "<a href=\"link\">\n\t<table>\n\t\t<tr>\n\t\t\t<td>1</td>\n\t\t\t<td>more...</td>\n\t\t</tr>\n\t</table>\n</a>\n"},
+		{"link", link(value.NewList(value.Int(1), value.Int(2))), 1, "<a href=\"link\">\n\t<table>\n\t\t<tr>\n\t\t\t<td>1.</td>\n\t\t\t<td>1</td>\n\t\t</tr>\n\t\t<tr>\n\t\t\t<td>2.</td>\n\t\t\t<td>more...</td>\n\t\t</tr>\n\t</table>\n</a>\n"},
+
+		{"plainList", style("plainList", value.NewList(value.Int(1), value.Int(2))), 1, "12"},
+		{"plainList", style("plainList", value.NewList(value.Int(1), link(value.String("inner")), value.Int(2))), 1, "1\n<a href=\"link\">inner</a>\n2"},
 	}
 	for _, tt := range tests {
 		test := tt
@@ -56,8 +59,8 @@ func link(v value.Value) value.Value {
 	return st
 }
 
-func style(v value.Value) value.Value {
-	st, err := StyleFunc.EvalSt(funcGen.NewStack[value.Value](), value.String("zzz"), v)
+func style(s string, v value.Value) value.Value {
+	st, err := StyleFunc.EvalSt(funcGen.NewStack[value.Value](), value.String(s), v)
 	if err != nil {
 		panic(err)
 	}

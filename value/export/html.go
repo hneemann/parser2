@@ -191,18 +191,30 @@ func (ex *htmlExporter) toHtml(st funcGen.Stack[value.Value], v value.Value, sty
 		ex.w.Close()
 		return err
 	case *value.List:
-		pit, f, err := iterator.Peek(t.Iterator(st))
-		if err != nil {
-			return err
-		}
-		if f == nil {
-			return nil
-		} else {
-			if _, ok := f.(*value.List); ok {
-				return ex.tableToHtml(st, pit, style)
+		if style == "plainList" {
+			var err error
+			_, e := t.Iterator(st)(func(v value.Value) bool {
+				err = ex.toHtml(st, v, "")
+				return err == nil
+			})
+			if err != nil {
+				return err
 			}
+			return e
+		} else {
+			pit, f, err := iterator.Peek(t.Iterator(st))
+			if err != nil {
+				return err
+			}
+			if f == nil {
+				return nil
+			} else {
+				if _, ok := f.(*value.List); ok {
+					return ex.tableToHtml(st, pit, style)
+				}
+			}
+			return ex.listToHtml(st, pit, style)
 		}
-		return ex.listToHtml(st, pit, style)
 	case value.Map:
 		ex.openWithStyle("table", style)
 		var keys []string
