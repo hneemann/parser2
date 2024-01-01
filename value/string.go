@@ -109,6 +109,15 @@ func (s String) Behind(st funcGen.Stack[Value]) (Value, error) {
 	}
 }
 
+func (s String) Replace(st funcGen.Stack[Value]) (Value, error) {
+	if oldStr, ok := st.Get(1).(String); ok {
+		if newStr, ok := st.Get(2).(String); ok {
+			return String(strings.Replace(string(s), string(oldStr), string(newStr), -1)), nil
+		}
+	}
+	return nil, errors.New("replace needs two strings (old,new) as arguments")
+}
+
 func (s String) ParseToFloat() (Value, error) {
 	f, err := strconv.ParseFloat(string(s), 64)
 	if err != nil {
@@ -147,6 +156,8 @@ func createStringMethods() MethodMap {
 					"If len is negative, the rest of the string is returned."),
 		"behind": MethodAtType(1, func(str String, stack funcGen.Stack[Value]) (Value, error) { return str.Behind(stack) }).
 			SetMethodDescription("prefix", "Returns the string behind the prefix up to the next newline."),
+		"replace": MethodAtType(2, func(str String, stack funcGen.Stack[Value]) (Value, error) { return str.Replace(stack) }).
+			SetMethodDescription("old", "new", "Replaces all occurrences of old with new."),
 		"toFloat": MethodAtType(0, func(str String, stack funcGen.Stack[Value]) (Value, error) { return str.ParseToFloat() }).
 			SetMethodDescription("Parses the string to a float."),
 	}

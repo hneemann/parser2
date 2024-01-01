@@ -24,5 +24,6 @@ func TestString(t *testing.T) {
 		{exp: "\"01\\nval:23\\n456789\".behind(\"val:\")", res: String("23")},
 		{exp: "\"01\\nval:23\".behind(\"val:\")", res: String("23")},
 		{exp: "\"12.4\".toFloat()", res: Float(12.4)},
+		{exp: "\"abcdcef\".replace(\"c\",\"<>\")", res: String("ab<>d<>ef")},
 	})
 }
