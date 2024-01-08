@@ -28,9 +28,9 @@ type Optimizer interface {
 	Optimize(AST) (AST, error)
 }
 
-type OptimizerFunc func(AST) AST
+type OptimizerFunc func(AST) (AST, error)
 
-func (o OptimizerFunc) Optimize(ast AST) AST {
+func (o OptimizerFunc) Optimize(ast AST) (AST, error) {
 	return o(ast)
 }
 
@@ -448,6 +448,9 @@ func (c *ClosureLiteral) Optimize(optimizer Optimizer) error {
 }
 
 func (c *ClosureLiteral) String() string {
+	if len(c.Names) == 1 {
+		return c.Names[0] + "->" + c.Func.String()
+	}
 	return "(" + stringsToString(c.Names) + ")->" + c.Func.String()
 }
 
