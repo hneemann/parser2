@@ -114,7 +114,7 @@ func (o optimizer[V]) Optimize(ast parser2.AST) (parser2.AST, error) {
 		if ident, ok := fc.Func.(*parser2.Ident); ok {
 			if fu, ok := o.g.staticFunctions[ident.Name]; ok && fu.IsPure {
 				if fu.Args >= 0 && fu.Args != len(fc.Args) {
-					return nil, ast.GetLine().Errorf("error in constant pre evaluation; number of args wrong in: %v", fc)
+					return nil, ast.GetLine().Errorf("error in constant pre evaluation; number of args wrong in: %v; requires %d, found %d", fc, fu.Args, len(fc.Args))
 				}
 				if c, ok := o.allConst(fc.Args); ok {
 					v, err := fu.Func(NewStack[V](c...), nil)
