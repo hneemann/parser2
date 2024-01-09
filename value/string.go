@@ -40,6 +40,10 @@ func (s String) ToString(funcGen.Stack[Value]) (string, error) {
 	return string(s), nil
 }
 
+func (s String) String() string {
+	return "\"" + string(s) + "\""
+}
+
 func (s String) Contains(st funcGen.Stack[Value]) (Value, error) {
 	if s2, ok := st.Get(1).(String); ok {
 		return Bool(strings.Contains(string(s), string(s2))), nil

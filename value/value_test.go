@@ -126,6 +126,7 @@ func TestBasic(t *testing.T) {
 		{exp: "let a=1;sprintf()", res: String("")},
 		{exp: "let a=1;sprintf(\"Hello World\")", res: String("Hello World")},
 		{exp: "let a=1;sprintf(\"%v->%v\",a,2)", res: String("1->2")},
+		{exp: "let a=\"zz\";sprintf(\"%v->%v\",a,2)", res: String("zz->2")},
 		{exp: "let a=1;sprintf(\"%v->\",a)", res: String("1->")},
 
 		{exp: "let a=2; func cl(b) x->x*a*b; cl(4)(3)", res: Int(24)},

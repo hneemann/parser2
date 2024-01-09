@@ -887,12 +887,22 @@ func sprintf(st funcGen.Stack[Value], cs []Value) (Value, error) {
 	case 0:
 		return String(""), nil
 	case 1:
-		return String(fmt.Sprint(st.Get(0))), nil
+		v := st.Get(0)
+		if st, ok := v.(String); ok {
+			return String(fmt.Sprint(string(st))), nil
+		} else {
+			return String(fmt.Sprint(v)), nil
+		}
 	default:
 		if s, ok := st.Get(0).(String); ok {
 			values := make([]any, st.Size()-1)
 			for i := 1; i < st.Size(); i++ {
-				values[i-1] = st.Get(i)
+				v := st.Get(i)
+				if st, ok := v.(String); ok {
+					values[i-1] = string(st)
+				} else {
+					values[i-1] = v
+				}
 			}
 			return String(fmt.Sprintf(string(s), values...)), nil
 		} else {

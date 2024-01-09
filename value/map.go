@@ -241,10 +241,11 @@ func (v Map) ContainsKey(key String) Value {
 
 func (v Map) GetM(stack funcGen.Stack[Value]) (Value, error) {
 	if key, ok := stack.Get(1).(String); ok {
-		if v, ok := v.m.Get(string(key)); ok {
+		k := string(key)
+		if v, ok := v.m.Get(k); ok {
 			return v, nil
 		} else {
-			return nil, fmt.Errorf("key '%v' not found in map", key)
+			return nil, fmt.Errorf("key '%v' not found in map", k)
 		}
 	}
 	return nil, errors.New("get requires a string as argument")
@@ -278,13 +279,12 @@ func (a AppendMap) Size() int {
 
 func (v Map) PutM(stack funcGen.Stack[Value]) (Map, error) {
 	if key, ok := stack.Get(1).(String); ok {
-
-		if _, ok := v.Get(string(key)); ok {
-			return Map{}, fmt.Errorf("key '%s' already present in map", key)
+		k := string(key)
+		if _, ok := v.Get(k); ok {
+			return Map{}, fmt.Errorf("key '%s' already present in map", k)
 		}
-
 		val := stack.Get(2)
-		return Map{AppendMap{key: string(key), value: val, parent: v.m}}, nil
+		return Map{AppendMap{key: k, value: val, parent: v.m}}, nil
 	}
 	return Map{}, errors.New("put requires a string as first argument")
 }
