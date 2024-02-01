@@ -9,12 +9,17 @@ import (
 	"github.com/hneemann/parser2/listMap"
 )
 
+// MapStorage is the abstraction of a map
 type MapStorage interface {
+	//Get returns the value for the given key and true if the key is present
 	Get(key string) (Value, bool)
+	//Iter iterates over the map
 	Iter(yield func(key string, v Value) bool) bool
+	//Size returns the number of entries in the map
 	Size() int
 }
 
+// RealMap is a MapStorage implementation that uses a real map
 type RealMap map[string]Value
 
 func (s RealMap) Get(key string) (Value, bool) {
@@ -35,6 +40,8 @@ func (s RealMap) Size() int {
 	return len(s)
 }
 
+// Map is a map of strings to values
+// This is the type that is used in the parser
 type Map struct {
 	m MapStorage
 }
@@ -251,6 +258,9 @@ func (v Map) GetM(stack funcGen.Stack[Value]) (Value, error) {
 	return nil, errors.New("get requires a string as argument")
 }
 
+// AppendMap is a MapStorage implementation that adds a key/value pair to an
+// existing MapStorage. It is used in the Put method. This approach is much more
+// efficient than creating a new real map as long as the number of keys is small.
 type AppendMap struct {
 	key    string
 	value  Value
@@ -289,6 +299,9 @@ func (v Map) PutM(stack funcGen.Stack[Value]) (Map, error) {
 	return Map{}, errors.New("put requires a string as first argument")
 }
 
+// MergeMap is a MapStorage implementation that merges two MapStorages. It is
+// used in the Merge method. It is more efficient than creating a new real map as
+// long as the number of keys is small.
 type MergeMap struct {
 	a, b MapStorage
 }
