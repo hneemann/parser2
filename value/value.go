@@ -356,7 +356,7 @@ func (fg *FunctionGenerator) AccessMap(mapValue Value, key string) (Value, error
 		if v, ok := m.Get(key); ok {
 			return v, nil
 		} else {
-			return nil, fmt.Errorf("key '%s' not found in map; available are: %s", key, m.availList())
+			return nil, fmt.Errorf("key '%s' not found in map; available are: %s", key, m.keyListDescription())
 		}
 	} else {
 		return nil, fmt.Errorf("'.%s' not possible; %s is not a map", key, TypeName(mapValue))

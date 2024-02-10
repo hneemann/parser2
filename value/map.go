@@ -7,6 +7,7 @@ import (
 	"github.com/hneemann/iterator"
 	"github.com/hneemann/parser2/funcGen"
 	"github.com/hneemann/parser2/listMap"
+	"sort"
 )
 
 // MapStorage is the abstraction of a map
@@ -444,15 +445,30 @@ func (v Map) GetType() Type {
 	return MapTypeId
 }
 
-func (v Map) availList() string {
-	var b bytes.Buffer
+func (v Map) keyListDescription() string {
+
+	type desc interface {
+		KeyListDescription() string
+	}
+
+	if d, ok := v.m.(desc); ok {
+		return d.KeyListDescription()
+	}
+
+	var keys []string
 	v.Iter(func(key string, v Value) bool {
+		keys = append(keys, key)
+		return true
+	})
+	sort.Strings(keys)
+
+	var b bytes.Buffer
+	for _, key := range keys {
 		if b.Len() > 0 {
 			b.WriteString(", ")
 		}
 		b.WriteString(key)
-		return true
-	})
+	}
 	return b.String()
 }
 
