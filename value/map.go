@@ -428,7 +428,7 @@ func createMapMethods() MethodMap {
 				"Map takes a function as argument and returns a new map with the same keys and all values replaced by the function."),
 		"replaceMap": MethodAtType(1, func(m Map, stack funcGen.Stack[Value]) (Value, error) { return m.ReplaceMap(stack) }).
 			SetMethodDescription("func(map) value",
-				"Replace takes a function as argument and returns the result of the function. "+
+				"Takes a function as argument and returns the result of the function. "+
 					"The function is called with the map as argument."),
 		"list": MethodAtType(0, func(m Map, stack funcGen.Stack[Value]) (Value, error) { return m.List(), nil }).
 			SetMethodDescription("Returns a list of maps with the key and value of each entry in the map."),
