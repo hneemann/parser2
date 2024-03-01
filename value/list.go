@@ -72,7 +72,7 @@ type List struct {
 }
 
 func (l *List) ToMap() (Map, bool) {
-	return Map{}, false
+	return emptyMap, false
 }
 
 func (l *List) ToInt() (int, bool) {

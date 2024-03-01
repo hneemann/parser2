@@ -45,19 +45,19 @@ func (l *List) MultiUse(st funcGen.Stack[Value]) (Map, error) {
 			return true
 		})
 		if innerErr != nil {
-			return Map{}, innerErr
+			return emptyMap, innerErr
 		}
 
 		err := muList.runConsumerClosures()
 		if err != nil {
-			return Map{}, err
+			return emptyMap, err
 		}
 
 		errChan := muList.runProducer(l.Iterator(st))
 
 		return muList.createResult(errChan)
 	} else {
-		return Map{}, errors.New("first argument in multiUse needs to be a map")
+		return emptyMap, errors.New("first argument in multiUse needs to be a map")
 	}
 }
 
@@ -236,12 +236,12 @@ func (ml multiUseList) createResult(errChan <-chan error) (Map, error) {
 		select {
 		case result := <-mu.result:
 			if result.err != nil {
-				return Map{}, result.err
+				return emptyMap, result.err
 			} else {
 				resultMap = resultMap.Append(mu.name, result.result)
 			}
 		case err := <-errChan:
-			return Map{}, err
+			return emptyMap, err
 		}
 	}
 	return NewMap(resultMap), nil

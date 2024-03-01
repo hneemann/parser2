@@ -92,7 +92,7 @@ func (n nilType) ToList() (*List, bool) {
 }
 
 func (n nilType) ToMap() (Map, bool) {
-	return Map{}, false
+	return emptyMap, false
 }
 
 func (n nilType) ToInt() (int, bool) {
@@ -130,7 +130,7 @@ func (c Closure) ToList() (*List, bool) {
 }
 
 func (c Closure) ToMap() (Map, bool) {
-	return Map{}, false
+	return emptyMap, false
 }
 
 func (c Closure) ToInt() (int, bool) {
@@ -189,7 +189,7 @@ func (b Bool) ToList() (*List, bool) {
 }
 
 func (b Bool) ToMap() (Map, bool) {
-	return Map{}, false
+	return emptyMap, false
 }
 
 func (b Bool) ToInt() (int, bool) {
@@ -236,7 +236,7 @@ func (f Float) ToList() (*List, bool) {
 }
 
 func (f Float) ToMap() (Map, bool) {
-	return Map{}, false
+	return emptyMap, false
 }
 
 func (f Float) ToString(funcGen.Stack[Value]) (string, error) {
@@ -283,7 +283,7 @@ func (i Int) ToList() (*List, bool) {
 }
 
 func (i Int) ToMap() (Map, bool) {
-	return Map{}, false
+	return emptyMap, false
 }
 
 func (i Int) ToString(funcGen.Stack[Value]) (string, error) {
