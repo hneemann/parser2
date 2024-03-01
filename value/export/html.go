@@ -146,7 +146,7 @@ type CustomHTML func(value.Value) (template.HTML, bool, error)
 // ToHtml creates an HTML representation of a value
 // Lists and maps are converted to a html table.
 // Everything else is converted to a string by calling the ToString() method.
-func ToHtml(v value.Value, maxListSize int, custom CustomHTML) (res template.HTML, err error) {
+func ToHtml(v value.Value, maxListSize int, custom CustomHTML, inlineStyle bool) (res template.HTML, list []Class, err error) {
 	defer func() {
 		if rec := recover(); rec != nil {
 			log.Print("panic in ToHtml: ", rec)
@@ -158,18 +158,36 @@ func ToHtml(v value.Value, maxListSize int, custom CustomHTML) (res template.HTM
 		maxListSize = 1
 	}
 	w := xmlWriter.New().AvoidShort()
-	ex := htmlExporter{w: w, maxListSize: maxListSize, custom: custom}
+	ex := htmlExporter{w: w, maxListSize: maxListSize, custom: custom, styleMap: make(map[string]string), inlineStyle: inlineStyle}
 	err = ex.toHtml(funcGen.NewEmptyStack[value.Value](), v, "")
 	if err != nil {
-		return "", err
+		return "", list, err
 	}
-	return template.HTML(w.String()), nil
+	return template.HTML(w.String()), ex.classList, nil
+}
+
+type Class struct {
+	Name  string
+	Style template.CSS
 }
 
 type htmlExporter struct {
 	w           *xmlWriter.XMLWriter
 	maxListSize int
 	custom      CustomHTML
+	classList   []Class
+	styleMap    map[string]string
+	inlineStyle bool
+}
+
+func (ex *htmlExporter) getClassName(style string) string {
+	if className, ok := ex.styleMap[style]; ok {
+		return className
+	}
+	className := "c" + strconv.Itoa(len(ex.styleMap))
+	ex.styleMap[style] = className
+	ex.classList = append(ex.classList, Class{Name: className, Style: template.CSS(style)})
+	return className
 }
 
 func (ex *htmlExporter) toHtml(st funcGen.Stack[value.Value], v value.Value, style string) error {
@@ -264,7 +282,11 @@ func (ex *htmlExporter) writeHtmlString(s string, style string) {
 		if style == "" {
 			ex.w.Write(s)
 		} else {
-			ex.w.Open("span").Attr("style", style)
+			if ex.inlineStyle {
+				ex.w.Open("span").Attr("style", style)
+			} else {
+				ex.w.Open("span").Attr("class", ex.getClassName(style))
+			}
 			ex.w.Write(s)
 			ex.w.Close()
 		}
@@ -302,7 +324,11 @@ func (ex *htmlExporter) openWithStyle(tag string, style string) {
 	if style == "" {
 		ex.w.Open(tag)
 	} else {
-		ex.w.Open(tag).Attr("style", style)
+		if ex.inlineStyle {
+			ex.w.Open(tag).Attr("style", style)
+		} else {
+			ex.w.Open(tag).Attr("class", ex.getClassName(style))
+		}
 	}
 }
 
@@ -358,7 +384,11 @@ func (ex *htmlExporter) toTD(st funcGen.Stack[value.Value], d value.Value) error
 			err = ex.toHtml(st, formatted.Value, formatted.Format)
 			ex.w.Close()
 		} else {
-			ex.w.Open("td").Attr("style", formatted.Format)
+			if ex.inlineStyle {
+				ex.w.Open("td").Attr("style", formatted.Format)
+			} else {
+				ex.w.Open("td").Attr("class", ex.getClassName(formatted.Format))
+			}
 			err = ex.toHtml(st, formatted.Value, "")
 			ex.w.Close()
 		}
