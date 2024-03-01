@@ -122,6 +122,17 @@ type FunctionDescription struct {
 	Description string
 }
 
+func (f *FunctionDescription) String(name string) string {
+	if f == nil {
+		return "'" + name + "'"
+	}
+	var b bytes.Buffer
+	b.WriteString("{ ")
+	f.WriteTo(&b, name)
+	b.WriteString(" }")
+	return b.String()
+}
+
 func (f *FunctionDescription) WriteTo(b *bytes.Buffer, name string) {
 	b.WriteString(name)
 	if f == nil {
@@ -938,7 +949,7 @@ func (g *FunctionGenerator[V]) GenerateFunc(ast parser2.AST, gc GeneratorContext
 		if id, ok := a.Func.(*parser2.Ident); ok {
 			if fun, ok := g.staticFunctions[id.Name]; ok {
 				if fun.Args >= 0 && fun.Args != len(a.Args) {
-					return nil, id.Errorf("wrong number of arguments at call of %s, required %d, found %d", id.Name, fun.Args, len(a.Args))
+					return nil, id.Errorf("wrong number of arguments at call of %s, required %d, found %d", fun.Description.String(id.Name), fun.Args, len(a.Args))
 				}
 				argsFuncList, err := g.genFuncList(a.Args, gc)
 				if err != nil {
@@ -974,7 +985,7 @@ func (g *FunctionGenerator[V]) GenerateFunc(ast parser2.AST, gc GeneratorContext
 				return zero, a.Errorf("not a function: %v", a.Func)
 			}
 			if theFunc.Args >= 0 && theFunc.Args != len(a.Args) {
-				return zero, a.Errorf("wrong number of arguments at call of %v, required %d, found %d", a.Func, theFunc.Args, len(a.Args))
+				return zero, a.Errorf("wrong number of arguments at call of %s, required %d, found %d", theFunc.Description.String(a.Func.String()), theFunc.Args, len(a.Args))
 			}
 			for _, argFunc := range argsFuncList {
 				v, err := argFunc(st, cs)
@@ -1022,7 +1033,7 @@ func (g *FunctionGenerator[V]) GenerateFunc(ast parser2.AST, gc GeneratorContext
 					return zero, a.EnhanceErrorf(err, "error accessing method %s", name)
 				}
 				if me.Args > 0 && me.Args != len(argsFuncList)+1 {
-					return zero, a.Errorf("wrong number of arguments at call of %s, required %d, found %d", name, me.Args-1, len(argsFuncList))
+					return zero, a.Errorf("wrong number of arguments at call of %s, required %d, found %d", me.Description.String(name), me.Args-1, len(argsFuncList))
 				}
 				st.Push(value)
 				for _, arg := range argsFuncList {
