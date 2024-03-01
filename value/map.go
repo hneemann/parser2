@@ -23,11 +23,11 @@ type MapStorage interface {
 type emptyMapStorage struct {
 }
 
-func (e emptyMapStorage) Get(key string) (Value, bool) {
+func (e emptyMapStorage) Get(string) (Value, bool) {
 	return Int(0), false
 }
 
-func (e emptyMapStorage) Iter(yield func(key string, v Value) bool) bool {
+func (e emptyMapStorage) Iter(func(key string, v Value) bool) bool {
 	return true
 }
 
@@ -35,7 +35,7 @@ func (e emptyMapStorage) Size() int {
 	return 0
 }
 
-var emptyMap = Map{emptyMapStorage{}}
+var EmptyMap = Map{emptyMapStorage{}}
 
 // RealMap is a MapStorage implementation that uses a real map
 type RealMap map[string]Value
@@ -168,7 +168,7 @@ func (v Map) Equals(st funcGen.Stack[Value], other Map, equal funcGen.BoolFunc[V
 func (v Map) Accept(st funcGen.Stack[Value]) (Map, error) {
 	f, err := ToFunc("accept", st, 1, 2)
 	if err != nil {
-		return emptyMap, err
+		return EmptyMap, err
 	}
 	newMap := listMap.New[Value](v.m.Size())
 	var innerErr error
@@ -191,7 +191,7 @@ func (v Map) Accept(st funcGen.Stack[Value]) (Map, error) {
 		return true
 	})
 	if innerErr != nil {
-		return emptyMap, innerErr
+		return EmptyMap, innerErr
 	}
 	return Map{m: newMap}, nil
 }
@@ -199,7 +199,7 @@ func (v Map) Accept(st funcGen.Stack[Value]) (Map, error) {
 func (v Map) Map(st funcGen.Stack[Value]) (Map, error) {
 	f, err := ToFunc("map", st, 1, 2)
 	if err != nil {
-		return emptyMap, err
+		return EmptyMap, err
 	}
 	newMap := listMap.New[Value](v.m.Size())
 	var innerErr error
@@ -215,7 +215,7 @@ func (v Map) Map(st funcGen.Stack[Value]) (Map, error) {
 		return true
 	})
 	if innerErr != nil {
-		return emptyMap, innerErr
+		return EmptyMap, innerErr
 	}
 	return Map{m: newMap}, nil
 }
@@ -309,12 +309,12 @@ func (v Map) PutM(stack funcGen.Stack[Value]) (Map, error) {
 	if key, ok := stack.Get(1).(String); ok {
 		k := string(key)
 		if _, ok := v.Get(k); ok {
-			return emptyMap, fmt.Errorf("key '%s' already present in map", k)
+			return EmptyMap, fmt.Errorf("key '%s' already present in map", k)
 		}
 		val := stack.Get(2)
 		return Map{AppendMap{key: k, value: val, parent: v.m}}, nil
 	}
-	return emptyMap, errors.New("put requires a string as first argument")
+	return EmptyMap, errors.New("put requires a string as first argument")
 }
 
 // MergeMap is a MapStorage implementation that merges two MapStorages. It is
@@ -352,7 +352,7 @@ func (v Map) Merge(other Map) (Map, error) {
 		return true
 	})
 	if exists != "" {
-		return emptyMap, fmt.Errorf("first map already contains key '%s'", exists)
+		return EmptyMap, fmt.Errorf("first map already contains key '%s'", exists)
 	}
 	return Map{MergeMap{a: v.m, b: other.m}}, nil
 }
@@ -360,7 +360,7 @@ func (v Map) Merge(other Map) (Map, error) {
 func (v Map) Combine(st funcGen.Stack[Value]) (Map, error) {
 	fun, err := ToFunc("combine", st, 2, 2)
 	if err != nil {
-		return emptyMap, err
+		return EmptyMap, err
 	}
 	if other, ok := st.Get(1).ToMap(); ok {
 		result := listMap.New[Value](v.Size())
@@ -382,23 +382,23 @@ func (v Map) Combine(st funcGen.Stack[Value]) (Map, error) {
 			return true
 		})
 		if innerErr != nil {
-			return emptyMap, innerErr
+			return EmptyMap, innerErr
 		}
 		return Map{result}, nil
 	} else {
-		return emptyMap, errors.New("combine requires a map as first argument")
+		return EmptyMap, errors.New("combine requires a map as first argument")
 	}
 }
 
 func (v Map) Replace(stack funcGen.Stack[Value]) (Map, error) {
 	f, err := ToFunc("replace", stack, 1, 1)
 	if err != nil {
-		return emptyMap, err
+		return EmptyMap, err
 	}
 
 	repMap, err := f.Eval(stack, v)
 	if err != nil {
-		return emptyMap, err
+		return EmptyMap, err
 	}
 
 	if other, ok := repMap.ToMap(); ok {
@@ -413,7 +413,7 @@ func (v Map) Replace(stack funcGen.Stack[Value]) (Map, error) {
 		})
 		return NewMap(result), nil
 	}
-	return emptyMap, errors.New("the result of the function passed to replace must be a map")
+	return EmptyMap, errors.New("the result of the function passed to replace must be a map")
 }
 func createMapMethods() MethodMap {
 	return MethodMap{

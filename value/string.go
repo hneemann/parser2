@@ -17,7 +17,7 @@ func (s String) ToList() (*List, bool) {
 }
 
 func (s String) ToMap() (Map, bool) {
-	return emptyMap, false
+	return EmptyMap, false
 }
 
 func (s String) ToInt() (int, bool) {
