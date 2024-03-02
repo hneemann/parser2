@@ -63,6 +63,7 @@ func TestErrors(t *testing.T) {
 		{"func f(x) x+b; f(2)", "outer value 'b' not found"},
 		{exp: "func mul(a,b) a*b; mul.invoke([2,3,4])", err: "wrong number of arguments in invoke: 3 instead of 2"},
 		{exp: "throw(\"error: zzzz\")", err: "error: zzzz"},
+		{exp: "let m={a:(x,y)->x*y};m.a(2)", err: "wrong number of arguments at call of \"a\", required 2, found 1"},
 	}
 
 	fg := New().AddStaticFunction("error", toLargeErrorFunc(100))

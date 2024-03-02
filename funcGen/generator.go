@@ -1014,6 +1014,9 @@ func (g *FunctionGenerator[V]) GenerateFunc(ast parser2.AST, gc GeneratorContext
 			if g.mapHandler != nil && g.mapHandler.IsMap(value) {
 				if va, err := g.mapHandler.AccessMap(value, name); err == nil {
 					if theFunc, ok := g.ExtractFunction(va); ok {
+						if theFunc.Args >= 0 && theFunc.Args != len(argsFuncList) {
+							return zero, a.Errorf("wrong number of arguments at call of \"%s\", required %d, found %d", theFunc.Description.String(name), theFunc.Args, len(argsFuncList))
+						}
 						for _, argFunc := range argsFuncList {
 							v, err := argFunc(st, cs)
 							if err != nil {
