@@ -227,6 +227,14 @@ func (f Function[V]) EvalSt(st Stack[V], a ...V) (V, error) {
 	return f.Func(st.CreateFrame(len(a)), nil)
 }
 
+func (f Function[V]) argsNumberNotMatching(available int) bool {
+	return f.Args >= 0 && f.Args != available
+}
+
+func (f Function[V]) argsNumberNotMatchingError(name string, available int) string {
+	return fmt.Sprintf("wrong number of arguments at call of \"%s\", required %d, found %d", f.Description.String(name), f.Args, available)
+}
+
 // ListHandler is used to create and access lists or arrays
 type ListHandler[V any] interface {
 	// FromList is used to convert a list to a value
@@ -946,8 +954,8 @@ func (g *FunctionGenerator[V]) GenerateFunc(ast parser2.AST, gc GeneratorContext
 	case *parser2.FunctionCall:
 		if id, ok := a.Func.(*parser2.Ident); ok {
 			if fun, ok := g.staticFunctions[id.Name]; ok {
-				if fun.Args >= 0 && fun.Args != len(a.Args) {
-					return nil, id.Errorf("wrong number of arguments at call of \"%s\", required %d, found %d", fun.Description.String(id.Name), fun.Args, len(a.Args))
+				if fun.argsNumberNotMatching(len(a.Args)) {
+					return nil, id.Errorf(fun.argsNumberNotMatchingError(id.Name, len(a.Args)))
 				}
 				argsFuncList, err := g.genFuncList(a.Args, gc)
 				if err != nil {
@@ -982,8 +990,8 @@ func (g *FunctionGenerator[V]) GenerateFunc(ast parser2.AST, gc GeneratorContext
 			if !ok {
 				return zero, a.Errorf("not a function: %v", a.Func)
 			}
-			if theFunc.Args >= 0 && theFunc.Args != len(a.Args) {
-				return zero, a.Errorf("wrong number of arguments at call of \"%s\", required %d, found %d", theFunc.Description.String(a.Func.String()), theFunc.Args, len(a.Args))
+			if theFunc.argsNumberNotMatching(len(argsFuncList)) {
+				return zero, a.Errorf(theFunc.argsNumberNotMatchingError(a.Func.String(), len(argsFuncList)))
 			}
 			for _, argFunc := range argsFuncList {
 				v, err := argFunc(st, cs)
@@ -1014,8 +1022,8 @@ func (g *FunctionGenerator[V]) GenerateFunc(ast parser2.AST, gc GeneratorContext
 			if g.mapHandler != nil && g.mapHandler.IsMap(value) {
 				if va, err := g.mapHandler.AccessMap(value, name); err == nil {
 					if theFunc, ok := g.ExtractFunction(va); ok {
-						if theFunc.Args >= 0 && theFunc.Args != len(argsFuncList) {
-							return zero, a.Errorf("wrong number of arguments at call of \"%s\", required %d, found %d", theFunc.Description.String(name), theFunc.Args, len(argsFuncList))
+						if theFunc.argsNumberNotMatching(len(argsFuncList)) {
+							return zero, a.Errorf(theFunc.argsNumberNotMatchingError(name, len(argsFuncList)))
 						}
 						for _, argFunc := range argsFuncList {
 							v, err := argFunc(st, cs)

@@ -34,8 +34,8 @@ func TestErrors(t *testing.T) {
 		{"notFound(a)", "not found: notFound"},
 		{"let a=1;notFound(a)", "not found: notFound"},
 		{"[].notFound()", "method 'notFound' not found"},
-		{"sin(1,2)", "number of args wrong"},
-		{"{a:sin(1,2)}", "number of args wrong"},
+		{exp: "sin(1,2)", err: ", required 1, found 2"},
+		{"{a:sin(1,2)}", ", required 1, found 2"},
 		{"[].first()", "no items"},
 		{"list(0).first()", "no items"},
 		{"list(10).multiUse(3)", "needs to be a map"},
@@ -61,9 +61,11 @@ func TestErrors(t *testing.T) {
 		{"[1,2,3,4].set(4,0)", "index 4 out of range"},
 		{"true-2", "not allowed on Bool, Int"},
 		{"func f(x) x+b; f(2)", "outer value 'b' not found"},
-		{exp: "func mul(a,b) a*b; mul.invoke([2,3,4])", err: "wrong number of arguments in invoke: 3 instead of 2"},
 		{exp: "throw(\"error: zzzz\")", err: "error: zzzz"},
+		{exp: "func mul(a,b) a*b; mul.invoke([2,3,4])", err: "wrong number of arguments in invoke: 3 instead of 2"},
+		{exp: "func mul(a,b) a*b; mul(2)", err: "wrong number of arguments at call of \"mul\", required 2, found 1 in line 1"},
 		{exp: "let m={a:(x,y)->x*y};m.a(2)", err: "wrong number of arguments at call of \"a\", required 2, found 1"},
+		{exp: "[].size(1)", err: ", required 0, found 1"},
 	}
 
 	fg := New().AddStaticFunction("error", toLargeErrorFunc(100))

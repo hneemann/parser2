@@ -113,8 +113,8 @@ func (o optimizer[V]) Optimize(ast parser2.AST) (parser2.AST, error) {
 	if fc, ok := ast.(*parser2.FunctionCall); ok {
 		if ident, ok := fc.Func.(*parser2.Ident); ok {
 			if fu, ok := o.g.staticFunctions[ident.Name]; ok && fu.IsPure {
-				if fu.Args >= 0 && fu.Args != len(fc.Args) {
-					return nil, ast.GetLine().Errorf("error in constant pre evaluation; number of args wrong in: %v; requires %d, found %d", fc, fu.Args, len(fc.Args))
+				if fu.argsNumberNotMatching(len(fc.Args)) {
+					return nil, ast.GetLine().Errorf(fu.argsNumberNotMatchingError(fc.Func.String(), len(fc.Args)))
 				}
 				if c, ok := o.allConst(fc.Args); ok {
 					v, err := fu.Func(NewStack[V](c...), nil)
