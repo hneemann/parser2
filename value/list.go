@@ -1234,6 +1234,45 @@ func (l *List) MovingWindow(st funcGen.Stack[Value]) (*List, error) {
 	return NewList(mainList...), nil
 }
 
+func (l *List) MovingWindowRemove(st funcGen.Stack[Value]) (*List, error) {
+	f, err := ToFunc("movingWindowRemove", st, 1, 1)
+	if err != nil {
+		return nil, err
+	}
+	items, err := l.ToSlice(st)
+	if err != nil {
+		return nil, err
+	}
+
+	var mainList []Value
+	startIndex := 0
+	for i := range items {
+		for {
+			li := NewList(items[startIndex : i+1 : i+1]...)
+			if startIndex == i {
+				mainList = append(mainList, li)
+				break
+			} else {
+				removeValue, err := f.Eval(st, li)
+				if err != nil {
+					return nil, err
+				}
+				remove, ok := removeValue.ToBool()
+				if !ok {
+					return nil, errors.New("function in movingWindowList needs to return a bool")
+				}
+				if remove {
+					startIndex++
+				} else {
+					mainList = append(mainList, li)
+					break
+				}
+			}
+		}
+	}
+	return NewList(mainList...), nil
+}
+
 func (l *List) containsItem(st funcGen.Stack[Value], item Value, equal funcGen.BoolFunc[Value]) (bool, error) {
 	found := false
 	var innerErr error
@@ -1569,6 +1608,11 @@ func createListMethods(
 				"The inner lists contain all items that are close to each other. "+
 				"Two items are close to each other if the given function returns a similar value for both items. "+
 				"Similarity is defined as the absolute difference being smaller than 1."),
+		"movingWindowRemove": MethodAtType(1, func(list *List, stack funcGen.Stack[Value]) (Value, error) { return list.MovingWindowRemove(stack) }).
+			SetMethodDescription("func([list of items]) bool", "Returns a list of lists. "+
+				"The given remove-function is called with a sublist of items. At every call a new item from the original list is added to the sublist. "+
+				"If the function returns true the first item of the sublist is removed and the function is called again until it returns false. "+
+				"If the function returns false or if the sublist contains only one item, the sublist is added to the result."),
 		"createInterpolation": MethodAtType(2, func(list *List, stack funcGen.Stack[Value]) (Value, error) { return list.CreateInterpolation(stack) }).
 			SetMethodDescription("func(item) x", "func(item) y",
 				"Returns a function that interpolates between the given points."),
