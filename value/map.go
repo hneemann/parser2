@@ -342,6 +342,31 @@ func (m MergeMap) Size() int {
 	return m.a.Size() + m.b.Size()
 }
 
+type ReplaceMap struct {
+	orig, rep MapStorage
+}
+
+func (m ReplaceMap) Get(key string) (Value, bool) {
+	if e, ok := m.rep.Get(key); ok {
+		return e, true
+	}
+	return m.orig.Get(key)
+}
+
+func (m ReplaceMap) Iter(yield func(key string, v Value) bool) bool {
+	m.orig.Iter(func(key string, v Value) bool {
+		if rep, ok := m.rep.Get(key); ok {
+			return yield(key, rep)
+		}
+		return yield(key, v)
+	})
+	return true
+}
+
+func (m ReplaceMap) Size() int {
+	return m.orig.Size()
+}
+
 func (v Map) Merge(other Map) (Map, error) {
 	var exists string
 	other.Iter(func(key string, val Value) bool {
@@ -401,17 +426,11 @@ func (v Map) Replace(stack funcGen.Stack[Value]) (Map, error) {
 		return EmptyMap, err
 	}
 
-	if other, ok := repMap.ToMap(); ok {
-		result := listMap.New[Value](v.Size())
-		v.Iter(func(key string, val Value) bool {
-			if r, ok := other.Get(key); ok {
-				result = result.Append(key, r)
-			} else {
-				result = result.Append(key, val)
-			}
-			return true
-		})
-		return NewMap(result), nil
+	if rep, ok := repMap.ToMap(); ok {
+		return NewMap(ReplaceMap{
+			orig: v.m,
+			rep:  rep,
+		}), nil
 	}
 	return EmptyMap, errors.New("the result of the function passed to replace must be a map")
 }
