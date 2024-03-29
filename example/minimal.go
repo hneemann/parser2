@@ -21,7 +21,14 @@ var minimal = funcGen.New[float64]().
 	AddSimpleOp("^", false, func(a, b float64) (float64, error) { return math.Pow(a, b), nil }).
 	AddUnary("-", func(a float64) (float64, error) { return -a, nil }).
 	AddSimpleFunction("sin", math.Sin).
+	AddSimpleFunction("cos", math.Cos).
+	AddSimpleFunction("tan", math.Tan).
+	AddSimpleFunction("exp", math.Exp).
+	AddSimpleFunction("ln", math.Log).
 	AddSimpleFunction("sqrt", math.Sqrt).
+	AddSimpleFunction("sqr", func(x float64) float64 {
+		return x * x
+	}).
 	SetToBool(func(c float64) (bool, bool) { return c != 0, true }).
 	SetNumberParser(
 		parser2.NumberParserFunc[float64](
