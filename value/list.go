@@ -472,7 +472,7 @@ func (l *List) Last(st funcGen.Stack[Value]) (Value, error) {
 			return last, nil
 		}
 	}
-	return nil, errors.New("error in first, no items in list")
+	return nil, errors.New("error in last, no items in list")
 }
 
 func (l *List) IndexWhere(st funcGen.Stack[Value]) (Int, error) {
