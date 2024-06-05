@@ -280,10 +280,10 @@ func hasKey(style value.Value, key string) bool {
 	return false
 }
 
-func toStyleStr(style value.Value) string {
+func toStyleStr(style value.Value) (string, bool) {
 	switch t := style.(type) {
 	case value.String:
-		return string(t)
+		return string(t), true
 	case value.Map:
 		type kv struct {
 			k, v string
@@ -295,6 +295,9 @@ func toStyleStr(style value.Value) string {
 			}
 			return true
 		})
+		if len(keys) == 0 {
+			return "", false
+		}
 		sort.Slice(keys, func(i, j int) bool {
 			return keys[i].k < keys[j].k
 		})
@@ -305,9 +308,9 @@ func toStyleStr(style value.Value) string {
 			res.WriteString(k.v)
 			res.WriteString(";")
 		}
-		return res.String()
+		return res.String(), true
 	default:
-		return ""
+		return "", false
 	}
 }
 
@@ -321,16 +324,16 @@ func (ex *htmlExporter) writeHtmlString(s string, style value.Value) {
 		ex.w.Write("Link")
 		ex.w.Close()
 	} else {
-		if style == nil {
-			ex.w.Write(s)
-		} else {
+		if strStyle, ok := toStyleStr(style); ok {
 			if ex.inlineStyle {
-				ex.w.Open("span").Attr("style", toStyleStr(style))
+				ex.w.Open("span").Attr("style", strStyle)
 			} else {
-				ex.w.Open("span").Attr("class", ex.getClassName(toStyleStr(style)))
+				ex.w.Open("span").Attr("class", ex.getClassName(strStyle))
 			}
 			ex.w.Write(s)
 			ex.w.Close()
+		} else {
+			ex.w.Write(s)
 		}
 	}
 }
@@ -392,14 +395,14 @@ func (r *realListExporter) close() {
 }
 
 func (ex *htmlExporter) openWithStyle(tag string, style value.Value) {
-	if style == nil {
-		ex.w.Open(tag)
-	} else {
+	if strStyle, ok := toStyleStr(style); ok {
 		if ex.inlineStyle {
-			ex.w.Open(tag).Attr("style", toStyleStr(style))
+			ex.w.Open(tag).Attr("style", strStyle)
 		} else {
-			ex.w.Open(tag).Attr("class", ex.getClassName(toStyleStr(style)))
+			ex.w.Open(tag).Attr("class", ex.getClassName(strStyle))
 		}
+	} else {
+		ex.w.Open(tag)
 	}
 }
 
@@ -499,10 +502,13 @@ func (ex *htmlExporter) toTD(st funcGen.Stack[value.Value], d value.Value) error
 			err = ex.toHtml(st, formatted.Value, formatted.Format)
 			ex.w.Close()
 		} else {
-			if ex.inlineStyle {
-				ex.w.Open("td").Attr("style", toStyleStr(formatted.Format))
-			} else {
-				ex.w.Open("td").Attr("class", ex.getClassName(toStyleStr(formatted.Format)))
+			ex.w.Open("td")
+			if strStyle, ok := toStyleStr(formatted.Format); ok {
+				if ex.inlineStyle {
+					ex.w.Attr("style", strStyle)
+				} else {
+					ex.w.Attr("class", ex.getClassName(strStyle))
+				}
 			}
 			err = ex.toHtml(st, formatted.Value, nil)
 			ex.w.Close()
