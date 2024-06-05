@@ -290,8 +290,14 @@ func toStyleStr(style value.Value) (string, bool) {
 		}
 		var keys []kv
 		t.Iter(func(k string, v value.Value) bool {
-			if s, ok := v.(value.String); ok {
-				keys = append(keys, kv{strings.ReplaceAll(k, "_", "-"), string(s)})
+			ck := strings.ReplaceAll(k, "_", "-")
+			switch s := v.(type) {
+			case value.String:
+				keys = append(keys, kv{ck, string(s)})
+			case value.Int:
+				keys = append(keys, kv{ck, strconv.Itoa(int(s))})
+			case value.Float:
+				keys = append(keys, kv{ck, strconv.FormatFloat(float64(s), 'f', -1, 64)})
 			}
 			return true
 		})

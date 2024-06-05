@@ -19,6 +19,7 @@ func TestMapStyle(t *testing.T) {
 		{"f1", mapStyle(map[string]value.Value{"a": value.String("aa")}, value.String("test")), 10, "<span style=\"a:aa;\">test</span>\n"},
 		{"f2", mapStyle(map[string]value.Value{"a": value.String("aa"), "b": value.String("bb")}, value.String("test")), 10, "<span style=\"a:aa;b:bb;\">test</span>\n"},
 		{"f3", mapStyle(map[string]value.Value{"b": value.String("bb"), "a": value.String("aa")}, value.String("test")), 10, "<span style=\"a:aa;b:bb;\">test</span>\n"},
+		{"f4", mapStyle(map[string]value.Value{"b": value.Int(4), "a": value.Float(1.5)}, value.String("test")), 10, "<span style=\"a:1.5;b:4;\">test</span>\n"},
 		{"table1", mapStyle(map[string]value.Value{}, table), 10,
 			`<table>
 	<tr>
