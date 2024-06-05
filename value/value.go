@@ -691,12 +691,12 @@ func New() *FunctionGenerator {
 				if s, ok := st.Get(0).(String); ok {
 					return nil, errors.New(string(s))
 				} else {
-					return nil, errors.New("fail needs a string as argument")
+					return nil, errors.New("throw needs a string as argument")
 				}
 			},
 			Args:   1,
 			IsPure: false,
-		}.SetDescription("value", "Returns the string representation of the value.")).
+		}.SetDescription("message", "Throws an exception.")).
 		AddStaticFunction("string", funcGen.Function[Value]{
 			Func: func(st funcGen.Stack[Value], cs []Value) (Value, error) {
 				s, err := st.Get(0).ToString(st)
@@ -705,6 +705,15 @@ func New() *FunctionGenerator {
 			Args:   1,
 			IsPure: true,
 		}.SetDescription("value", "Returns the string representation of the value.")).
+		AddStaticFunction("isFloat", funcGen.Function[Value]{
+			Func: func(st funcGen.Stack[Value], cs []Value) (Value, error) {
+				v := st.Get(0)
+				_, ok := v.ToFloat()
+				return Bool(ok), nil
+			},
+			Args:   1,
+			IsPure: true,
+		}.SetDescription("value", "Returns true if there is a float representation of the value.")).
 		AddStaticFunction("float", funcGen.Function[Value]{
 			Func: func(st funcGen.Stack[Value], cs []Value) (Value, error) {
 				v := st.Get(0)

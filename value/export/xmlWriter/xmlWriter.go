@@ -42,14 +42,16 @@ func (w *XMLWriter) Open(tag string) *XMLWriter {
 }
 
 func (w *XMLWriter) Attr(key, value string) *XMLWriter {
-	if w.tagIsOpen {
-		w.b.WriteString(" ")
-		w.b.WriteString(key)
-		w.b.WriteString("=\"")
-		w.writeEsc(value)
-		w.b.WriteString("\"")
-	} else {
-		log.Print("tag is not open")
+	if value != "" {
+		if w.tagIsOpen {
+			w.b.WriteString(" ")
+			w.b.WriteString(key)
+			w.b.WriteString("=\"")
+			w.writeEsc(value)
+			w.b.WriteString("\"")
+		} else {
+			log.Print("tag is not open")
+		}
 	}
 	return w
 }

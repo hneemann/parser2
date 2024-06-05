@@ -17,7 +17,7 @@ import (
 type Format struct {
 	Value  value.Value
 	Cell   bool
-	Format string
+	Format value.Value
 }
 
 // LinkFunc can be used to create a link
@@ -38,15 +38,11 @@ var LinkFunc = funcGen.Function[value.Value]{
 // StyleFunc can be used add a CSS style to a value
 var StyleFunc = funcGen.Function[value.Value]{
 	Func: func(st funcGen.Stack[value.Value], cs []value.Value) (value.Value, error) {
-		if s, ok := st.Get(0).(value.String); ok {
-			return Format{
-				Value:  st.Get(1),
-				Cell:   false,
-				Format: string(s),
-			}, nil
-		} else {
-			return nil, errors.New("style must be a string")
-		}
+		return Format{
+			Value:  st.Get(1),
+			Cell:   false,
+			Format: st.Get(0),
+		}, nil
 	},
 	Args:   2,
 	IsPure: true,
@@ -57,15 +53,11 @@ var StyleFunc = funcGen.Function[value.Value]{
 // It is only required in rare occasions.
 var StyleFuncCell = funcGen.Function[value.Value]{
 	Func: func(st funcGen.Stack[value.Value], cs []value.Value) (value.Value, error) {
-		if s, ok := st.Get(0).(value.String); ok {
-			return Format{
-				Value:  st.Get(1),
-				Cell:   true,
-				Format: string(s),
-			}, nil
-		} else {
-			return nil, errors.New("style must be a string")
-		}
+		return Format{
+			Value:  st.Get(1),
+			Cell:   true,
+			Format: st.Get(0),
+		}, nil
 	},
 	Args:   2,
 	IsPure: true,
@@ -159,7 +151,7 @@ func ToHtml(v value.Value, maxListSize int, custom CustomHTML, inlineStyle bool)
 	}
 	w := xmlWriter.New().AvoidShort()
 	ex := htmlExporter{w: w, maxListSize: maxListSize, custom: custom, styleMap: make(map[string]string), inlineStyle: inlineStyle}
-	err = ex.toHtml(funcGen.NewEmptyStack[value.Value](), v, "")
+	err = ex.toHtml(funcGen.NewEmptyStack[value.Value](), v, nil)
 	if err != nil {
 		return "", list, err
 	}
@@ -190,7 +182,7 @@ func (ex *htmlExporter) getClassName(style string) string {
 	return className
 }
 
-func (ex *htmlExporter) toHtml(st funcGen.Stack[value.Value], v value.Value, style string) error {
+func (ex *htmlExporter) toHtml(st funcGen.Stack[value.Value], v, style value.Value) error {
 	if ex.custom != nil {
 		if htm, ok, err := ex.custom(v); ok || err != nil {
 			if err != nil {
@@ -209,10 +201,10 @@ func (ex *htmlExporter) toHtml(st funcGen.Stack[value.Value], v value.Value, sty
 		ex.w.Close()
 		return err
 	case *value.List:
-		if style == "plainList" {
+		if hasKey(style, "plainList") {
 			var err error
 			_, e := t.Iterator(st)(func(v value.Value) bool {
-				err = ex.toHtml(st, v, "")
+				err = ex.toHtml(st, v, nil)
 				return err == nil
 			})
 			if err != nil {
@@ -220,18 +212,24 @@ func (ex *htmlExporter) toHtml(st funcGen.Stack[value.Value], v value.Value, sty
 			}
 			return e
 		} else {
-			pit, f, err := iterator.Peek(t.Iterator(st))
-			if err != nil {
-				return err
-			}
-			if f == nil {
-				return nil
-			} else {
-				if _, ok := f.(*value.List); ok {
-					return ex.tableToHtml(st, pit, style)
+			var le listExporter
+			var e1 error
+			_, e2 := t.Iterator(st)(func(v value.Value) bool {
+				if le == nil {
+					le = ex.createListExporter(st, v)
+					le.open(style)
 				}
+				var ok bool
+				ok, e1 = le.add(v)
+				return ok && e1 == nil
+			})
+			if le != nil {
+				le.close()
 			}
-			return ex.listToHtml(st, pit, style)
+			if e2 != nil {
+				return e2
+			}
+			return e1
 		}
 	case value.Map:
 		ex.openWithStyle("table", style)
@@ -269,7 +267,51 @@ func (ex *htmlExporter) toHtml(st funcGen.Stack[value.Value], v value.Value, sty
 	return nil
 }
 
-func (ex *htmlExporter) writeHtmlString(s string, style string) {
+func hasKey(style value.Value, key string) bool {
+	if style != nil {
+		if m, ok := style.ToMap(); ok {
+			_, ok = m.Get(key)
+			return ok
+		}
+		if s, ok := style.(value.String); ok {
+			return string(s) == key
+		}
+	}
+	return false
+}
+
+func toStyleStr(style value.Value) string {
+	switch t := style.(type) {
+	case value.String:
+		return string(t)
+	case value.Map:
+		type kv struct {
+			k, v string
+		}
+		var keys []kv
+		t.Iter(func(k string, v value.Value) bool {
+			if s, ok := v.(value.String); ok {
+				keys = append(keys, kv{strings.ReplaceAll(k, "_", "-"), string(s)})
+			}
+			return true
+		})
+		sort.Slice(keys, func(i, j int) bool {
+			return keys[i].k < keys[j].k
+		})
+		var res strings.Builder
+		for _, k := range keys {
+			res.WriteString(k.k)
+			res.WriteString(":")
+			res.WriteString(k.v)
+			res.WriteString(";")
+		}
+		return res.String()
+	default:
+		return ""
+	}
+}
+
+func (ex *htmlExporter) writeHtmlString(s string, style value.Value) {
 	if strings.HasPrefix(s, "http://") || strings.HasPrefix(s, "https://") {
 		ex.w.Open("a").Attr("href", s).Attr("target", "_blank")
 		ex.w.Write("Link")
@@ -279,13 +321,13 @@ func (ex *htmlExporter) writeHtmlString(s string, style string) {
 		ex.w.Write("Link")
 		ex.w.Close()
 	} else {
-		if style == "" {
+		if style == nil {
 			ex.w.Write(s)
 		} else {
 			if ex.inlineStyle {
-				ex.w.Open("span").Attr("style", style)
+				ex.w.Open("span").Attr("style", toStyleStr(style))
 			} else {
-				ex.w.Open("span").Attr("class", ex.getClassName(style))
+				ex.w.Open("span").Attr("class", ex.getClassName(toStyleStr(style)))
 			}
 			ex.w.Write(s)
 			ex.w.Close()
@@ -293,87 +335,160 @@ func (ex *htmlExporter) writeHtmlString(s string, style string) {
 	}
 }
 
-func (ex *htmlExporter) listToHtml(st funcGen.Stack[value.Value], it iterator.Iterator[value.Value], style string) error {
-	ex.openWithStyle("table", style)
-	i := 0
-	var innerErr error
-	_, err := it(func(e value.Value) bool {
-		i++
-		ex.w.Open("tr")
-		ex.w.Open("td").Write(strconv.Itoa(i)).Write(".").Close()
-		if i <= ex.maxListSize {
-			err := ex.toTD(st, e)
-			if err != nil {
-				innerErr = err
-				return false
-			}
-		} else {
-			ex.w.Open("td").Write("more...").Close()
-		}
-		ex.w.Close()
-		return i <= ex.maxListSize
-	})
-	if innerErr != nil {
-		return innerErr
-	}
-	ex.w.Close()
-	return err
+type listExporter interface {
+	open(style value.Value)
+	add(value value.Value) (bool, error)
+	close()
 }
 
-func (ex *htmlExporter) openWithStyle(tag string, style string) {
-	if style == "" {
+type dummy struct{}
+
+func (d dummy) open(style value.Value) {
+}
+func (d dummy) add(v value.Value) (bool, error) {
+	return false, nil
+}
+func (d dummy) close() {
+}
+
+func (ex *htmlExporter) createListExporter(st funcGen.Stack[value.Value], v value.Value) listExporter {
+	if v == nil {
+		return dummy{}
+	}
+	if _, ok := v.(*value.List); ok {
+		return &tableExporter{ex: ex, st: st}
+	}
+	return &realListExporter{ex: ex, st: st}
+}
+
+type realListExporter struct {
+	ex *htmlExporter
+	st funcGen.Stack[value.Value]
+	i  int
+}
+
+func (r *realListExporter) open(style value.Value) {
+	r.ex.openWithStyle("table", style)
+}
+
+func (r *realListExporter) add(value value.Value) (bool, error) {
+	r.i++
+	r.ex.w.Open("tr")
+	r.ex.w.Open("td").Write(strconv.Itoa(r.i)).Write(".").Close()
+	if r.i <= r.ex.maxListSize {
+		err := r.ex.toTD(r.st, value)
+		if err != nil {
+			return false, err
+		}
+	} else {
+		r.ex.w.Open("td").Write("more...").Close()
+	}
+	r.ex.w.Close()
+	return r.i <= r.ex.maxListSize, nil
+}
+
+func (r *realListExporter) close() {
+	r.ex.w.Close()
+}
+
+func (ex *htmlExporter) openWithStyle(tag string, style value.Value) {
+	if style == nil {
 		ex.w.Open(tag)
 	} else {
 		if ex.inlineStyle {
-			ex.w.Open(tag).Attr("style", style)
+			ex.w.Open(tag).Attr("style", toStyleStr(style))
 		} else {
-			ex.w.Open(tag).Attr("class", ex.getClassName(style))
+			ex.w.Open(tag).Attr("class", ex.getClassName(toStyleStr(style)))
 		}
 	}
 }
 
-func (ex *htmlExporter) tableToHtml(st funcGen.Stack[value.Value], it iterator.Iterator[value.Value], style string) error {
-	ex.openWithStyle("table", style)
-	i := 0
-	var outerErr error
-	_, err := it(func(v value.Value) bool {
-		i++
-		ex.w.Open("tr")
-		if i <= ex.maxListSize {
-			j := 0
-			var innerErr error
-			_, err := toList(v).Iterator(st)(func(c value.Value) bool {
-				j++
-				if j <= ex.maxListSize {
-					err := ex.toTD(st, c)
-					if err != nil {
-						innerErr = err
-						return false
-					}
-				} else {
-					ex.w.Open("td").Write("more...").Close()
+type tableExporter struct {
+	ex          *htmlExporter
+	st          funcGen.Stack[value.Value]
+	row         int
+	tableFormat value.MapStorage
+}
+
+func (t *tableExporter) open(style value.Value) {
+	t.ex.openWithStyle("table", style)
+	if style != nil {
+		if m, ok := style.ToMap(); ok {
+			if ta, ok := m.Get("table"); ok {
+				if m, ok := ta.ToMap(); ok {
+					t.tableFormat = m.Storage()
 				}
-				return j <= ex.maxListSize
-			})
-			if innerErr != nil {
-				outerErr = innerErr
-				return false
 			}
-			if err != nil {
-				outerErr = err
-				return false
-			}
-		} else {
-			ex.w.Open("td").Write("more...").Close()
 		}
-		ex.w.Close()
-		return i <= ex.maxListSize
-	})
-	if outerErr != nil {
-		return outerErr
 	}
-	ex.w.Close()
-	return err
+}
+
+func (t *tableExporter) add(val value.Value) (bool, error) {
+	t.row++
+	t.ex.w.Open("tr")
+	if t.row <= t.ex.maxListSize {
+		col := 0
+		var innerErr error
+		_, err := toList(val).Iterator(t.st)(func(item value.Value) bool {
+			col++
+			if col <= t.ex.maxListSize {
+				err := t.ex.toTD(t.st, t.format(t.row, col, item))
+				if err != nil {
+					innerErr = err
+					return false
+				}
+			} else {
+				t.ex.w.Open("td").Write("more...").Close()
+			}
+			return col <= t.ex.maxListSize
+		})
+		if innerErr != nil {
+			return false, innerErr
+		}
+		if err != nil {
+			return false, err
+		}
+	} else {
+		t.ex.w.Open("td").Write("more...").Close()
+	}
+	t.ex.w.Close()
+	return t.row <= t.ex.maxListSize, nil
+}
+
+func (t *tableExporter) close() {
+	t.ex.w.Close()
+}
+
+func (t *tableExporter) format(row, col int, item value.Value) value.Value {
+	if t.tableFormat == nil {
+		return item
+	}
+	var format value.Value
+	if v, ok := t.tableFormat.Get("r" + strconv.Itoa(row) + "c" + strconv.Itoa(col)); ok {
+		format = v
+	} else if v, ok := t.tableFormat.Get("r" + strconv.Itoa(row)); ok {
+		format = v
+	} else if v, ok := t.tableFormat.Get("c" + strconv.Itoa(col)); ok {
+		format = v
+	} else if v, ok := t.tableFormat.Get("all"); ok {
+		format = v
+	}
+	if format == nil {
+		return item
+	}
+
+	if cl, ok := format.ToClosure(); ok {
+		if cl.Args == 1 {
+			if res, err := cl.Eval(t.st, item); err == nil {
+				return res
+			}
+		} else if cl.Args == 3 {
+			if res, err := cl.EvalSt(t.st, value.Int(row), value.Int(col), item); err == nil {
+				return res
+			}
+		}
+	}
+	return Format{Value: item, Format: format}
 }
 
 func (ex *htmlExporter) toTD(st funcGen.Stack[value.Value], d value.Value) error {
@@ -385,16 +500,16 @@ func (ex *htmlExporter) toTD(st funcGen.Stack[value.Value], d value.Value) error
 			ex.w.Close()
 		} else {
 			if ex.inlineStyle {
-				ex.w.Open("td").Attr("style", formatted.Format)
+				ex.w.Open("td").Attr("style", toStyleStr(formatted.Format))
 			} else {
-				ex.w.Open("td").Attr("class", ex.getClassName(formatted.Format))
+				ex.w.Open("td").Attr("class", ex.getClassName(toStyleStr(formatted.Format)))
 			}
-			err = ex.toHtml(st, formatted.Value, "")
+			err = ex.toHtml(st, formatted.Value, nil)
 			ex.w.Close()
 		}
 	} else {
 		ex.w.Open("td")
-		err = ex.toHtml(st, d, "")
+		err = ex.toHtml(st, d, nil)
 		ex.w.Close()
 	}
 	return err
