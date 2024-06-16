@@ -109,7 +109,7 @@ func Equal(st funcGen.Stack[value.Value], aVal, bVal value.Value) (bool, error) 
 
 func errOperation(name string,
 	def func(st funcGen.Stack[value.Value], a value.Value, b value.Value) (value.Value, error),
-	f func(a, b ErrValue) (ErrValue, error)) func(st funcGen.Stack[value.Value], a value.Value, b value.Value) (value.Value, error) {
+	f func(a, b ErrValue) (value.Value, error)) func(st funcGen.Stack[value.Value], a value.Value, b value.Value) (value.Value, error) {
 
 	return func(st funcGen.Stack[value.Value], a value.Value, b value.Value) (value.Value, error) {
 		if ae, ok := a.(ErrValue); ok {
@@ -151,22 +151,22 @@ var ErrValueParser = value.New().
 	RegisterMethods(errValType, createErrValueMethods()).
 	SetEqualLess(Equal, value.Less).
 	AddOp("+", false, errOperation("+", value.Add,
-		func(a, b ErrValue) (ErrValue, error) {
+		func(a, b ErrValue) (value.Value, error) {
 			return ErrValue{a.val + b.val, a.err + b.err}, nil
 		}),
 	).
 	AddOp("-", false, errOperation("-", value.Sub,
-		func(a, b ErrValue) (ErrValue, error) {
+		func(a, b ErrValue) (value.Value, error) {
 			return ErrValue{a.val - b.val, a.err + b.err}, nil
 		}),
 	).
 	AddOp("*", true, errOperation("*", value.Mul,
-		func(a, b ErrValue) (ErrValue, error) {
+		func(a, b ErrValue) (value.Value, error) {
 			return ErrValue{a.val * b.val, math.Abs(a.val*b.err) + math.Abs(b.val*a.err) + b.err*a.err}, nil
 		}),
 	).
 	AddOp("/", true, errOperation("/", value.Div,
-		func(a, b ErrValue) (ErrValue, error) {
+		func(a, b ErrValue) (value.Value, error) {
 			val := a.val / b.val
 			return ErrValue{val, (math.Abs(a.val)+a.err)/(math.Abs(b.val)-b.err) - math.Abs(val)}, nil
 		}),
@@ -183,4 +183,16 @@ var ErrValueParser = value.New().
 		Func:   toErr,
 		Args:   1,
 		IsPure: true,
-	}.SetDescription("float", "Creates an error value with the given float as the error. The value is set to 0."))
+	}.SetDescription("float", "Creates an error value with the given float as the error. The value is set to 0.")).
+	AddFinalizer(func(f *funcGen.FunctionGenerator[value.Value]) {
+		f.AddOpBehind(">", ">>>", false, errOperation(">>>", f.GetOpImpl(">"),
+			func(a, b ErrValue) (value.Value, error) {
+				return value.Bool(a.GetMin() > b.GetMax()), nil
+			}), true,
+		)
+		f.AddOpBehind("<", "<<<", false, errOperation("<<<", f.GetOpImpl("<"),
+			func(a, b ErrValue) (value.Value, error) {
+				return value.Bool(a.GetMax() < b.GetMin()), nil
+			}), true,
+		)
+	})

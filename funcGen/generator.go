@@ -409,24 +409,48 @@ func (g *FunctionGenerator[V]) AddOp(operator string, isCommutative bool, impl f
 // The operation with the lowest priority needs to be added first.
 // The operation with the highest priority needs to be added last.
 func (g *FunctionGenerator[V]) AddOpPure(operator string, isCommutative bool, impl func(st Stack[V], a V, b V) (V, error), isPure bool) *FunctionGenerator[V] {
+	return g.AddOpBehind("", operator, isCommutative, impl, isPure)
+}
+
+// AddOpBehind adds an operation to the generator.
+// Adds the new operator right behind given old operator in the priority list.
+// If the old operator an empty string, the new operator is added at the end
+// or, if the new operator already exists, the existing operator is replaced.
+func (g *FunctionGenerator[V]) AddOpBehind(oldOperator, newOperator string, isCommutative bool, impl func(st Stack[V], a V, b V) (V, error), isPure bool) *FunctionGenerator[V] {
 	if g.parser != nil {
 		panic("parser already created")
 	}
 
 	opItem := Operator[V]{
-		Operator:      operator,
+		Operator:      newOperator,
 		Impl:          impl,
 		IsPure:        isPure,
 		IsCommutative: isCommutative,
 	}
 
-	for i, op := range g.operators {
-		if op.Operator == operator {
-			g.operators[i] = opItem
-			return g
+	if oldOperator == "" {
+		for i, op := range g.operators {
+			if op.Operator == newOperator {
+				g.operators[i] = opItem
+				return g
+			}
 		}
+		g.operators = append(g.operators, opItem)
+	} else {
+		found := -1
+		for i, op := range g.operators {
+			if op.Operator == newOperator {
+				panic("operator already defined")
+			}
+			if op.Operator == oldOperator {
+				found = i
+			}
+		}
+		if found < 0 {
+			panic("operator not found")
+		}
+		g.operators = append(g.operators[:found+1], append([]Operator[V]{opItem}, g.operators[found+1:]...)...)
 	}
-	g.operators = append(g.operators, opItem)
 	return g
 }
 

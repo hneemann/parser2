@@ -53,6 +53,20 @@ func TestErrValue(t *testing.T) {
 		{exp: "[(1+-2)]=[(4+-2)]", res: value.Bool(true)},
 		{exp: "{a:(1+-2)}={a:(6+-2)}", res: value.Bool(false)},
 		{exp: "{a:(1+-2)}={a:(4+-2)}", res: value.Bool(true)},
+
+		{exp: "(1+-2)<(4+-2)", res: value.Bool(true)},
+		{exp: "(1+-2)<<<(4+-2)", res: value.Bool(false)},
+		{exp: "(1+-2)<<<(6+-2)", res: value.Bool(true)},
+		{exp: "(4+-2)>(1+-2)", res: value.Bool(true)},
+		{exp: "(4+-2)>>>(1+-2)", res: value.Bool(false)},
+		{exp: "(6+-2)>>>(1+-2)", res: value.Bool(true)},
+
+		{exp: "(1+-2)<4", res: value.Bool(true)},
+		{exp: "(1+-2)<<<4", res: value.Bool(true)},
+		{exp: "(1+-2)<<<2", res: value.Bool(false)},
+		{exp: "4>(1+-2)", res: value.Bool(true)},
+		{exp: "4>>>(1+-2)", res: value.Bool(true)},
+		{exp: "2>>>(1+-2)", res: value.Bool(false)},
 	}
 
 	for _, test := range tests {
