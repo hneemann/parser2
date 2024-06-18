@@ -367,20 +367,20 @@ func (ex *htmlExporter) createListExporter(st funcGen.Stack[value.Value], v valu
 	if _, ok := v.(*value.List); ok {
 		return &tableExporter{ex: ex, st: st}
 	}
-	return &realListExporter{ex: ex, st: st}
+	return &simpleListExporter{ex: ex, st: st}
 }
 
-type realListExporter struct {
+type simpleListExporter struct {
 	ex *htmlExporter
 	st funcGen.Stack[value.Value]
 	i  int
 }
 
-func (r *realListExporter) open(style value.Value) {
+func (r *simpleListExporter) open(style value.Value) {
 	r.ex.openWithStyle("table", style)
 }
 
-func (r *realListExporter) add(value value.Value) (bool, error) {
+func (r *simpleListExporter) add(value value.Value) (bool, error) {
 	r.i++
 	r.ex.w.Open("tr")
 	r.ex.w.Open("td").Write(strconv.Itoa(r.i)).Write(".").Close()
@@ -396,7 +396,7 @@ func (r *realListExporter) add(value value.Value) (bool, error) {
 	return r.i <= r.ex.maxListSize, nil
 }
 
-func (r *realListExporter) close() {
+func (r *simpleListExporter) close() {
 	r.ex.w.Close()
 }
 
