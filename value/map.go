@@ -229,15 +229,21 @@ func (v Map) ReplaceMap(st funcGen.Stack[Value]) (Value, error) {
 }
 
 func (v Map) List() *List {
-	return NewListFromIterable(func(funcGen.Stack[Value]) iterator.Iterator[Value] {
-		return func(yield func(Value) bool) (bool, error) {
-			v.m.Iter(func(key string, v Value) bool {
-				return yield(NewMap(listMap.New[Value](2).
-					Append("key", String(key)).
-					Append("value", v)))
-			})
-			return true, nil
+	return NewListFromIterable(func(st funcGen.Stack[Value], yield iterator.Consumer[Value]) error {
+		var err error
+		v.m.Iter(func(key string, v Value) bool {
+			err = yield(NewMap(listMap.New[Value](2).
+				Append("key", String(key)).
+				Append("value", v)))
+			if err != nil {
+				return false
+			}
+			return true
+		})
+		if err != nil && err != iterator.SBC {
+			return err
 		}
+		return nil
 	})
 }
 

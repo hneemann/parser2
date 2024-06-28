@@ -44,18 +44,9 @@ func Export[V any](st funcGen.Stack[value.Value], val value.Value, exporter Expo
 		if err != nil {
 			return err
 		}
-		var innerErr error
-		_, err = v.Iterator(st)(func(e value.Value) bool {
-			err := le.Add(e)
-			if err != nil {
-				innerErr = err
-				return false
-			}
-			return true
+		err = v.Iterator()(st, func(e value.Value) error {
+			return le.Add(e)
 		})
-		if innerErr != nil {
-			return innerErr
-		}
 		if err != nil {
 			return err
 		}

@@ -43,11 +43,11 @@ func TestErrors(t *testing.T) {
 		{"list(10).multiUse({a:(a,b)->a*b})", "one argument"},
 		{"list(10).multiUse({a:a->a.map(a->a.a)})", "not a map"},
 		{"list(10).multiUse({a:l->l.reduce((a,b)->a.e+b), b:l->l.reduce((a,b)->a+b)})", "not a map"},
-		{"list(10).multiUse({a:l->1, b:l->l->2})", "affected function(s): a, b"},
-		{"list(10).multiUse({a:l->l.reduce((a,b)->a+b)+l.reduce((a,b)->a*b)})", "function a can only be used once"},
+		{"list(10).multiUse({a:l->1, b:l->l->2})", "timeout"},
+		{"list(10).multiUse({a:l->l.reduce((a,b)->a+b)+l.reduce((a,b)->a*b)})", "copied iterator a can only be used once"},
 		{"list(10).map(e->e.e).multiUse({a:l->l.reduce((a,b)->a+b)})", "not a map"},
 		{"list(10).multiUse({a:l->l.mapReduce(0,(s,i)->s+i), b:l->l.notFound(i->i+1)})", "notFound"},
-		{"list(1e9).multiUse({a:l->l.mapReduce(0,(s,i)->s+error(i)), b:l->l.mapReduce((s,i)->s+i)})", "toLarge"},
+		{"list(1e9).multiUse({a:l->l.mapReduce(0,(s,i)->s+error(i)), b:l->l.mapReduce((s,i)->s+i)})", "wrong number of arguments"},
 		{"list(10).multiUse({a:l->l.notFound(0,(s,i)->s+i), b:l->l.notFound(i->i+1)})", "notFound"},
 		{"{a:1,b:2}.put(\"b\", 3)", "key 'b' already present in map"},
 		{"{a:1,b:2}+{b:3,c:4}", "first map already contains key 'b'"},
@@ -73,11 +73,12 @@ func TestErrors(t *testing.T) {
 		test := tt
 		t.Run(test.exp, func(t *testing.T) {
 			f, err := fg.Generate(test.exp)
+			var r Value
 			if err == nil {
-				_, err = f(funcGen.NewEmptyStack[Value]())
+				r, err = f(funcGen.NewEmptyStack[Value]())
 			}
 			if err == nil {
-				t.Errorf("expected an error containing '%v'", test.err)
+				t.Errorf("expected an error containing '%v', result was: %v", test.err, r)
 			} else {
 				assert.True(t, strings.Contains(err.Error(), test.err), "expected error containing '%v', got: %v", test.err, err.Error())
 			}

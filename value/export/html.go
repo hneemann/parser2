@@ -202,34 +202,29 @@ func (ex *htmlExporter) toHtml(st funcGen.Stack[value.Value], v, style value.Val
 		return err
 	case *value.List:
 		if hasKey(style, "plainList") {
-			var err error
-			_, e := t.Iterator(st)(func(v value.Value) bool {
-				err = ex.toHtml(st, v, nil)
-				return err == nil
+			return t.Iterator()(st, func(v value.Value) error {
+				return ex.toHtml(st, v, nil)
 			})
-			if err != nil {
-				return err
-			}
-			return e
 		} else {
 			var le listExporter
-			var e1 error
-			_, e2 := t.Iterator(st)(func(v value.Value) bool {
+			err := t.Iterator()(st, func(v value.Value) error {
 				if le == nil {
 					le = ex.createListExporter(st, v)
 					le.open(style)
 				}
-				var ok bool
-				ok, e1 = le.add(v)
-				return ok && e1 == nil
+				ok, err := le.add(v)
+				if !ok {
+					return iterator.SBC
+				}
+				return err
 			})
 			if le != nil {
 				le.close()
 			}
-			if e2 != nil {
-				return e2
+			if err == iterator.SBC {
+				return nil
 			}
-			return e1
+			return err
 		}
 	case value.Map:
 		ex.openWithStyle("table", style)
@@ -437,24 +432,23 @@ func (t *tableExporter) add(val value.Value) (bool, error) {
 	t.ex.w.Open("tr")
 	if t.row <= t.ex.maxListSize {
 		col := 0
-		var innerErr error
-		_, err := toList(val).Iterator(t.st)(func(item value.Value) bool {
+		err := toList(val).Iterator()(t.st, func(item value.Value) error {
 			col++
 			if col <= t.ex.maxListSize {
 				err := t.ex.toTD(t.st, t.format(t.row, col, item))
 				if err != nil {
-					innerErr = err
-					return false
+					return err
 				}
 			} else {
 				t.ex.w.Open("td").Write("more...").Close()
 			}
-			return col <= t.ex.maxListSize
+			if col <= t.ex.maxListSize {
+				return nil
+			} else {
+				return iterator.SBC
+			}
 		})
-		if innerErr != nil {
-			return false, innerErr
-		}
-		if err != nil {
+		if err != nil && err != iterator.SBC {
 			return false, err
 		}
 	} else {

@@ -30,7 +30,7 @@ func CLP(name, getT, getX, tau)
 data.iirApply(CLP("f",p->p.t,p->p.s,1/(2*pi)))
 `
 
-func getIterable(bench string) iterator.Iterator[Value] {
+func getIterable(bench string) iterator.Producer[Value, funcGen.Stack[Value]] {
 	valueParser := New()
 	f, err := valueParser.Generate(bench)
 	if err != nil {
@@ -45,7 +45,7 @@ func getIterable(bench string) iterator.Iterator[Value] {
 	if !ok {
 		panic("not a list")
 	}
-	return list.Iterator(st)
+	return list.Iterator()
 }
 
 var list1 = getIterable(bench1)
@@ -54,16 +54,16 @@ var list2 = getIterable(bench2)
 
 func Benchmark_filter1(b *testing.B) {
 	for i := 0; i < b.N; i++ {
-		list1(func(v Value) bool {
-			return true
+		list1(funcGen.NewEmptyStack[Value](), func(v Value) error {
+			return nil
 		})
 	}
 }
 
 func Benchmark_filter2(b *testing.B) {
 	for i := 0; i < b.N; i++ {
-		list2(func(v Value) bool {
-			return true
+		list2(funcGen.NewEmptyStack[Value](), func(v Value) error {
+			return nil
 		})
 	}
 }

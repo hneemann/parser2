@@ -14,30 +14,26 @@ import (
 // NewListConvert creates a list containing the given elements if the elements
 // do not implement the Value interface. The given function converts the type.
 func NewListConvert[I any](conv func(I) Value, items []I) *List {
-	return NewListFromIterable(func(st funcGen.Stack[Value]) iterator.Iterator[Value] {
-		return func(yield func(Value) bool) (bool, error) {
-			for _, item := range items {
-				if !yield(conv(item)) {
-					return false, nil
-				}
+	return NewListFromIterable(func(s funcGen.Stack[Value], yield iterator.Consumer[Value]) error {
+		for _, item := range items {
+			if e := yield(conv(item)); e != nil {
+				return e
 			}
-			return true, nil
 		}
+		return nil
 	})
 }
 
 // NewListOfMaps creates a list containing the given elements converted to a map using
 // the given ToMapInterface.
 func NewListOfMaps[I any](toMap ToMapInterface[I], items []I) *List {
-	return NewListFromIterable(func(st funcGen.Stack[Value]) iterator.Iterator[Value] {
-		return func(yield func(Value) bool) (bool, error) {
-			for _, item := range items {
-				if !yield(toMap.Create(item)) {
-					return false, nil
-				}
+	return NewListFromIterable(func(s funcGen.Stack[Value], yield iterator.Consumer[Value]) error {
+		for _, item := range items {
+			if e := yield(toMap.Create(item)); e != nil {
+				return e
 			}
-			return true, nil
 		}
+		return nil
 	})
 }
 
@@ -46,21 +42,19 @@ func NewList(items ...Value) *List {
 	return &List{items: items, itemsPresent: true, iterable: createSliceIterable(items)}
 }
 
-func createSliceIterable(items []Value) iterator.Iterable[Value, funcGen.Stack[Value]] {
-	return func(st funcGen.Stack[Value]) iterator.Iterator[Value] {
-		return func(yield func(Value) bool) (bool, error) {
-			for _, item := range items {
-				if !yield(item) {
-					return false, nil
-				}
+func createSliceIterable(items []Value) iterator.Producer[Value, funcGen.Stack[Value]] {
+	return func(s funcGen.Stack[Value], yield iterator.Consumer[Value]) error {
+		for _, item := range items {
+			if e := yield(item); e != nil {
+				return e
 			}
-			return true, nil
 		}
+		return nil
 	}
 }
 
 // NewListFromIterable creates a list based on the given Iterable
-func NewListFromIterable(li iterator.Iterable[Value, funcGen.Stack[Value]]) *List {
+func NewListFromIterable(li iterator.Producer[Value, funcGen.Stack[Value]]) *List {
 	return &List{iterable: li, itemsPresent: false}
 }
 
@@ -68,7 +62,7 @@ func NewListFromIterable(li iterator.Iterable[Value, funcGen.Stack[Value]]) *Lis
 type List struct {
 	items        []Value
 	itemsPresent bool
-	iterable     iterator.Iterable[Value, funcGen.Stack[Value]]
+	iterable     iterator.Producer[Value, funcGen.Stack[Value]]
 }
 
 func (l *List) ToMap() (Map, bool) {
@@ -87,8 +81,7 @@ func (l *List) ToString(st funcGen.Stack[Value]) (string, error) {
 	var b bytes.Buffer
 	b.WriteString("[")
 	first := true
-	var innerErr error
-	_, err := l.iterable(st)(func(v Value) bool {
+	err := l.iterable(st, func(v Value) error {
 		if first {
 			first = false
 		} else {
@@ -96,15 +89,11 @@ func (l *List) ToString(st funcGen.Stack[Value]) (string, error) {
 		}
 		s, err := v.ToString(st)
 		if err != nil {
-			innerErr = err
-			return false
+			return err
 		}
 		b.WriteString(s)
-		return true
+		return nil
 	})
-	if innerErr != nil {
-		return "", innerErr
-	}
 	if err != nil {
 		return "", err
 	}
@@ -117,12 +106,11 @@ func (l *List) String() string {
 	b.WriteString("[")
 	first := true
 	count := 10
-	var innerErr error
 	st := funcGen.NewEmptyStack[Value]()
-	ok, err := l.iterable(st)(
-		func(v Value) bool {
+	err := l.iterable(st,
+		func(v Value) error {
 			if count == 0 {
-				return false
+				return iterator.SBC
 			}
 
 			if first {
@@ -132,23 +120,20 @@ func (l *List) String() string {
 			}
 			s, err := v.ToString(st)
 			if err != nil {
-				innerErr = err
-				return false
+				return err
 			}
 			b.WriteString(s)
 			count--
-			return true
+			return nil
 		})
-	if innerErr != nil {
-		err = innerErr
-	}
 	if err != nil {
-		return fmt.Sprintf("error in list: %v", err)
-	}
-	if ok {
-		b.WriteString("]")
+		if err == iterator.SBC {
+			b.WriteString(", ...]")
+		} else {
+			return fmt.Sprintf("error in list: %v", err)
+		}
 	} else {
-		b.WriteString(", ...]")
+		b.WriteString("]")
 	}
 	return b.String()
 }
@@ -168,9 +153,9 @@ func (l *List) ToList() (*List, bool) {
 func (l *List) Eval(st funcGen.Stack[Value]) error {
 	if !l.itemsPresent {
 		var it []Value
-		_, err := l.iterable(st)(func(value Value) bool {
+		err := l.iterable(st, func(value Value) error {
 			it = append(it, value)
-			return true
+			return nil
 		})
 		if err != nil {
 			return err
@@ -235,8 +220,8 @@ func (l *List) Equals(st funcGen.Stack[Value], other *List, equal funcGen.BoolFu
 	return true, nil
 }
 
-func (l *List) Iterator(st funcGen.Stack[Value]) iterator.Iterator[Value] {
-	return l.iterable(st)
+func (l *List) Iterator() iterator.Producer[Value, funcGen.Stack[Value]] {
+	return l.iterable
 }
 
 // ToSlice returns the list elements as a slice
@@ -345,42 +330,35 @@ func (l *List) Compact(sta funcGen.Stack[Value]) (*List, error) {
 	if err != nil {
 		return nil, err
 	}
-	return NewListFromIterable(func(st funcGen.Stack[Value]) iterator.Iterator[Value] {
-		return func(yield func(Value) bool) (bool, error) {
-			var last Value
-			var outerErr error
-			_, err := l.iterable(st)(func(v Value) bool {
-				if last == nil {
-					last = v
-					return true
-				}
-				st.Push(last)
-				st.Push(v)
-				val, err := f.Func(st.CreateFrame(2), nil)
-				if err != nil {
-					outerErr = err
-					return false
-				}
-				if val == NIL {
-					la := last
-					last = v
-					return yield(la)
-				} else {
-					last = val
-					return true
-				}
-			})
-			if outerErr != nil {
-				return false, outerErr
-			}
-			if err != nil {
-				return false, err
-			}
+	return NewListFromIterable(func(st funcGen.Stack[Value], yield iterator.Consumer[Value]) error {
+		var last Value
+		err := l.iterable(st, func(v Value) error {
 			if last == nil {
-				return true, nil
-			} else {
-				return yield(last), nil
+				last = v
+				return nil
 			}
+			st.Push(last)
+			st.Push(v)
+			val, err := f.Func(st.CreateFrame(2), nil)
+			if err != nil {
+				return err
+			}
+			if val == NIL {
+				la := last
+				last = v
+				return yield(la)
+			} else {
+				last = val
+				return nil
+			}
+		})
+		if err != nil {
+			return err
+		}
+		if last == nil {
+			return nil
+		} else {
+			return yield(last)
 		}
 	}), nil
 }
@@ -437,12 +415,12 @@ func (l *List) First(st funcGen.Stack[Value]) (Value, error) {
 	} else {
 		var first Value
 		found := false
-		_, err := l.iterable(st)(func(value Value) bool {
+		err := l.iterable(st, func(value Value) error {
 			first = value
 			found = true
-			return false
+			return iterator.SBC
 		})
-		if err != nil {
+		if err != nil && err != iterator.SBC {
 			return nil, err
 		}
 		if found {
@@ -460,10 +438,10 @@ func (l *List) Last(st funcGen.Stack[Value]) (Value, error) {
 	} else {
 		var last Value
 		found := false
-		_, err := l.iterable(st)(func(value Value) bool {
+		err := l.iterable(st, func(value Value) error {
 			last = value
 			found = true
-			return true
+			return nil
 		})
 		if err != nil {
 			return nil, err
@@ -482,30 +460,24 @@ func (l *List) IndexWhere(st funcGen.Stack[Value]) (Int, error) {
 	}
 	index := -1
 	i := 0
-	var innerErr error
-	_, err = l.iterable(st)(func(value Value) bool {
+	err = l.iterable(st, func(value Value) error {
 		st.Push(value)
 		found, err := f.Func(st.CreateFrame(1), nil)
 		if err != nil {
-			innerErr = err
-			return false
+			return err
 		}
 		if f, ok := found.ToBool(); ok {
 			if f {
 				index = i
-				return false
+				return iterator.SBC
 			}
 		} else {
-			innerErr = errors.New("function in indexOf needs to return a bool")
-			return false
+			return errors.New("function in indexOf needs to return a bool")
 		}
 		i++
-		return true
+		return nil
 	})
-	if innerErr != nil {
-		return 0, innerErr
-	}
-	if err != nil {
+	if err != nil && err != iterator.SBC {
 		return 0, err
 	}
 	return Int(index), nil
@@ -757,20 +729,15 @@ func (l *List) Visit(st funcGen.Stack[Value]) (Value, error) {
 	if err != nil {
 		return nil, err
 	}
-	var innerErr error
-	_, err = l.iterable(st)(func(value Value) bool {
+	err = l.iterable(st, func(value Value) error {
 		st.Push(visitor)
 		st.Push(value)
 		visitor, err = function.Func(st.CreateFrame(2), nil)
 		if err != nil {
-			innerErr = err
-			return false
+			return err
 		}
-		return true
+		return nil
 	})
-	if innerErr != nil {
-		return nil, innerErr
-	}
 	return visitor, err
 }
 
@@ -802,29 +769,26 @@ func (l *List) Present(st funcGen.Stack[Value]) (Value, error) {
 		return nil, err
 	}
 	isPresent := false
-	var innerErr error
-	_, err = l.iterable(st)(func(value Value) bool {
+	err = l.iterable(st, func(value Value) error {
 		st.Push(value)
 		v, err2 := function.Func(st.CreateFrame(1), nil)
 		if err2 != nil {
-			innerErr = err2
-			return false
+			return err2
 		}
 		if pr, ok := v.ToBool(); ok {
 			if pr {
 				isPresent = true
-				return false
+				return iterator.SBC
 			}
 		} else {
-			innerErr = errors.New("function in present needs to return a bool")
-			return false
+			return errors.New("function in present needs to return a bool")
 		}
-		return true
+		return nil
 	})
-	if innerErr != nil {
-		return nil, innerErr
+	if err != nil && err != iterator.SBC {
+		return nil, err
 	}
-	return Bool(isPresent), err
+	return Bool(isPresent), nil
 }
 
 func (l *List) Top(st funcGen.Stack[Value]) (*List, error) {
@@ -855,23 +819,18 @@ func (l *List) Reduce(st funcGen.Stack[Value]) (Value, error) {
 
 func (l *List) Sum(st funcGen.Stack[Value], add func(st funcGen.Stack[Value], a Value, b Value) (Value, error)) (Value, error) {
 	var sum Value
-	var innerErr error
-	_, err := l.Iterator(st)(func(value Value) bool {
+	err := l.iterable(st, func(value Value) error {
 		if sum == nil {
 			sum = value
 		} else {
 			var err error
 			sum, err = add(st, sum, value)
 			if err != nil {
-				innerErr = err
-				return false
+				return err
 			}
 		}
-		return true
+		return nil
 	})
-	if innerErr != nil {
-		return nil, innerErr
-	}
 	if err != nil {
 		return nil, err
 	}
@@ -901,13 +860,11 @@ func (l *List) MinMax(st funcGen.Stack[Value], less funcGen.BoolFunc[Value]) (Va
 	var minItem Value = NIL
 	var maxVal Value = Int(0)
 	var maxItem Value = NIL
-	var innerErr error
-	_, err = l.Iterator(st)(func(value Value) bool {
+	err = l.iterable(st, func(value Value) error {
 		st.Push(value)
 		r, err := f.Func(st.CreateFrame(1), nil)
 		if err != nil {
-			innerErr = err
-			return false
+			return err
 		}
 		if first {
 			first = false
@@ -918,8 +875,7 @@ func (l *List) MinMax(st funcGen.Stack[Value], less funcGen.BoolFunc[Value]) (Va
 		} else {
 			le, err := less(st, r, minVal)
 			if err != nil {
-				innerErr = err
-				return false
+				return err
 			}
 			if le {
 				minVal = r
@@ -927,19 +883,15 @@ func (l *List) MinMax(st funcGen.Stack[Value], less funcGen.BoolFunc[Value]) (Va
 			}
 			gr, err := less(st, maxVal, r)
 			if err != nil {
-				innerErr = err
-				return false
+				return err
 			}
 			if gr {
 				maxVal = r
 				maxItem = value
 			}
 		}
-		return true
+		return nil
 	})
-	if innerErr != nil {
-		return nil, innerErr
-	}
 	if err != nil {
 		return nil, err
 	}
@@ -954,8 +906,7 @@ func (l *List) MinMax(st funcGen.Stack[Value], less funcGen.BoolFunc[Value]) (Va
 func (l *List) Mean(st funcGen.Stack[Value], add, div func(st funcGen.Stack[Value], a Value, b Value) (Value, error)) (Value, error) {
 	var sum Value
 	n := 0
-	var innerErr error
-	_, err := l.Iterator(st)(func(value Value) bool {
+	err := l.iterable(st, func(value Value) error {
 		if sum == nil {
 			sum = value
 			n = 1
@@ -963,16 +914,12 @@ func (l *List) Mean(st funcGen.Stack[Value], add, div func(st funcGen.Stack[Valu
 			var err error
 			sum, err = add(st, sum, value)
 			if err != nil {
-				innerErr = err
-				return false
+				return err
 			}
 			n++
 		}
-		return true
+		return nil
 	})
-	if innerErr != nil {
-		return nil, innerErr
-	}
 	if err != nil {
 		return nil, err
 	}
@@ -997,29 +944,18 @@ func (l *List) Number(sta funcGen.Stack[Value]) (*List, error) {
 	if err != nil {
 		return nil, err
 	}
-	return NewListFromIterable(func(st funcGen.Stack[Value]) iterator.Iterator[Value] {
-		return func(yield func(Value) bool) (bool, error) {
-			n := Int(0)
-			var innerErr error
-			_, err := l.iterable(st)(func(value Value) bool {
-				st.Push(n)
-				st.Push(value)
-				n++
-				v, err2 := f.Func(st.CreateFrame(2), nil)
-				if err2 != nil {
-					innerErr = err2
-					return false
-				}
-				return yield(v)
-			})
-			if innerErr != nil {
-				return false, innerErr
+	return NewListFromIterable(func(st funcGen.Stack[Value], yield iterator.Consumer[Value]) error {
+		n := Int(0)
+		return l.iterable(st, func(value Value) error {
+			st.Push(n)
+			st.Push(value)
+			n++
+			v, err2 := f.Func(st.CreateFrame(2), nil)
+			if err2 != nil {
+				return err2
 			}
-			if err != nil {
-				return false, err
-			}
-			return true, nil
-		}
+			return yield(v)
+		})
 	}), nil
 }
 
@@ -1036,31 +972,25 @@ func (l *List) GroupByEqual(st funcGen.Stack[Value], equal funcGen.BoolFunc[Valu
 
 	var items []item
 
-	var innerErr error
-	_, err = l.iterable(st)(func(value Value) bool {
+	err = l.iterable(st, func(value Value) error {
 		key, err := keyFunc.Eval(st, value)
 		if err != nil {
-			innerErr = err
-			return false
+			return err
 		}
 
 		for ind, item := range items {
 			if eq, err := equal(st, item.key, key); err != nil {
-				innerErr = err
-				return false
+				return err
 			} else {
 				if eq {
 					items[ind].values = append(items[ind].values, value)
-					return true
+					return nil
 				}
 			}
 		}
 		items = append(items, item{key: key, values: []Value{value}})
-		return true
+		return nil
 	})
-	if innerErr != nil {
-		return nil, innerErr
-	}
 	if err != nil {
 		return nil, err
 	}
@@ -1111,12 +1041,10 @@ func (l *List) GroupByInt(st funcGen.Stack[Value]) (*List, error) {
 
 func groupBy(st funcGen.Stack[Value], list *List, keyFunc func(Value) (Value, error)) (*List, error) {
 	m := make(map[Value]*[]Value)
-	var innerErr error
-	_, err := list.iterable(st)(func(value Value) bool {
+	err := list.iterable(st, func(value Value) error {
 		key, err := keyFunc(value)
 		if err != nil {
-			innerErr = err
-			return false
+			return err
 		}
 		if l, ok := m[key]; ok {
 			*l = append(*l, value)
@@ -1124,11 +1052,8 @@ func groupBy(st funcGen.Stack[Value], list *List, keyFunc func(Value) (Value, er
 			ll := []Value{value}
 			m[key] = &ll
 		}
-		return true
+		return nil
 	})
-	if innerErr != nil {
-		return nil, innerErr
-	}
 	if err != nil {
 		return nil, err
 	}
@@ -1178,19 +1103,14 @@ func (l *List) UniqueInt(st funcGen.Stack[Value]) (*List, error) {
 
 func unique(st funcGen.Stack[Value], list *List, keyFunc func(Value) (Value, error)) (*List, error) {
 	m := make(map[Value]struct{})
-	var innerErr error
-	_, err := list.iterable(st)(func(value Value) bool {
+	err := list.iterable(st, func(value Value) error {
 		key, err := keyFunc(value)
 		if err != nil {
-			innerErr = err
-			return false
+			return err
 		}
 		m[key] = struct{}{}
-		return true
+		return nil
 	})
-	if innerErr != nil {
-		return nil, innerErr
-	}
 	if err != nil {
 		return nil, err
 	}
@@ -1275,25 +1195,19 @@ func (l *List) MovingWindowRemove(st funcGen.Stack[Value]) (*List, error) {
 
 func (l *List) containsItem(st funcGen.Stack[Value], item Value, equal funcGen.BoolFunc[Value]) (bool, error) {
 	found := false
-	var innerErr error
-	_, err := l.iterable(st)(func(value Value) bool {
+	err := l.iterable(st, func(value Value) error {
 		eq, err := equal(st, item, value)
 		if err != nil {
-			innerErr = err
-			return false
+			return err
 		}
 		if eq {
 			found = true
-			return false
+			return iterator.SBC
 		}
-		return true
+		return nil
 	})
-	if innerErr != nil {
-		return false, innerErr
-	}
-	if err != nil {
+	if err != nil && err != iterator.SBC {
 		return false, err
-
 	}
 	return found, nil
 }
@@ -1308,25 +1222,23 @@ func (l *List) containsAllItems(st funcGen.Stack[Value], lookForList *List, equa
 		return false, nil
 	}
 
-	var innerErr error
-	_, err = l.iterable(st)(func(value Value) bool {
+	err = l.iterable(st, func(value Value) error {
 		for i, lf := range lookFor {
 			eq, err2 := equal(st, lf, value)
 			if err2 != nil {
-				innerErr = err2
-				return false
+				return err2
 			}
 			if eq {
 				lookFor = append(lookFor[0:i], lookFor[i+1:]...)
 				break
 			}
 		}
-		return len(lookFor) > 0
+		if len(lookFor) == 0 {
+			return iterator.SBC
+		}
+		return nil
 	})
-	if innerErr != nil {
-		return false, innerErr
-	}
-	if err != nil {
+	if err != nil && err != iterator.SBC {
 		return false, err
 	}
 	return len(lookFor) == 0, nil
@@ -1377,29 +1289,22 @@ func (l *List) CreateInterpolation(st funcGen.Stack[Value]) (Value, error) {
 	}
 
 	var points []point
-	var innerErr error
-	_, err = l.Iterator(st)(func(v Value) bool {
+	err = l.iterable(st, func(v Value) error {
 		x, err := MustFloat(getXFunc.Eval(st, v))
 		if err != nil {
-			innerErr = err
-			return false
+			return err
 		}
 		if len(points) > 0 && x <= points[len(points)-1].x {
-			innerErr = errors.New("x values in interpolation need to be increasing")
-			return false
+			return errors.New("x values in interpolation need to be increasing")
 		}
 
 		y, err := MustFloat(getYFunc.Eval(st, v))
 		if err != nil {
-			innerErr = err
-			return false
+			return err
 		}
 		points = append(points, point{x: x, y: y})
-		return true
+		return nil
 	})
-	if innerErr != nil {
-		return nil, innerErr
-	}
 	if err != nil {
 		return nil, err
 	}
