@@ -220,8 +220,8 @@ func (l *List) Equals(st funcGen.Stack[Value], other *List, equal funcGen.BoolFu
 	return true, nil
 }
 
-func (l *List) Iterator() iterator.Producer[Value, funcGen.Stack[Value]] {
-	return l.iterable
+func (l *List) Iterate(st funcGen.Stack[Value], consumer iterator.Consumer[Value]) error {
+	return l.iterable(st, consumer)
 }
 
 // ToSlice returns the list elements as a slice

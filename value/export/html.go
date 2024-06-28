@@ -202,12 +202,12 @@ func (ex *htmlExporter) toHtml(st funcGen.Stack[value.Value], v, style value.Val
 		return err
 	case *value.List:
 		if hasKey(style, "plainList") {
-			return t.Iterator()(st, func(v value.Value) error {
+			return t.Iterate(st, func(v value.Value) error {
 				return ex.toHtml(st, v, nil)
 			})
 		} else {
 			var le listExporter
-			err := t.Iterator()(st, func(v value.Value) error {
+			err := t.Iterate(st, func(v value.Value) error {
 				if le == nil {
 					le = ex.createListExporter(st, v)
 					le.open(style)
@@ -432,7 +432,7 @@ func (t *tableExporter) add(val value.Value) (bool, error) {
 	t.ex.w.Open("tr")
 	if t.row <= t.ex.maxListSize {
 		col := 0
-		err := toList(val).Iterator()(t.st, func(item value.Value) error {
+		err := toList(val).Iterate(t.st, func(item value.Value) error {
 			col++
 			if col <= t.ex.maxListSize {
 				err := t.ex.toTD(t.st, t.format(t.row, col, item))

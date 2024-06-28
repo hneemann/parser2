@@ -1,7 +1,6 @@
 package value
 
 import (
-	"github.com/hneemann/iterator"
 	"github.com/hneemann/parser2/funcGen"
 	"testing"
 )
@@ -30,7 +29,7 @@ func CLP(name, getT, getX, tau)
 data.iirApply(CLP("f",p->p.t,p->p.s,1/(2*pi)))
 `
 
-func getIterable(bench string) iterator.Producer[Value, funcGen.Stack[Value]] {
+func getList(bench string) *List {
 	valueParser := New()
 	f, err := valueParser.Generate(bench)
 	if err != nil {
@@ -45,16 +44,16 @@ func getIterable(bench string) iterator.Producer[Value, funcGen.Stack[Value]] {
 	if !ok {
 		panic("not a list")
 	}
-	return list.Iterator()
+	return list
 }
 
-var list1 = getIterable(bench1)
+var list1 = getList(bench1)
 
-var list2 = getIterable(bench2)
+var list2 = getList(bench2)
 
 func Benchmark_filter1(b *testing.B) {
 	for i := 0; i < b.N; i++ {
-		list1(funcGen.NewEmptyStack[Value](), func(v Value) error {
+		list1.Iterate(funcGen.NewEmptyStack[Value](), func(v Value) error {
 			return nil
 		})
 	}
@@ -62,7 +61,7 @@ func Benchmark_filter1(b *testing.B) {
 
 func Benchmark_filter2(b *testing.B) {
 	for i := 0; i < b.N; i++ {
-		list2(funcGen.NewEmptyStack[Value](), func(v Value) error {
+		list2.Iterate(funcGen.NewEmptyStack[Value](), func(v Value) error {
 			return nil
 		})
 	}
