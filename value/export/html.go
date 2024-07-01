@@ -183,6 +183,18 @@ func (ex *htmlExporter) getClassName(style string) string {
 }
 
 func (ex *htmlExporter) toHtml(st funcGen.Stack[value.Value], v, style value.Value) error {
+	if style != nil {
+		if cl, ok := style.ToClosure(); ok {
+			if cl.Args == 1 {
+				if res, err := cl.Eval(st, v); err == nil {
+					return ex.toHtml(st, res, nil)
+				} else {
+					return err
+				}
+			}
+		}
+	}
+
 	if ex.custom != nil {
 		if htm, ok, err := ex.custom(v); ok || err != nil {
 			if err != nil {
