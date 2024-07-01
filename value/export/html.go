@@ -20,8 +20,35 @@ type Format struct {
 	Format value.Value
 }
 
-// LinkFunc can be used to create a link
-var LinkFunc = funcGen.Function[value.Value]{
+// AddHTMLStylingHelpers adds the following functions to the function generator:
+//
+//	style(style, value):  Formats the value with the given style.
+//
+//	styleCell(style, value):  Formats the value with the given style. If used in a table, the style is applied to the cell instead of the containing value.
+//
+//	link(name, link):  Used to create a link.
+//
+//	styleBins(fac):  Simple styling to format binning results. The width of the bars is scaled by the factor fac.
+//
+//	styleBinsSkipFirst(fac):  Simple styling to format binning results. The width of the bars is scaled by the factor fac. The first entry is skipped.
+func AddHTMLStylingHelpers(f *value.FunctionGenerator) {
+	f.AddStaticFunction("style", styleFunc)
+	f.AddStaticFunction("styleCell", styleFuncCell)
+	f.AddStaticFunction("link", linkFunc)
+	f.AddStaticFunction("styleBins", funcGen.Function[value.Value]{
+		Func:   value.Must(f.GenerateFromString("m->m.descr.number((n,e)->[e.str, [[style(\"background:red;width:\"+(m.values[n]*fac)+\"px\",\"\"),m.values[n]]] ])", "fac")),
+		Args:   1,
+		IsPure: true,
+	}.SetDescription("fac", "Simple styling to format binning results. The width of the bars is scaled by the factor fac."))
+	f.AddStaticFunction("styleBinsSkipFirst", funcGen.Function[value.Value]{
+		Func:   value.Must(f.GenerateFromString("m->m.descr.skip(1).number((n,e)->[e.str, [[style(\"background:red;width:\"+(m.values[n+1]*fac)+\"px\",\"\"),m.values[n+1]]] ])", "fac")),
+		Args:   1,
+		IsPure: true,
+	}.SetDescription("fac", "Simple styling to format binning results. The width of the bars is scaled by the factor fac."))
+}
+
+// linkFunc can be used to create a link
+var linkFunc = funcGen.Function[value.Value]{
 	Func: func(st funcGen.Stack[value.Value], cs []value.Value) (value.Value, error) {
 		if l, ok := st.Get(0).(value.String); ok {
 			return Link{
@@ -35,8 +62,8 @@ var LinkFunc = funcGen.Function[value.Value]{
 	IsPure: true,
 }.SetDescription("name", "link", "Used to create a link.")
 
-// StyleFunc can be used add a CSS style to a value
-var StyleFunc = funcGen.Function[value.Value]{
+// styleFunc can be used add a CSS style to a value
+var styleFunc = funcGen.Function[value.Value]{
 	Func: func(st funcGen.Stack[value.Value], cs []value.Value) (value.Value, error) {
 		return Format{
 			Value:  st.Get(1),
@@ -48,10 +75,10 @@ var StyleFunc = funcGen.Function[value.Value]{
 	IsPure: true,
 }.SetDescription("style", "value", "Formats the value with the given style.")
 
-// StyleFuncCell can be used add a CSS stale to a value
+// styleFuncCell can be used add a CSS stale to a value
 // If used in a table the Format is applied to the cell instead of the containing value.
 // It is only required in rare occasions.
-var StyleFuncCell = funcGen.Function[value.Value]{
+var styleFuncCell = funcGen.Function[value.Value]{
 	Func: func(st funcGen.Stack[value.Value], cs []value.Value) (value.Value, error) {
 		return Format{
 			Value:  st.Get(1),

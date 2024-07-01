@@ -125,7 +125,7 @@ func TestMapStyle(t *testing.T) {
 }
 
 func mapStyle(s value.RealMap, v value.Value) value.Value {
-	st, err := StyleFunc.EvalSt(funcGen.NewStack[value.Value](), value.NewMap(s), v)
+	st, err := styleFunc.EvalSt(funcGen.NewStack[value.Value](), value.NewMap(s), v)
 	if err != nil {
 		panic(err)
 	}

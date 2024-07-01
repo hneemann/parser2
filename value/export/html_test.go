@@ -52,7 +52,7 @@ func TestToHtml(t *testing.T) {
 }
 
 func link(v value.Value) value.Value {
-	st, err := LinkFunc.EvalSt(funcGen.NewStack[value.Value](), value.String("link"), v)
+	st, err := linkFunc.EvalSt(funcGen.NewStack[value.Value](), value.String("link"), v)
 	if err != nil {
 		panic(err)
 	}
@@ -60,7 +60,7 @@ func link(v value.Value) value.Value {
 }
 
 func style(s string, v value.Value) value.Value {
-	st, err := StyleFunc.EvalSt(funcGen.NewStack[value.Value](), value.String(s), v)
+	st, err := styleFunc.EvalSt(funcGen.NewStack[value.Value](), value.String(s), v)
 	if err != nil {
 		panic(err)
 	}
@@ -68,7 +68,7 @@ func style(s string, v value.Value) value.Value {
 }
 
 func styleCell(v value.Value) value.Value {
-	st, err := StyleFuncCell.EvalSt(funcGen.NewStack[value.Value](), value.String("zzz"), v)
+	st, err := styleFuncCell.EvalSt(funcGen.NewStack[value.Value](), value.String("zzz"), v)
 	if err != nil {
 		panic(err)
 	}

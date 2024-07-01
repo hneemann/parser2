@@ -591,6 +591,27 @@ func (g *FunctionGenerator[V]) GenerateWithMap(exp string, mapName string) (Func
 	return g.generateIntern([]string{mapName}, exp, mapName)
 }
 
+// GenerateFromString creates a function from a string.
+// The generated function cen be used to register a static function to a parser.
+func (g *FunctionGenerator[V]) GenerateFromString(exp string, args ...string) (ParserFunc[V], error) {
+	ast, err := g.CreateAst(exp)
+	if err != nil {
+		return nil, err
+	}
+
+	am := argsMap{}
+	if args != nil {
+		for _, a := range args {
+			err = am.add(a)
+			if err != nil {
+				return nil, err
+			}
+		}
+	}
+
+	return g.GenerateFunc(ast, GeneratorContext{am: am})
+}
+
 func (g *FunctionGenerator[V]) generateIntern(args []string, exp string, ThisName string) (Func[V], error) {
 	if g.finalizer != nil {
 		g.finalizer(g)

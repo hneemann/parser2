@@ -983,6 +983,13 @@ func createLowPass(st funcGen.Stack[Value], store []Value) (Value, error) {
 	return NewMap(listMap.New[Value](2).Append("filter", lp).Append("initial", in)), nil
 }
 
+func Must[V any](v V, err error) V {
+	if err != nil {
+		panic(err)
+	}
+	return v
+}
+
 func MustFloat(v Value, err error) (float64, error) {
 	if err != nil {
 		return 0, err
