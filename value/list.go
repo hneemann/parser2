@@ -1521,6 +1521,16 @@ func createListMethods(
 		"createInterpolation": MethodAtType(2, func(list *List, stack funcGen.Stack[Value]) (Value, error) { return list.CreateInterpolation(stack) }).
 			SetMethodDescription("func(item) x", "func(item) y",
 				"Returns a function that interpolates between the given points."),
+		"binning": MethodAtType(5, Binning).
+			SetMethodDescription("start", "size", "count", "indexFunc", "valueFunc",
+				"Returns a map with the binning results. The index function must return the index of the bin for a specific element "+
+					"of the list, and the value function must return the value to be added to the bin. "+
+					"If only the number of times a value was in a bin is to be counted, the value function must return the constant one."),
+		"binning2d": MethodAtType(9, Binning2d).
+			SetMethodDescription("startX", "sizeX", "countX", "startY", "sizeYX", "countY", "indexFuncX", "indexFuncY", "valueFunc",
+				"Returns a map with the binning results."),
+		"collectBinning": MethodAtType(0, CollectBinning).
+			SetMethodDescription("Sums up a list of binning results to create a total result."),
 	}
 }
 func (l *List) GetType() Type {
