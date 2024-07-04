@@ -7,6 +7,7 @@ import (
 	"github.com/hneemann/parser2/listMap"
 	"log"
 	"reflect"
+	"runtime/debug"
 	"sort"
 	"unicode"
 	"unicode/utf8"
@@ -643,6 +644,7 @@ func (g *FunctionGenerator[V]) generateIntern(args []string, exp string, ThisNam
 		defer func() {
 			if rec := recover(); rec != nil {
 				log.Print("panic in function: ", rec)
+				log.Print(string(debug.Stack()))
 				var zero V
 				val = zero
 				err = parser2.AnyToError(rec)

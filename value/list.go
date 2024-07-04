@@ -834,6 +834,9 @@ func (l *List) Sum(st funcGen.Stack[Value], add func(st funcGen.Stack[Value], a 
 	if err != nil {
 		return nil, err
 	}
+	if sum == nil {
+		return nil, errors.New("sum on empty list")
+	}
 	return sum, nil
 }
 
