@@ -113,6 +113,32 @@ func (s String) Behind(st funcGen.Stack[Value]) (Value, error) {
 	}
 }
 
+func (s String) BehindList(st funcGen.Stack[Value]) (Value, error) {
+	var foundItems []string
+	lines := strings.Split(string(s), "\n")
+	if kl, ok := st.Get(1).(String); ok {
+		keyLine := strings.TrimSpace(string(kl))
+		found := false
+		for _, line := range lines {
+			line = strings.TrimSpace(line)
+			if found {
+				if line == "" {
+					break
+				} else {
+					foundItems = append(foundItems, line)
+				}
+			} else {
+				if line == keyLine {
+					found = true
+				}
+			}
+		}
+		return NewListConvert(func(s string) Value { return String(s) }, foundItems), nil
+	} else {
+		return nil, errors.New("behind needs a string as argument")
+	}
+}
+
 func (s String) Replace(st funcGen.Stack[Value]) (Value, error) {
 	if oldStr, ok := st.Get(1).(String); ok {
 		if newStr, ok := st.Get(2).(String); ok {
@@ -160,6 +186,8 @@ func createStringMethods() MethodMap {
 					"If len is negative, the rest of the string is returned."),
 		"behind": MethodAtType(1, func(str String, stack funcGen.Stack[Value]) (Value, error) { return str.Behind(stack) }).
 			SetMethodDescription("prefix", "Returns the string behind the prefix up to the next newline."),
+		"behindList": MethodAtType(1, func(str String, stack funcGen.Stack[Value]) (Value, error) { return str.BehindList(stack) }).
+			SetMethodDescription("header", "Returns the lines following behind the header line up to the next empty line."),
 		"replace": MethodAtType(2, func(str String, stack funcGen.Stack[Value]) (Value, error) { return str.Replace(stack) }).
 			SetMethodDescription("old", "new", "Replaces all occurrences of old with new."),
 		"toFloat": MethodAtType(0, func(str String, stack funcGen.Stack[Value]) (Value, error) { return str.ParseToFloat() }).
