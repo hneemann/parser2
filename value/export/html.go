@@ -530,7 +530,7 @@ func (t *tableExporter) format(row, col int, item value.Value) value.Value {
 			}
 		}
 	}
-	return Format{Value: item, Format: format}
+	return Format{Value: item, Format: format, Cell: true}
 }
 
 func (ex *htmlExporter) toTD(st funcGen.Stack[value.Value], d value.Value) error {
