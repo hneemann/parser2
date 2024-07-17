@@ -252,7 +252,7 @@ func (ex *htmlExporter) toHtml(st funcGen.Stack[value.Value], v, style value.Val
 					le.open(style)
 				}
 				ok, err := le.add(v)
-				if !ok {
+				if !ok && err == nil {
 					return iterator.SBC
 				}
 				return err
