@@ -708,12 +708,21 @@ func New() *FunctionGenerator {
 		AddStaticFunction("isFloat", funcGen.Function[Value]{
 			Func: func(st funcGen.Stack[Value], cs []Value) (Value, error) {
 				v := st.Get(0)
-				_, ok := v.ToFloat()
+				_, ok := v.(Float)
 				return Bool(ok), nil
 			},
 			Args:   1,
 			IsPure: true,
-		}.SetDescription("value", "Returns true if there is a float representation of the value.")).
+		}.SetDescription("value", "Returns true if the value is a float.")).
+		AddStaticFunction("isInt", funcGen.Function[Value]{
+			Func: func(st funcGen.Stack[Value], cs []Value) (Value, error) {
+				v := st.Get(0)
+				_, ok := v.(Int)
+				return Bool(ok), nil
+			},
+			Args:   1,
+			IsPure: true,
+		}.SetDescription("value", "Returns true if the value is a int.")).
 		AddStaticFunction("float", funcGen.Function[Value]{
 			Func: func(st funcGen.Stack[Value], cs []Value) (Value, error) {
 				v := st.Get(0)
