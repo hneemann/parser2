@@ -53,12 +53,11 @@ func (e *textExporter) toText(st funcGen.Stack[value.Value], v value.Value) erro
 		e.write("[")
 		e.newLine()
 		e.inc()
+		so := sepOut{e: e}
 		err := t.Iterate(st, func(v value.Value) error {
-			err := e.toText(st, v)
-			e.write(",")
-			e.newLine()
-			return err
+			return so.out(v, st)
 		})
+		err = so.finish(st, err)
 		e.dec()
 		e.write("]")
 		if err == iterator.SBC {
@@ -75,7 +74,7 @@ func (e *textExporter) toText(st funcGen.Stack[value.Value], v value.Value) erro
 		e.write("{")
 		e.newLine()
 		e.inc()
-		for _, k := range keys {
+		for i, k := range keys {
 			e.write(k)
 			e.write(": ")
 			v, _ := t.Get(k)
@@ -83,7 +82,9 @@ func (e *textExporter) toText(st funcGen.Stack[value.Value], v value.Value) erro
 			if err != nil {
 				return err
 			}
-			e.write(",")
+			if i < len(keys)-1 {
+				e.write(",")
+			}
 			e.newLine()
 		}
 		e.dec()
@@ -100,4 +101,45 @@ func (e *textExporter) toText(st funcGen.Stack[value.Value], v value.Value) erro
 		}
 	}
 	return nil
+}
+
+type sepOut struct {
+	e    *textExporter
+	last value.Value
+}
+
+func (so *sepOut) out(v value.Value, st funcGen.Stack[value.Value]) error {
+	if so.last != nil {
+		err := so.e.toText(st, so.last)
+		so.e.write(",")
+		so.e.newLine()
+		so.last = v
+		return err
+	} else {
+		so.last = v
+		return nil
+	}
+}
+
+func (so *sepOut) finish(st funcGen.Stack[value.Value], err error) error {
+	if err != nil && err != iterator.SBC {
+		return err
+	}
+	if so.last != nil {
+		err := so.e.toText(st, so.last)
+		so.e.newLine()
+		return err
+	}
+	return err
+}
+
+func (e *textExporter) sepOut(v value.Value, last value.Value, st funcGen.Stack[value.Value]) error {
+	if last != nil {
+		err := e.toText(st, last)
+		e.write(",")
+		e.newLine()
+		return err
+	} else {
+		return nil
+	}
 }
