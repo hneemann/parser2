@@ -156,6 +156,14 @@ func (s String) ParseToFloat() (Value, error) {
 	return Float(f), nil
 }
 
+func (s String) ParseToInt() (Value, error) {
+	i, err := strconv.Atoi(string(s))
+	if err != nil {
+		return nil, err
+	}
+	return Int(i), nil
+}
+
 func createStringMethods() MethodMap {
 	return MethodMap{
 		"len": MethodAtType(0, func(str String, stack funcGen.Stack[Value]) (Value, error) { return Int(len(string(str))), nil }).
@@ -192,6 +200,8 @@ func createStringMethods() MethodMap {
 			SetMethodDescription("old", "new", "Replaces all occurrences of old with new."),
 		"toFloat": MethodAtType(0, func(str String, stack funcGen.Stack[Value]) (Value, error) { return str.ParseToFloat() }).
 			SetMethodDescription("Parses the string to a float."),
+		"toInt": MethodAtType(0, func(str String, stack funcGen.Stack[Value]) (Value, error) { return str.ParseToInt() }).
+			SetMethodDescription("Parses the string to an int."),
 	}
 }
 
