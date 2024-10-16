@@ -126,7 +126,7 @@ func Mod(st funcGen.Stack[Value], a, b Value) (Value, error) {
 			return aa % bb, nil
 		}
 	}
-	return nil, notAllowed("%%", a, b)
+	return nil, notAllowed("%", a, b)
 }
 
 func Mul(st funcGen.Stack[Value], a, b Value) (Value, error) {
