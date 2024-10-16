@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/hneemann/iterator"
+	"github.com/hneemann/parser2"
 	"github.com/hneemann/parser2/funcGen"
 	"github.com/hneemann/parser2/listMap"
 	"sort"
@@ -276,7 +277,7 @@ func (v Map) GetM(stack funcGen.Stack[Value]) (Value, error) {
 		if v, ok := v.m.Get(k); ok {
 			return v, nil
 		} else {
-			return nil, fmt.Errorf("key '%v' not found in map", k)
+			return nil, parser2.NewNotFoundError(k, fmt.Errorf("key '%v' not found in map", k))
 		}
 	}
 	return nil, errors.New("get requires a string as argument")

@@ -10,14 +10,35 @@ import (
 	"unicode"
 )
 
+type NotFoundError struct {
+	cause error
+	name  string
+}
+
+func (n NotFoundError) Error() string {
+	return n.cause.Error()
+}
+
+func (n NotFoundError) Unwrap() error {
+	return n.cause
+}
+
+func (n NotFoundError) NotFound() string {
+	return n.name
+}
+
+func NewNotFoundError(name string, cause error) error {
+	return NotFoundError{cause: cause, name: name}
+}
+
 type Visitor interface {
 	Visit(AST) bool
 }
 
-type VisitorFunc func(AST)
+type VisitorFunc func(AST) bool
 
-func (v VisitorFunc) Visit(a AST) {
-	v(a)
+func (v VisitorFunc) Visit(a AST) bool {
+	return v(a)
 }
 
 // Optimizer is used to perform optimization on ast level

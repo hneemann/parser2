@@ -74,7 +74,7 @@ func (mm MethodMap) Get(name string) (funcGen.Function[Value], error) {
 		b.WriteRune('\n')
 		fe.fu.Description.WriteTo(&b, fe.name)
 	}
-	return funcGen.Function[Value]{}, fmt.Errorf("method '%s' not found; available are:\n%s", name, b.String())
+	return funcGen.Function[Value]{}, parser2.NewNotFoundError(name, fmt.Errorf("method '%s' not found; available are:\n%s", name, b.String()))
 }
 
 func (mm MethodMap) add(more MethodMap) {
@@ -356,7 +356,7 @@ func (fg *FunctionGenerator) AccessMap(mapValue Value, key string) (Value, error
 		if v, ok := m.Get(key); ok {
 			return v, nil
 		} else {
-			return nil, fmt.Errorf("key '%s' not found in map; available are: %s", key, m.keyListDescription())
+			return nil, parser2.NewNotFoundError(key, fmt.Errorf("key '%s' not found in map; available are: %s", key, m.keyListDescription()))
 		}
 	} else {
 		return nil, fmt.Errorf("'.%s' not possible; %s is not a map", key, TypeName(mapValue))

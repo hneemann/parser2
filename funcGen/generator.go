@@ -593,7 +593,7 @@ func (g *FunctionGenerator[V]) GenerateWithMap(exp string, mapName string) (Func
 }
 
 // GenerateFromString creates a function from a string.
-// The generated function cen be used to register a static function to a parser.
+// The generated function can be used to register a static function to a parser.
 func (g *FunctionGenerator[V]) GenerateFromString(exp string, args ...string) (ParserFunc[V], error) {
 	ast, err := g.CreateAst(exp)
 	if err != nil {
@@ -712,7 +712,7 @@ func (g *FunctionGenerator[V]) GenerateFunc(ast parser2.AST, gc GeneratorContext
 						}, nil
 					}
 				}
-				return nil, a.Errorf("not found: %s", a.Name)
+				return nil, parser2.NewNotFoundError(a.Name, a.Errorf("not found: %s", a.Name))
 			}
 		}
 	case *parser2.Let:
@@ -1101,7 +1101,7 @@ func (g *FunctionGenerator[V]) GenerateFunc(ast parser2.AST, gc GeneratorContext
 				}
 				return me.Func(st.CreateFrame(len(argsFuncList)+1), nil)
 			}
-			return zero, a.Errorf("method %s not found", name)
+			return zero, parser2.NewNotFoundError(name, a.Errorf("method %s not found", name))
 		}, nil
 	}
 	return nil, ast.GetLine().Errorf("not supported: %v", ast)
@@ -1125,7 +1125,7 @@ func (g *FunctionGenerator[V]) createClosureLiteralFunc(a *parser2.ClosureLitera
 				if n == recursiveName {
 					accessContextOperations[ci] = func(st Stack[V], cs []V, this V) V { return this }
 				} else {
-					return nil, a.Errorf("outer value '%s' not found", n)
+					return nil, parser2.NewNotFoundError(n, a.Errorf("outer value '%s' not found", n))
 				}
 			}
 		}
@@ -1312,7 +1312,7 @@ func methodByReflection[V any](value V, name string) (Function[V], error) {
 				buf.WriteString(")")
 			}
 		}
-		return Function[V]{}, fmt.Errorf("method %s not found on %v, available are: %v", name, typeOf, buf.String())
+		return Function[V]{}, parser2.NewNotFoundError(name, fmt.Errorf("method %s not found on %v, available are: %v", name, typeOf, buf.String()))
 	}
 }
 
