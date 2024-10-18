@@ -13,6 +13,7 @@ import (
 type NotFoundError struct {
 	cause error
 	name  string
+	avail []string
 }
 
 func (n NotFoundError) Error() string {
@@ -27,8 +28,17 @@ func (n NotFoundError) NotFound() string {
 	return n.name
 }
 
-func NewNotFoundError(name string, cause error) error {
+func (n NotFoundError) Avail() []string {
+	return n.avail
+}
+
+func NewNotFoundError(name string, cause error) NotFoundError {
 	return NotFoundError{cause: cause, name: name}
+}
+
+func (n NotFoundError) SetAvail(name ...string) NotFoundError {
+	n.avail = name
+	return n
 }
 
 type Visitor interface {

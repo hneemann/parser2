@@ -712,7 +712,14 @@ func (g *FunctionGenerator[V]) GenerateFunc(ast parser2.AST, gc GeneratorContext
 						}, nil
 					}
 				}
-				return nil, parser2.NewNotFoundError(a.Name, a.Errorf("not found: %s", a.Name))
+				avail := []string{}
+				for n := range gc.am {
+					avail = append(avail, n)
+				}
+				for n := range gc.cm {
+					avail = append(avail, n)
+				}
+				return nil, parser2.NewNotFoundError(a.Name, a.Errorf("not found: %s", a.Name)).SetAvail(avail...)
 			}
 		}
 	case *parser2.Let:
