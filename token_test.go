@@ -215,7 +215,7 @@ func TestNewTokenizerNoComment(t *testing.T) {
 		{
 			name: "comment 1",
 			exp:  "a //test\n b",
-			want: []Token{{tIdent, "a", 1}, {tOperate, "//", 1}, {tIdent, "test", 1}, {tIdent, "b", 2}},
+			want: []Token{{tIdent, "a", 1}, {tOperate, "//", 1}, {tIdent, "test", 1}, {tOperate, "*", 2}, {tIdent, "b", 2}},
 		},
 		{
 			name: "comment 2",
@@ -309,6 +309,8 @@ func TestUnicodeExp(t *testing.T) {
 
 		{in: "2x", want: []Token{{tNumber, "2", 1}, {tOperate, "*", 1}, {tIdent, "x", 1}}},
 		{in: "2(", want: []Token{{tNumber, "2", 1}, {tOperate, "*", 1}, {tOpen, "(", 1}}},
+		{in: "x x", want: []Token{{tIdent, "x", 1}, {tOperate, "*", 1}, {tIdent, "x", 1}}},
+		{in: "x sin(", want: []Token{{tIdent, "x", 1}, {tOperate, "*", 1}, {tIdent, "sin", 1}, {tOpen, "(", 1}}},
 	}
 
 	myIdent := func(r rune) (func(r rune) bool, bool) {

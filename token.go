@@ -175,9 +175,9 @@ func (t *Tokenizer) getLine() Line {
 }
 
 func (t *Tokenizer) run(tokens chan<- Token) {
-	lastWasNumber := false
+	lastTokenType := tInvalid
 	for {
-		thisWasNumber := false
+		thisTokenType := tInvalid
 		switch n := t.next(true); n {
 		case '\n':
 			t.line++
@@ -188,7 +188,7 @@ func (t *Tokenizer) run(tokens chan<- Token) {
 			close(tokens)
 			return
 		case '(':
-			if lastWasNumber {
+			if lastTokenType == tNumber {
 				tokens <- Token{tOperate, "*", t.getLine()}
 			}
 			tokens <- Token{tOpen, "(", t.getLine()}
@@ -252,7 +252,9 @@ func (t *Tokenizer) run(tokens chan<- Token) {
 			if f, ok := t.number(c); ok {
 				image := t.read(f)
 				tokens <- Token{tNumber, image, t.getLine()}
-				thisWasNumber = true
+				if !t.allowComments {
+					thisTokenType = tNumber
+				}
 			} else if f, ok := t.identifier(c); ok {
 				image := t.read(f)
 				if to, ok := t.textOperators[image]; ok {
@@ -261,10 +263,13 @@ func (t *Tokenizer) run(tokens chan<- Token) {
 					if t.keyWord[image] {
 						tokens <- Token{tKeyWord, image, t.getLine()}
 					} else {
-						if lastWasNumber {
+						if lastTokenType == tNumber || lastTokenType == tIdent {
 							tokens <- Token{tOperate, "*", t.getLine()}
 						}
 						tokens <- Token{tIdent, image, t.getLine()}
+						if !t.allowComments {
+							thisTokenType = tIdent
+						}
 					}
 
 				}
@@ -276,7 +281,7 @@ func (t *Tokenizer) run(tokens chan<- Token) {
 				}
 			}
 		}
-		lastWasNumber = thisWasNumber
+		lastTokenType = thisTokenType
 	}
 }
 
