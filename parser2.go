@@ -7,6 +7,7 @@ import (
 	"github.com/hneemann/parser2/listMap"
 	"log"
 	"strconv"
+	"strings"
 	"unicode"
 )
 
@@ -628,7 +629,7 @@ func simpleNumber(r rune) (func(r rune) bool, bool) {
 	if unicode.IsNumber(r) {
 		var last rune
 		return func(r rune) bool {
-			ok := unicode.IsNumber(r) || r == '.' || r == 'e' || (last == 'e' && r == '-') || (last == 'e' && r == '+')
+			ok := (unicode.IsNumber(r) && !strings.ContainsRune("⁰¹²³⁴⁵⁶⁷⁸⁹", r)) || r == '.' || r == 'e' || (last == 'e' && r == '-') || (last == 'e' && r == '+')
 			last = r
 			return ok
 		}, true
@@ -640,7 +641,7 @@ func simpleNumber(r rune) (func(r rune) bool, bool) {
 func simpleIdentifier(r rune) (func(r rune) bool, bool) {
 	if unicode.IsLetter(r) {
 		return func(r rune) bool {
-			return unicode.IsLetter(r) || unicode.IsNumber(r) || r == '_'
+			return unicode.IsLetter(r) || (unicode.IsNumber(r) && !strings.ContainsRune("⁰¹²³⁴⁵⁶⁷⁸⁹", r)) || r == '_'
 		}, true
 	} else {
 		return nil, false
@@ -673,6 +674,7 @@ type Parser[V any] struct {
 	operators      []string
 	unary          map[string]struct{}
 	textOperators  map[string]string
+	keyWords       []string
 	numberParser   NumberParser[V]
 	stringHandler  StringConverter[V]
 	optimizer      Optimizer
@@ -741,6 +743,12 @@ func (p *Parser[V]) SetIdentMatcher(ident Matcher) *Parser[V] {
 	return p
 }
 
+// SetIdentMatcher sets the identifier Matcher
+func (p *Parser[V]) SetKeyWords(keyWords ...string) *Parser[V] {
+	p.keyWords = keyWords
+	return p
+}
+
 // TextOperator sets a map of text aliases for operators.
 // Allows setting e.g. "plus" as an alias for "+"
 func (p *Parser[V]) TextOperator(textOperators map[string]string) *Parser[V] {
@@ -779,7 +787,7 @@ func (p *Parser[V]) Parse(str string) (ast AST, err error) {
 	}
 
 	tokenizer :=
-		NewTokenizer(str, p.number, p.identifier, p.operatorDetect, p.textOperators, p.allowComments)
+		NewTokenizer(str, p.number, p.identifier, p.operatorDetect, p.textOperators, p.keyWords, p.allowComments)
 
 	ast, err = p.parseLet(tokenizer, p.constants)
 	if err != nil {
@@ -824,7 +832,7 @@ func (c *constant[V]) GetConst(name string) (V, bool) {
 
 func (p *Parser[V]) parseLet(tokenizer *Tokenizer, constants Constants[V]) (AST, error) {
 	t := tokenizer.Peek()
-	if t.typ == tIdent {
+	if t.typ == tKeyWord {
 		if t.image == "const" {
 			tokenizer.Next()
 			t = tokenizer.Next()
@@ -1080,13 +1088,25 @@ func (p *Parser[V]) parseLiteral(tokenizer *Tokenizer, constants Constants[V]) (
 				Func:  e,
 				Line:  t.Line,
 			}, nil
-		} else if name == "try" {
+		} else {
+			if v, ok := constants.GetConst(name); ok {
+				return &Const[V]{
+					Value: v,
+					Line:  t.Line,
+				}, nil
+			} else {
+				return &Ident{Name: name, Line: t.Line}, nil
+			}
+		}
+	case tKeyWord:
+		name := t.image
+		if name == "try" {
 			tryExp, err := p.parseLet(tokenizer, constants)
 			if err != nil {
 				return nil, err
 			}
 			t := tokenizer.Next()
-			if !(t.typ == tIdent && t.image == "catch") {
+			if !(t.typ == tKeyWord && t.image == "catch") {
 				return nil, unexpected("catch", t)
 			}
 			catchExp, err := p.parseLet(tokenizer, constants)
@@ -1104,7 +1124,7 @@ func (p *Parser[V]) parseLiteral(tokenizer *Tokenizer, constants Constants[V]) (
 				return nil, err
 			}
 			t := tokenizer.Next()
-			if !(t.typ == tIdent && t.image == "then") {
+			if !(t.typ == tKeyWord && t.image == "then") {
 				return nil, unexpected("then", t)
 			}
 			thenExp, err := p.parseLet(tokenizer, constants)
@@ -1112,7 +1132,7 @@ func (p *Parser[V]) parseLiteral(tokenizer *Tokenizer, constants Constants[V]) (
 				return nil, err
 			}
 			t = tokenizer.Next()
-			if !(t.typ == tIdent && t.image == "else") {
+			if !(t.typ == tKeyWord && t.image == "else") {
 				return nil, unexpected("else", t)
 			}
 			elseExp, err := p.parseLet(tokenizer, constants)
@@ -1133,7 +1153,7 @@ func (p *Parser[V]) parseLiteral(tokenizer *Tokenizer, constants Constants[V]) (
 			var cases []Case[V]
 			for {
 				t := tokenizer.Next()
-				if t.typ == tIdent {
+				if t.typ == tKeyWord {
 					if t.image == "case" {
 						constFunc, err := p.parseExpression(tokenizer, constants)
 						if err != nil {
@@ -1170,14 +1190,7 @@ func (p *Parser[V]) parseLiteral(tokenizer *Tokenizer, constants Constants[V]) (
 				}
 			}
 		} else {
-			if v, ok := constants.GetConst(name); ok {
-				return &Const[V]{
-					Value: v,
-					Line:  t.Line,
-				}, nil
-			} else {
-				return &Ident{Name: name, Line: t.Line}, nil
-			}
+			return nil, t.Errorf("expected keyword, found %v", t)
 		}
 	case tOpenCurly:
 		return p.parseMap(tokenizer, constants)

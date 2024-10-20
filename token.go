@@ -10,6 +10,7 @@ type TokenType int
 
 const (
 	tIdent TokenType = iota
+	tKeyWord
 	tOpen
 	tClose
 	tOpenBracket
@@ -56,6 +57,7 @@ type Tokenizer struct {
 	operatorDetector OperatorDetector
 	textOperators    map[string]string
 	allowComments    bool
+	keyWord          map[string]bool
 }
 
 type Matcher func(r rune) (func(r rune) bool, bool)
@@ -105,13 +107,20 @@ func NewOperatorDetector(operators []string) OperatorDetector {
 	}
 }
 
-func NewTokenizer(text string, number, identifier Matcher, operatorDetector OperatorDetector, textOp map[string]string, allowComments bool) *Tokenizer {
+func NewTokenizer(text string, number, identifier Matcher, operatorDetector OperatorDetector, textOp map[string]string, keyWords []string, allowComments bool) *Tokenizer {
 	t := make(chan Token)
+
+	keyWordMap := map[string]bool{}
+	for _, kw := range keyWords {
+		keyWordMap[kw] = true
+	}
+
 	tok := &Tokenizer{
 		str:              text,
 		textOperators:    textOp,
 		number:           number,
 		identifier:       identifier,
+		keyWord:          keyWordMap,
 		operatorDetector: operatorDetector,
 		allowComments:    allowComments,
 		line:             1,
@@ -166,8 +175,10 @@ func (t *Tokenizer) getLine() Line {
 }
 
 func (t *Tokenizer) run(tokens chan<- Token) {
+	lastWasNumber := false
 	for {
-		switch t.next(true) {
+		thisWasNumber := false
+		switch n := t.next(true); n {
 		case '\n':
 			t.line++
 			continue
@@ -177,6 +188,9 @@ func (t *Tokenizer) run(tokens chan<- Token) {
 			close(tokens)
 			return
 		case '(':
+			if lastWasNumber {
+				tokens <- Token{tOperate, "*", t.getLine()}
+			}
 			tokens <- Token{tOpen, "(", t.getLine()}
 		case ')':
 			tokens <- Token{tClose, ")", t.getLine()}
@@ -202,18 +216,57 @@ func (t *Tokenizer) run(tokens chan<- Token) {
 			image := t.readSkip(func(c rune) bool { return c != '\'' }, false)
 			t.next(false)
 			tokens <- Token{tIdent, image, t.getLine()}
+		case '⁰':
+			tokens <- Token{tOperate, "^", t.getLine()}
+			tokens <- Token{tNumber, "0", t.getLine()}
+		case '¹':
+			tokens <- Token{tOperate, "^", t.getLine()}
+			tokens <- Token{tNumber, "1", t.getLine()}
+		case '²':
+			tokens <- Token{tOperate, "^", t.getLine()}
+			tokens <- Token{tNumber, "2", t.getLine()}
+		case '³':
+			tokens <- Token{tOperate, "^", t.getLine()}
+			tokens <- Token{tNumber, "3", t.getLine()}
+		case '⁴':
+			tokens <- Token{tOperate, "^", t.getLine()}
+			tokens <- Token{tNumber, "4", t.getLine()}
+		case '⁵':
+			tokens <- Token{tOperate, "^", t.getLine()}
+			tokens <- Token{tNumber, "5", t.getLine()}
+		case '⁶':
+			tokens <- Token{tOperate, "^", t.getLine()}
+			tokens <- Token{tNumber, "6", t.getLine()}
+		case '⁷':
+			tokens <- Token{tOperate, "^", t.getLine()}
+			tokens <- Token{tNumber, "7", t.getLine()}
+		case '⁸':
+			tokens <- Token{tOperate, "^", t.getLine()}
+			tokens <- Token{tNumber, "8", t.getLine()}
+		case '⁹':
+			tokens <- Token{tOperate, "^", t.getLine()}
+			tokens <- Token{tNumber, "9", t.getLine()}
 		default:
 			t.unread()
 			c := t.peek(true)
 			if f, ok := t.number(c); ok {
 				image := t.read(f)
 				tokens <- Token{tNumber, image, t.getLine()}
+				thisWasNumber = true
 			} else if f, ok := t.identifier(c); ok {
 				image := t.read(f)
 				if to, ok := t.textOperators[image]; ok {
 					tokens <- Token{tOperate, to, t.getLine()}
 				} else {
-					tokens <- Token{tIdent, image, t.getLine()}
+					if t.keyWord[image] {
+						tokens <- Token{tKeyWord, image, t.getLine()}
+					} else {
+						if lastWasNumber {
+							tokens <- Token{tOperate, "*", t.getLine()}
+						}
+						tokens <- Token{tIdent, image, t.getLine()}
+					}
+
 				}
 			} else {
 				if op, ok := t.parseOperator(); ok {
@@ -223,6 +276,7 @@ func (t *Tokenizer) run(tokens chan<- Token) {
 				}
 			}
 		}
+		lastWasNumber = thisWasNumber
 	}
 }
 
@@ -298,6 +352,7 @@ func (t *Tokenizer) next(skipComment bool) rune {
 	t.consume(skipComment)
 	return n
 }
+
 func (t *Tokenizer) read(valid func(c rune) bool) string {
 	return t.readSkip(valid, true)
 }

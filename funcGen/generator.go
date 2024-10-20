@@ -297,6 +297,7 @@ type FunctionGenerator[V any] struct {
 	operators       []Operator[V]
 	unary           []UnaryOperator[V]
 	numberParser    parser2.NumberParser[V]
+	keyWords        []string
 	stringHandler   parser2.StringConverter[V]
 	listHandler     ListHandler[V]
 	mapHandler      MapHandler[V]
@@ -329,6 +330,14 @@ func (g *FunctionGenerator[V]) SetNumberParser(numberParser parser2.NumberParser
 		panic("parser already created")
 	}
 	g.numberParser = numberParser
+	return g
+}
+
+func (g *FunctionGenerator[V]) SetKeyWords(keyWords ...string) *FunctionGenerator[V] {
+	if g.parser != nil {
+		panic("parser already created")
+	}
+	g.keyWords = keyWords
 	return g
 }
 
@@ -517,6 +526,7 @@ func (g *FunctionGenerator[V]) GetParser() *parser2.Parser[V] {
 	if g.parser == nil {
 		parser := parser2.NewParser[V]().
 			SetNumberParser(g.numberParser).
+			SetKeyWords(g.keyWords...).
 			SetStringConverter(g.stringHandler).
 			SetConstants(g.constants).
 			SetOptimizer(g.optimizer)

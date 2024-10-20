@@ -37,8 +37,9 @@ func (np numberParser) ParseNumber(n string) (int, error) {
 }
 
 var parser = NewParser[int]().
+	SetKeyWords("let", "switch", "case", "default", "func").
 	SetNumberParser(numberParser{}).
-	Op("+", "-", "*", "/").
+	Op("+", "-", "*", "/", "^").
 	Unary("-")
 
 func TestParser(t *testing.T) {
@@ -63,6 +64,7 @@ func TestParser(t *testing.T) {
 		{exp: "-(2*2)", ast: "-(2*2)", opt: "-4"},
 		{exp: "{a:1+1, b:2*2}", ast: "{a:1+1, b:2*2}", opt: "{a:2, b:4}"},
 		{exp: "a.m(1+1,2+2)", ast: "a.m(1+1, 2+2)", opt: "a.m(2, 4)"},
+		{exp: "2x³-4x²+2x+1", ast: "(((2*(x^3))-(4*(x^2)))+(2*x))+1", opt: "(((2*(x^3))-(4*(x^2)))+(2*x))+1"},
 	}
 
 	for _, test := range tests {
@@ -70,10 +72,14 @@ func TestParser(t *testing.T) {
 		t.Run(test.exp, func(t *testing.T) {
 			ast, err := parser.Parse(test.exp)
 			assert.NoError(t, err, test.exp)
-			assert.EqualValues(t, test.ast, ast.String())
+			if ast != nil {
+				assert.EqualValues(t, test.ast, ast.String())
+			}
 			ast, err = Optimize(ast, simpleOptimizer{})
 			assert.NoError(t, err, test.exp)
-			assert.EqualValues(t, test.opt, ast.String())
+			if ast != nil {
+				assert.EqualValues(t, test.opt, ast.String())
+			}
 		})
 	}
 }

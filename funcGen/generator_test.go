@@ -92,6 +92,7 @@ func NewGen() *FunctionGenerator[Value] {
 			return fl != 0, true
 		}).
 		SetClosureHandler(th).
+		SetKeyWords("let", "const", "if", "then", "else", "try", "catch", "func").
 		SetNumberParser(
 			parser2.NumberParserFunc[Value](
 				func(n string) (Value, error) {

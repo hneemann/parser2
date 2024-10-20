@@ -136,8 +136,8 @@ func TestBasic(t *testing.T) {
                  if a then true else false;
                {ff:bool(0.0), 
                 ft:bool(1.5),
-                if:bool(0),
-                it:bool(1)}.string()`, res: String("{ff:false, ft:true, if:false, it:true}")},
+                il:bool(0),
+                it:bool(1)}.string()`, res: String("{ff:false, ft:true, il:false, it:true}")},
 
 		{exp: `func mySqrt(a)  
                  if a<0 then throw("sqrt of neg value") else sqrt(a);

@@ -660,6 +660,7 @@ func New() *FunctionGenerator {
 		AddConstant("true", Bool(true)).
 		AddConstant("false", Bool(false)).
 		SetNumberParser(f).
+		SetKeyWords("let", "func", "if", "then", "else", "func", "switch", "case", "default", "const", "try", "catch").
 		SetListHandler(f).
 		SetMapHandler(f).
 		SetClosureHandler(f).

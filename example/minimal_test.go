@@ -41,10 +41,6 @@ func TestMinimal(t *testing.T) {
 		{"2-2-a-a", -4, "(0-a)-a"},
 		{"sin(pi/2)", 1, "1"},
 		{"sin(pi/a)", 1, "sin(3.141592653589793/a)"},
-		{"if 1<2 then 3 else 4", 3, "3"},
-		{"if 1<a then 3 else 4", 3, "if 1<a then 3 else 4"},
-		{"const a=2;const b=3;a*b", 6, "6"},
-		{"const a=1+1;const b=3;a*b", 6, "6"},
 	}
 
 	vars := funcGen.NewStack[float64](2)

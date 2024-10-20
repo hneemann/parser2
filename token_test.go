@@ -2,7 +2,9 @@ package parser2
 
 import (
 	"github.com/stretchr/testify/assert"
+	"strings"
 	"testing"
+	"unicode"
 )
 
 func TestNewTokenizer(t *testing.T) {
@@ -142,7 +144,7 @@ func TestNewTokenizer(t *testing.T) {
 	for _, test := range tests {
 		test := test
 		t.Run(test.name, func(t *testing.T) {
-			tok := NewTokenizer(test.exp, simpleNumber, simpleIdentifier, detect, map[string]string{}, true)
+			tok := NewTokenizer(test.exp, simpleNumber, simpleIdentifier, detect, map[string]string{}, []string{}, true)
 			for _, to := range test.want {
 				assert.EqualValues(t, to, tok.Next())
 			}
@@ -194,7 +196,7 @@ func TestOperatorDetect(t *testing.T) {
 	for _, tt := range tests {
 		test := tt
 		t.Run(test.name, func(t *testing.T) {
-			tok := NewTokenizer(test.exp, simpleNumber, simpleIdentifier, NewOperatorDetector(test.op), map[string]string{}, true)
+			tok := NewTokenizer(test.exp, simpleNumber, simpleIdentifier, NewOperatorDetector(test.op), map[string]string{}, []string{}, true)
 			for _, to := range test.want {
 				assert.EqualValues(t, to, tok.Next())
 			}
@@ -256,7 +258,7 @@ func TestNewTokenizerNoComment(t *testing.T) {
 	for _, test := range tests {
 		test := test
 		t.Run(test.name, func(t *testing.T) {
-			tok := NewTokenizer(test.exp, simpleNumber, simpleIdentifier, detect, map[string]string{}, false)
+			tok := NewTokenizer(test.exp, simpleNumber, simpleIdentifier, detect, map[string]string{}, []string{}, false)
 			for _, to := range test.want {
 				assert.EqualValues(t, to, tok.Next())
 			}
@@ -267,7 +269,7 @@ func TestNewTokenizerNoComment(t *testing.T) {
 }
 
 func TestPeek(t *testing.T) {
-	tok := NewTokenizer("=(a,b)", simpleNumber, simpleIdentifier, NewOperatorDetector([]string{"="}), map[string]string{}, false)
+	tok := NewTokenizer("=(a,b)", simpleNumber, simpleIdentifier, NewOperatorDetector([]string{"="}), map[string]string{}, []string{}, false)
 	assert.Equal(t, "=", tok.Next().image)
 	assert.Equal(t, "(", tok.Next().image)
 	assert.Equal(t, "a", tok.Peek().image)
@@ -275,4 +277,59 @@ func TestPeek(t *testing.T) {
 	assert.Equal(t, "a", tok.Next().image)
 	assert.Equal(t, ",", tok.Next().image)
 	assert.Equal(t, "b", tok.Next().image)
+}
+
+func TestUnicodeExp(t *testing.T) {
+	assert.True(t, unicode.IsNumber('¹'))
+	assert.True(t, unicode.IsNumber('²'))
+	assert.True(t, unicode.IsNumber('³'))
+	assert.True(t, unicode.IsNumber('⁴'))
+	assert.True(t, unicode.IsNumber('⁵'))
+	assert.True(t, unicode.IsNumber('⁶'))
+	assert.False(t, unicode.IsLetter('¹'))
+	assert.False(t, unicode.IsLetter('²'))
+	assert.False(t, unicode.IsLetter('³'))
+	assert.False(t, unicode.IsLetter('⁴'))
+	assert.False(t, unicode.IsLetter('⁵'))
+	assert.False(t, unicode.IsLetter('⁶'))
+
+	tests := []struct {
+		in   string
+		want []Token
+	}{
+		{in: "a¹", want: []Token{{tIdent, "a", 1}, {tOperate, "^", 1}, {tNumber, "1", 1}}},
+		{in: "a²", want: []Token{{tIdent, "a", 1}, {tOperate, "^", 1}, {tNumber, "2", 1}}},
+		{in: "a³", want: []Token{{tIdent, "a", 1}, {tOperate, "^", 1}, {tNumber, "3", 1}}},
+		{in: "a⁴", want: []Token{{tIdent, "a", 1}, {tOperate, "^", 1}, {tNumber, "4", 1}}},
+		{in: "a⁵", want: []Token{{tIdent, "a", 1}, {tOperate, "^", 1}, {tNumber, "5", 1}}},
+		{in: "a⁶", want: []Token{{tIdent, "a", 1}, {tOperate, "^", 1}, {tNumber, "6", 1}}},
+		{in: "a⁷", want: []Token{{tIdent, "a", 1}, {tOperate, "^", 1}, {tNumber, "7", 1}}},
+		{in: "a⁸", want: []Token{{tIdent, "a", 1}, {tOperate, "^", 1}, {tNumber, "8", 1}}},
+		{in: "a⁹", want: []Token{{tIdent, "a", 1}, {tOperate, "^", 1}, {tNumber, "9", 1}}},
+
+		{in: "2x", want: []Token{{tNumber, "2", 1}, {tOperate, "*", 1}, {tIdent, "x", 1}}},
+		{in: "2(", want: []Token{{tNumber, "2", 1}, {tOperate, "*", 1}, {tOpen, "(", 1}}},
+	}
+
+	myIdent := func(r rune) (func(r rune) bool, bool) {
+		if unicode.IsLetter(r) {
+			return func(r rune) bool {
+				return unicode.IsLetter(r) || (unicode.IsNumber(r) && !strings.ContainsRune("¹²³⁴⁵⁶⁷⁸⁹⁰", r)) || r == '_'
+			}, true
+		} else {
+			return nil, false
+		}
+	}
+
+	for _, tt := range tests {
+		test := tt
+		t.Run(test.in, func(t *testing.T) {
+			tok := NewTokenizer(test.in, simpleNumber, myIdent, NewOperatorDetector([]string{"^"}), map[string]string{}, []string{}, false)
+			for _, to := range test.want {
+				assert.EqualValues(t, to, tok.Next())
+			}
+			assert.EqualValues(t, TokenEof, tok.Next())
+			assert.EqualValues(t, TokenEof, tok.Next())
+		})
+	}
 }
