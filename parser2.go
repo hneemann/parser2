@@ -12,9 +12,10 @@ import (
 )
 
 type NotFoundError struct {
-	cause error
-	name  string
-	avail []string
+	cause  error
+	name   string
+	avail  []string
+	isFunc bool
 }
 
 func (n NotFoundError) Error() string {
@@ -40,6 +41,27 @@ func NewNotFoundError(name string, cause error) NotFoundError {
 func (n NotFoundError) SetAvail(name ...string) NotFoundError {
 	n.avail = name
 	return n
+}
+
+type NotAFunction struct {
+	cause error
+	name  string
+}
+
+func (n NotAFunction) Error() string {
+	return n.cause.Error()
+}
+
+func (n NotAFunction) Unwrap() error {
+	return n.cause
+}
+
+func (n NotAFunction) NotFound() string {
+	return n.name
+}
+
+func NewNotAFunction(name string, cause error) NotAFunction {
+	return NotAFunction{cause: cause, name: name}
 }
 
 type Visitor interface {

@@ -1062,7 +1062,7 @@ func (g *FunctionGenerator[V]) GenerateFunc(ast parser2.AST, gc GeneratorContext
 			}
 			theFunc, ok := g.ExtractFunction(funcVal)
 			if !ok {
-				return zero, a.Errorf("not a function: %v", a.Func)
+				return zero, parser2.NewNotAFunction(a.String(), a.Errorf("not a function: %v", a.Func))
 			}
 			if theFunc.argsNumberNotMatching(len(argsFuncList)) {
 				return zero, a.Errorf(theFunc.argsNumberNotMatchingError(a.Func.String(), len(argsFuncList)))
