@@ -312,6 +312,7 @@ type FunctionGenerator[V any] struct {
 	uMap            map[string]UnaryOperator[V]
 	customGenerator Generator[V]
 	finalizer       func(g *FunctionGenerator[V])
+	comfort         bool
 }
 
 // New creates a new FunctionGenerator
@@ -338,6 +339,14 @@ func (g *FunctionGenerator[V]) SetKeyWords(keyWords ...string) *FunctionGenerato
 		panic("parser already created")
 	}
 	g.keyWords = keyWords
+	return g
+}
+
+func (g *FunctionGenerator[V]) SetComfort(comfort bool) *FunctionGenerator[V] {
+	if g.parser != nil {
+		panic("parser already created")
+	}
+	g.comfort = comfort
 	return g
 }
 
@@ -529,7 +538,8 @@ func (g *FunctionGenerator[V]) GetParser() *parser2.Parser[V] {
 			SetKeyWords(g.keyWords...).
 			SetStringConverter(g.stringHandler).
 			SetConstants(g.constants).
-			SetOptimizer(g.optimizer)
+			SetOptimizer(g.optimizer).
+			Comfort(g.comfort)
 
 		opMap := map[string]Operator[V]{}
 		for _, o := range g.operators {

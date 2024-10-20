@@ -683,6 +683,7 @@ type Parser[V any] struct {
 	identifier     Matcher
 	allowComments  bool
 	operatorDetect OperatorDetector
+	comfort        bool
 }
 
 // NewParser creates a new Parser
@@ -708,6 +709,11 @@ func (p *Parser[V]) Op(name ...string) *Parser[V] {
 	} else {
 		p.operators = append(p.operators, name...)
 	}
+	return p
+}
+
+func (p *Parser[V]) Comfort(comfort bool) *Parser[V] {
+	p.comfort = comfort
 	return p
 }
 
@@ -787,7 +793,12 @@ func (p *Parser[V]) Parse(str string) (ast AST, err error) {
 	}
 
 	tokenizer :=
-		NewTokenizer(str, p.number, p.identifier, p.operatorDetect, p.textOperators, p.keyWords, p.allowComments)
+		NewTokenizer(str, p.number, p.identifier, p.operatorDetect).
+			SetTextOperators(p.textOperators).
+			SetKeyWords(p.keyWords).
+			SetComments(p.allowComments).
+			SetComfort(p.comfort).
+			Start()
 
 	ast, err = p.parseLet(tokenizer, p.constants)
 	if err != nil {

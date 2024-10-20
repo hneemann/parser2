@@ -58,6 +58,7 @@ type Tokenizer struct {
 	textOperators    map[string]string
 	allowComments    bool
 	keyWord          map[string]bool
+	comfortEnabled   bool
 }
 
 type Matcher func(r rune) (func(r rune) bool, bool)
@@ -107,26 +108,23 @@ func NewOperatorDetector(operators []string) OperatorDetector {
 	}
 }
 
-func NewTokenizer(text string, number, identifier Matcher, operatorDetector OperatorDetector, textOp map[string]string, keyWords []string, allowComments bool) *Tokenizer {
+func NewTokenizer(text string, number, identifier Matcher, operatorDetector OperatorDetector) *Tokenizer {
 	t := make(chan Token)
-
-	keyWordMap := map[string]bool{}
-	for _, kw := range keyWords {
-		keyWordMap[kw] = true
-	}
-
 	tok := &Tokenizer{
 		str:              text,
-		textOperators:    textOp,
+		textOperators:    make(map[string]string),
 		number:           number,
 		identifier:       identifier,
-		keyWord:          keyWordMap,
+		keyWord:          map[string]bool{},
 		operatorDetector: operatorDetector,
-		allowComments:    allowComments,
 		line:             1,
 		tok:              t}
-	go tok.run(t)
 	return tok
+}
+
+func (t *Tokenizer) Start() *Tokenizer {
+	go t.run(t.tok)
+	return t
 }
 
 func (t *Tokenizer) Peek() Token {
@@ -176,24 +174,30 @@ func (t *Tokenizer) getLine() Line {
 
 func (t *Tokenizer) run(tokens chan<- Token) {
 	lastTokenType := tInvalid
+	lastWasBlank := false
 	for {
 		thisTokenType := tInvalid
 		switch n := t.next(true); n {
 		case '\n':
 			t.line++
+			lastWasBlank = true
 			continue
 		case ' ', '\r', '\t':
+			lastWasBlank = true
 			continue
 		case EOF:
 			close(tokens)
 			return
 		case '(':
-			if lastTokenType == tNumber {
+			if lastTokenType == tNumber || lastTokenType == tClose || (lastTokenType == tIdent && lastWasBlank) {
 				tokens <- Token{tOperate, "*", t.getLine()}
 			}
 			tokens <- Token{tOpen, "(", t.getLine()}
 		case ')':
 			tokens <- Token{tClose, ")", t.getLine()}
+			if t.comfortEnabled {
+				thisTokenType = tClose
+			}
 		case '[':
 			tokens <- Token{tOpenBracket, "[", t.getLine()}
 		case ']':
@@ -250,9 +254,12 @@ func (t *Tokenizer) run(tokens chan<- Token) {
 			t.unread()
 			c := t.peek(true)
 			if f, ok := t.number(c); ok {
+				if lastTokenType == tNumber || lastTokenType == tIdent || lastTokenType == tClose {
+					tokens <- Token{tOperate, "*", t.getLine()}
+				}
 				image := t.read(f)
 				tokens <- Token{tNumber, image, t.getLine()}
-				if !t.allowComments {
+				if t.comfortEnabled {
 					thisTokenType = tNumber
 				}
 			} else if f, ok := t.identifier(c); ok {
@@ -263,11 +270,11 @@ func (t *Tokenizer) run(tokens chan<- Token) {
 					if t.keyWord[image] {
 						tokens <- Token{tKeyWord, image, t.getLine()}
 					} else {
-						if lastTokenType == tNumber || lastTokenType == tIdent {
+						if lastTokenType == tNumber || lastTokenType == tIdent || lastTokenType == tClose {
 							tokens <- Token{tOperate, "*", t.getLine()}
 						}
 						tokens <- Token{tIdent, image, t.getLine()}
-						if !t.allowComments {
+						if t.comfortEnabled {
 							thisTokenType = tIdent
 						}
 					}
@@ -282,6 +289,7 @@ func (t *Tokenizer) run(tokens chan<- Token) {
 			}
 		}
 		lastTokenType = thisTokenType
+		lastWasBlank = false
 	}
 }
 
@@ -404,4 +412,27 @@ func (t *Tokenizer) readStr() Token {
 			return Token{tString, str.String(), t.getLine()}
 		}
 	}
+}
+
+func (t *Tokenizer) SetTextOperators(operators map[string]string) *Tokenizer {
+	t.textOperators = operators
+	return t
+}
+
+func (t *Tokenizer) SetKeyWords(keyWords []string) *Tokenizer {
+	for _, kw := range keyWords {
+		t.keyWord[kw] = true
+	}
+	return t
+
+}
+
+func (t *Tokenizer) SetComments(comments bool) *Tokenizer {
+	t.allowComments = comments
+	return t
+}
+
+func (t *Tokenizer) SetComfort(comfort bool) *Tokenizer {
+	t.comfortEnabled = comfort
+	return t
 }

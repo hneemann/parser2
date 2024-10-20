@@ -10,6 +10,7 @@ import (
 // minimal is a minimal float64 parser example
 // see test cases for usage example
 var minimal = funcGen.New[float64]().
+	SetComfort(true).
 	AddConstant("pi", math.Pi).
 	AddSimpleOp("=", true, func(a, b float64) (float64, error) { return fromBool(a == b), nil }).
 	AddSimpleOp("<", false, func(a, b float64) (float64, error) { return fromBool(a < b), nil }).

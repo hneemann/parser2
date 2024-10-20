@@ -144,7 +144,7 @@ func TestNewTokenizer(t *testing.T) {
 	for _, test := range tests {
 		test := test
 		t.Run(test.name, func(t *testing.T) {
-			tok := NewTokenizer(test.exp, simpleNumber, simpleIdentifier, detect, map[string]string{}, []string{}, true)
+			tok := NewTokenizer(test.exp, simpleNumber, simpleIdentifier, detect).SetComments(true).Start()
 			for _, to := range test.want {
 				assert.EqualValues(t, to, tok.Next())
 			}
@@ -196,7 +196,7 @@ func TestOperatorDetect(t *testing.T) {
 	for _, tt := range tests {
 		test := tt
 		t.Run(test.name, func(t *testing.T) {
-			tok := NewTokenizer(test.exp, simpleNumber, simpleIdentifier, NewOperatorDetector(test.op), map[string]string{}, []string{}, true)
+			tok := NewTokenizer(test.exp, simpleNumber, simpleIdentifier, NewOperatorDetector(test.op)).Start()
 			for _, to := range test.want {
 				assert.EqualValues(t, to, tok.Next())
 			}
@@ -215,7 +215,7 @@ func TestNewTokenizerNoComment(t *testing.T) {
 		{
 			name: "comment 1",
 			exp:  "a //test\n b",
-			want: []Token{{tIdent, "a", 1}, {tOperate, "//", 1}, {tIdent, "test", 1}, {tOperate, "*", 2}, {tIdent, "b", 2}},
+			want: []Token{{tIdent, "a", 1}, {tOperate, "//", 1}, {tIdent, "test", 1}, {tIdent, "b", 2}},
 		},
 		{
 			name: "comment 2",
@@ -258,7 +258,7 @@ func TestNewTokenizerNoComment(t *testing.T) {
 	for _, test := range tests {
 		test := test
 		t.Run(test.name, func(t *testing.T) {
-			tok := NewTokenizer(test.exp, simpleNumber, simpleIdentifier, detect, map[string]string{}, []string{}, false)
+			tok := NewTokenizer(test.exp, simpleNumber, simpleIdentifier, detect).Start()
 			for _, to := range test.want {
 				assert.EqualValues(t, to, tok.Next())
 			}
@@ -269,7 +269,7 @@ func TestNewTokenizerNoComment(t *testing.T) {
 }
 
 func TestPeek(t *testing.T) {
-	tok := NewTokenizer("=(a,b)", simpleNumber, simpleIdentifier, NewOperatorDetector([]string{"="}), map[string]string{}, []string{}, false)
+	tok := NewTokenizer("=(a,b)", simpleNumber, simpleIdentifier, NewOperatorDetector([]string{"="})).Start()
 	assert.Equal(t, "=", tok.Next().image)
 	assert.Equal(t, "(", tok.Next().image)
 	assert.Equal(t, "a", tok.Peek().image)
@@ -306,11 +306,6 @@ func TestUnicodeExp(t *testing.T) {
 		{in: "a⁷", want: []Token{{tIdent, "a", 1}, {tOperate, "^", 1}, {tNumber, "7", 1}}},
 		{in: "a⁸", want: []Token{{tIdent, "a", 1}, {tOperate, "^", 1}, {tNumber, "8", 1}}},
 		{in: "a⁹", want: []Token{{tIdent, "a", 1}, {tOperate, "^", 1}, {tNumber, "9", 1}}},
-
-		{in: "2x", want: []Token{{tNumber, "2", 1}, {tOperate, "*", 1}, {tIdent, "x", 1}}},
-		{in: "2(", want: []Token{{tNumber, "2", 1}, {tOperate, "*", 1}, {tOpen, "(", 1}}},
-		{in: "x x", want: []Token{{tIdent, "x", 1}, {tOperate, "*", 1}, {tIdent, "x", 1}}},
-		{in: "x sin(", want: []Token{{tIdent, "x", 1}, {tOperate, "*", 1}, {tIdent, "sin", 1}, {tOpen, "(", 1}}},
 	}
 
 	myIdent := func(r rune) (func(r rune) bool, bool) {
@@ -326,7 +321,7 @@ func TestUnicodeExp(t *testing.T) {
 	for _, tt := range tests {
 		test := tt
 		t.Run(test.in, func(t *testing.T) {
-			tok := NewTokenizer(test.in, simpleNumber, myIdent, NewOperatorDetector([]string{"^"}), map[string]string{}, []string{}, false)
+			tok := NewTokenizer(test.in, simpleNumber, myIdent, NewOperatorDetector([]string{"^"})).Start()
 			for _, to := range test.want {
 				assert.EqualValues(t, to, tok.Next())
 			}

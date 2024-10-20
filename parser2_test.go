@@ -42,13 +42,20 @@ var parser = NewParser[int]().
 	Op("+", "-", "*", "/", "^").
 	Unary("-")
 
+var parserComfort = NewParser[int]().
+	Comfort(true).
+	SetKeyWords("let", "switch", "case", "default").
+	SetNumberParser(numberParser{}).
+	Op("+", "-", "*", "/", "^").
+	Unary("-")
+
 func TestParser(t *testing.T) {
 	tests := []struct {
 		exp string
 		ast string
 		opt string
 	}{
-		{exp: "(1+1)(2+2)", ast: "(1+1)(2+2)", opt: "2(4)"},
+		{exp: "(1+1)*(2+2)", ast: "(1+1)*(2+2)", opt: "8"},
 		{exp: "(a,b)->a*b*(1+1)", ast: "(a, b)->(a*b)*(1+1)", opt: "(a, b)->(a*b)*2"},
 		{exp: "a->a*(1+1)", ast: "a->a*(1+1)", opt: "a->a*2"},
 		{exp: "f(1+1,2+2)", ast: "f(1+1, 2+2)", opt: "f(2, 4)"},
@@ -64,14 +71,57 @@ func TestParser(t *testing.T) {
 		{exp: "-(2*2)", ast: "-(2*2)", opt: "-4"},
 		{exp: "{a:1+1, b:2*2}", ast: "{a:1+1, b:2*2}", opt: "{a:2, b:4}"},
 		{exp: "a.m(1+1,2+2)", ast: "a.m(1+1, 2+2)", opt: "a.m(2, 4)"},
-		{exp: "2x³-4x²+2x+1", ast: "(((2*(x^3))-(4*(x^2)))+(2*x))+1", opt: "(((2*(x^3))-(4*(x^2)))+(2*x))+1"},
-		{exp: "2x cos(x)", ast: "(2*x)*cos(x)", opt: "(2*x)*cos(x)"},
+		{exp: "2*x³-4*x²+2*x+1", ast: "(((2*(x^3))-(4*(x^2)))+(2*x))+1", opt: "(((2*(x^3))-(4*(x^2)))+(2*x))+1"},
 	}
 
 	for _, test := range tests {
 		test := test
 		t.Run(test.exp, func(t *testing.T) {
 			ast, err := parser.Parse(test.exp)
+			assert.NoError(t, err, test.exp)
+			if ast != nil {
+				assert.EqualValues(t, test.ast, ast.String())
+			}
+			ast, err = Optimize(ast, simpleOptimizer{})
+			assert.NoError(t, err, test.exp)
+			if ast != nil {
+				assert.EqualValues(t, test.opt, ast.String())
+			}
+		})
+	}
+}
+
+func TestParserComfort(t *testing.T) {
+	tests := []struct {
+		exp string
+		ast string
+		opt string
+	}{
+		{exp: "(1+1)*(2+2)", ast: "(1+1)*(2+2)", opt: "8"},
+		{exp: "(a,b)->a*b*(1+1)", ast: "(a, b)->(a*b)*(1+1)", opt: "(a, b)->(a*b)*2"},
+		{exp: "a->a*(1+1)", ast: "a->a*(1+1)", opt: "a->a*2"},
+		{exp: "f(1+1,2+2)", ast: "f(1+1, 2+2)", opt: "f(2, 4)"},
+		{exp: "a[1+1](2+2)", ast: "a[1+1](2+2)", opt: "a[2](4)"},
+		{exp: "(1+1)[2+2]", ast: "(1+1)[2+2]", opt: "2[4]"},
+		{exp: "(1+1).m[2+2]", ast: "(1+1).m[2+2]", opt: "2.m[4]"},
+		{exp: "(2+4)/(1+10/2)", ast: "(2+4)/(1+(10/2))", opt: "1"},
+		{exp: "[1+1,2+2,3+3]", ast: "[1+1, 2+2, 3+3]", opt: "[2, 4, 6]"},
+		{exp: "let v=1+2; 2+2", ast: "let v=1+2; 2+2", opt: "let v=3; 4"},
+		{exp: "switch a case 0:1 case 1:10 default 100", ast: "switch a case 0 : 1 case 1 : 10 default 100", opt: "switch a case 0 : 1 case 1 : 10 default 100"},
+		{exp: "-(2*2)", ast: "-(2*2)", opt: "-4"},
+		{exp: "{a:1+1, b:2*2}", ast: "{a:1+1, b:2*2}", opt: "{a:2, b:4}"},
+		{exp: "a.m(1+1,2+2)", ast: "a.m(1+1, 2+2)", opt: "a.m(2, 4)"},
+		{exp: "2x³-4x²+2x+1", ast: "(((2*(x^3))-(4*(x^2)))+(2*x))+1", opt: "(((2*(x^3))-(4*(x^2)))+(2*x))+1"},
+		{exp: "2x cos(x) ", ast: "(2*x)*cos(x)", opt: "(2*x)*cos(x)"},
+		{exp: "x 2", ast: "x*2", opt: "x*2"},
+		{exp: "cos(x) x", ast: "cos(x)*x", opt: "cos(x)*x"},
+		{exp: "cos(x) 2 x", ast: "(cos(x)*2)*x", opt: "(cos(x)*2)*x"},
+	}
+
+	for _, test := range tests {
+		test := test
+		t.Run(test.exp, func(t *testing.T) {
+			ast, err := parserComfort.Parse(test.exp)
 			assert.NoError(t, err, test.exp)
 			if ast != nil {
 				assert.EqualValues(t, test.ast, ast.String())
