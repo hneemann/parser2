@@ -330,3 +330,21 @@ func TestUnicodeExp(t *testing.T) {
 		})
 	}
 }
+
+func TestNewTokenToString(t *testing.T) {
+	tests := []struct {
+		name string
+		tok  Token
+		want string
+	}{
+		{name: "simple", tok: Token{typ: tIdent, image: "a"}, want: "'a'"},
+		{name: "dash", tok: Token{typ: tOperate, image: "—"}, want: "'—' (0xe28094)"},
+		{name: "eof", tok: TokenEof, want: "'EOF'"},
+	}
+	for _, tt := range tests {
+		test := tt
+		t.Run(test.name, func(t *testing.T) {
+			assert.Equal(t, test.want, test.tok.String())
+		})
+	}
+}

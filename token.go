@@ -1,6 +1,7 @@
 package parser2
 
 import (
+	"encoding/hex"
 	"fmt"
 	"strings"
 	"unicode/utf8"
@@ -41,7 +42,18 @@ type Token struct {
 }
 
 func (t Token) String() string {
-	return "'" + t.image + "'"
+	isSimple := true
+	for _, r := range t.image {
+		if r <= 32 || r > 126 {
+			isSimple = false
+			break
+		}
+	}
+	if isSimple {
+		return "'" + t.image + "'"
+	} else {
+		return "'" + t.image + "' (0x" + hex.EncodeToString([]byte(t.image)) + ")"
+	}
 }
 
 type Tokenizer struct {
