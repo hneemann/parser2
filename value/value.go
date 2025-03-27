@@ -802,6 +802,30 @@ func New() *FunctionGenerator {
 			Args:   1,
 			IsPure: true,
 		}.SetDescription("value", "Returns the value rounded to the nearest integer.")).
+		AddStaticFunction("binAnd", funcGen.Function[Value]{
+			Func: func(st funcGen.Stack[Value], cs []Value) (Value, error) {
+				if a, ok := st.Get(0).ToInt(); ok {
+					if b, ok := st.Get(1).ToInt(); ok {
+						return Int(a & b), nil
+					}
+				}
+				return nil, fmt.Errorf("binAnd not alowed on %s, %s", TypeName(st.Get(0)), TypeName(st.Get(1)))
+			},
+			Args:   2,
+			IsPure: true,
+		}.SetDescription("a", "b", "Returns the binary and of a, b")).
+		AddStaticFunction("binOr", funcGen.Function[Value]{
+			Func: func(st funcGen.Stack[Value], cs []Value) (Value, error) {
+				if a, ok := st.Get(0).ToInt(); ok {
+					if b, ok := st.Get(1).ToInt(); ok {
+						return Int(a | b), nil
+					}
+				}
+				return nil, fmt.Errorf("binOr not alowed on %s, %s", TypeName(st.Get(0)), TypeName(st.Get(1)))
+			},
+			Args:   2,
+			IsPure: true,
+		}.SetDescription("a", "b", "Returns the binary or of a, b")).
 		AddStaticFunction("createLowPass", funcGen.Function[Value]{
 			Func:   createLowPass,
 			Args:   4,

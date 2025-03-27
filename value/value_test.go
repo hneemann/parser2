@@ -112,6 +112,8 @@ func TestBasic(t *testing.T) {
 		{exp: "const a=2;const b=3; a*b", res: Int(6)},
 		{exp: "func g(a) switch a case 0:\"Test\" case 1:\"Hello\" default \"World\"; [g(0),g(1),g(100)]", res: NewList(String("Test"), String("Hello"), String("World"))},
 		{exp: "func g(a) switch true case a=0:\"Test\" case a=1:\"Hello\" default \"World\"; [g(0),g(1),g(100)]", res: NewList(String("Test"), String("Hello"), String("World"))},
+		{exp: "binOr(1,2)", res: Int(3)},
+		{exp: "binAnd(1,3)", res: Int(1)},
 		{exp: "int(3.2)", res: Int(3)},
 		{exp: "int(3)", res: Int(3)},
 		{exp: "float(3.2)", res: Float(3.2)},
