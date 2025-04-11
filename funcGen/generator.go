@@ -196,6 +196,9 @@ type Function[V any] struct {
 }
 
 func (f Function[V]) VarArgs(min, max int) Function[V] {
+	if f.Description != nil && len(f.Description.Args) != max {
+		panic(fmt.Errorf("wrong number of arguments in description: %d, expected %d", len(f.Description.Args), max))
+	}
 	return Function[V]{
 		Func: func(stack Stack[V], closureStore []V) (V, error) {
 			n := stack.Size()
@@ -212,6 +215,9 @@ func (f Function[V]) VarArgs(min, max int) Function[V] {
 }
 
 func (f Function[V]) VarArgsMethod(min, max int) Function[V] {
+	if f.Description != nil && len(f.Description.Args) != max {
+		panic(fmt.Errorf("wrong number of arguments in description: %d, expected %d", len(f.Description.Args), max))
+	}
 	return Function[V]{
 		Func: func(stack Stack[V], closureStore []V) (V, error) {
 			n := stack.Size()
