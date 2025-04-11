@@ -62,6 +62,13 @@ func (s Stack[V]) Get(n int) V {
 	return s.storage.get(s.offs + n)
 }
 
+func (s Stack[V]) GetOptional(n int, def V) V {
+	if n < s.size {
+		return s.Get(n)
+	}
+	return def
+}
+
 func (s Stack[V]) Size() int {
 	return s.size
 }
@@ -186,6 +193,38 @@ type Function[V any] struct {
 	IsPure bool
 	// Description is a description of the function
 	Description *FunctionDescription
+}
+
+func (f Function[V]) VarArgs(min, max int) Function[V] {
+	return Function[V]{
+		Func: func(stack Stack[V], closureStore []V) (V, error) {
+			n := stack.Size()
+			if n < min || n > max {
+				var zero V
+				return zero, fmt.Errorf("wrong number of arguments at call of function, required %d to %d, found %d", min, max, n)
+			}
+			return f.Func(stack, closureStore)
+		},
+		Args:        -1,
+		IsPure:      f.IsPure,
+		Description: f.Description,
+	}
+}
+
+func (f Function[V]) VarArgsMethod(min, max int) Function[V] {
+	return Function[V]{
+		Func: func(stack Stack[V], closureStore []V) (V, error) {
+			n := stack.Size()
+			if n < min+1 || n > max+1 {
+				var zero V
+				return zero, fmt.Errorf("wrong number of arguments at call of method, required %d to %d, found %d", min, max, n-1)
+			}
+			return f.Func(stack, closureStore)
+		},
+		Args:        -1,
+		IsPure:      f.IsPure,
+		Description: f.Description,
+	}
 }
 
 func (f Function[V]) SetMethodDescription(descr ...string) Function[V] {
