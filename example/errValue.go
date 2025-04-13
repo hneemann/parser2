@@ -78,7 +78,7 @@ func createErrValueMethods() value.MethodMap {
 	}
 }
 
-const errValType = value.Type(10)
+const errValType = value.Type(20)
 
 func (e ErrValue) GetType() value.Type {
 	return errValType
