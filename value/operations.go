@@ -1,6 +1,7 @@
 package value
 
 import (
+	"errors"
 	"fmt"
 	"github.com/hneemann/iterator"
 	"github.com/hneemann/parser2/funcGen"
@@ -146,6 +147,9 @@ func Mul(st funcGen.Stack[Value], a, b Value) (Value, error) {
 func Div(st funcGen.Stack[Value], a, b Value) (Value, error) {
 	if aa, ok := a.ToFloat(); ok {
 		if bb, ok := b.ToFloat(); ok {
+			if bb == 0 {
+				return nil, errors.New("division by zero")
+			}
 			return Float(aa / bb), nil
 		}
 	}

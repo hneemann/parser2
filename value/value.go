@@ -522,6 +522,27 @@ func simpleOnlyFloatFunc(name string, f func(float64) float64) funcGen.Function[
 	}.SetDescription("float", "The mathematical "+name+" function.")
 }
 
+func simpleOnlyFloatFuncCheck(name string, argValid func(float65 float64) bool, f func(float64) float64) funcGen.Function[Value] {
+	return funcGen.Function[Value]{
+		Func: func(st funcGen.Stack[Value], cs []Value) (Value, error) {
+			v := st.Get(0)
+			if fl, ok := v.ToFloat(); ok {
+				if !argValid(fl) {
+					return nil, fmt.Errorf("%s not allowed with argument %f", name, fl)
+				}
+				f2 := f(fl)
+				if math.IsNaN(f2) {
+					fmt.Println(name, fl, f2)
+				}
+				return Float(f2), nil
+			}
+			return nil, fmt.Errorf("%s not alowed on %s", name, TypeName(v))
+		},
+		Args:   1,
+		IsPure: true,
+	}.SetDescription("float", "The mathematical "+name+" function.")
+}
+
 func notAvail(name string) func(st funcGen.Stack[Value], a Value, b Value) (Value, error) {
 	return func(st funcGen.Stack[Value], a Value, b Value) (Value, error) {
 		return nil, fmt.Errorf("%s not available", name)
@@ -855,14 +876,14 @@ func New() *FunctionGenerator {
 		}.SetDescription("n", "Returns a map with the key 'state' set to the given value.")).
 		AddStaticFunction("sprintf", funcGen.Function[Value]{Func: sprintf, Args: -1, IsPure: true}.
 			SetDescription("format", "args", "the classic, well known sprintf function")).
-		AddStaticFunction("sqrt", simpleOnlyFloatFunc("sqrt", func(x float64) float64 { return math.Sqrt(x) })).
-		AddStaticFunction("ln", simpleOnlyFloatFunc("ln", func(x float64) float64 { return math.Log(x) })).
+		AddStaticFunction("sqrt", simpleOnlyFloatFuncCheck("sqrt", func(arg float64) bool { return arg >= 0 }, func(x float64) float64 { return math.Sqrt(x) })).
+		AddStaticFunction("ln", simpleOnlyFloatFuncCheck("ln", func(arg float64) bool { return arg >= 0 }, func(x float64) float64 { return math.Log(x) })).
 		AddStaticFunction("exp", simpleOnlyFloatFunc("exp", func(x float64) float64 { return math.Exp(x) })).
 		AddStaticFunction("sin", simpleOnlyFloatFunc("sin", func(x float64) float64 { return math.Sin(x) })).
 		AddStaticFunction("cos", simpleOnlyFloatFunc("cos", func(x float64) float64 { return math.Cos(x) })).
 		AddStaticFunction("tan", simpleOnlyFloatFunc("tan", func(x float64) float64 { return math.Tan(x) })).
-		AddStaticFunction("asin", simpleOnlyFloatFunc("asin", func(x float64) float64 { return math.Asin(x) })).
-		AddStaticFunction("acos", simpleOnlyFloatFunc("acos", func(x float64) float64 { return math.Acos(x) })).
+		AddStaticFunction("asin", simpleOnlyFloatFuncCheck("asin", func(arg float64) bool { return arg >= -1 && arg <= 1 }, func(x float64) float64 { return math.Asin(x) })).
+		AddStaticFunction("acos", simpleOnlyFloatFuncCheck("acos", func(arg float64) bool { return arg >= -1 && arg <= 1 }, func(x float64) float64 { return math.Acos(x) })).
 		AddStaticFunction("atan", simpleOnlyFloatFunc("atan", func(x float64) float64 { return math.Atan(x) }))
 
 	f.FunctionGenerator = fg
