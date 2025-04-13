@@ -577,6 +577,13 @@ func (fg *FunctionGenerator) RegisterMethods(id Type, methods MethodMap) *Functi
 	return fg.registerMethods(id, methods)
 }
 
+func (fg *FunctionGenerator) AddMethodsTo(id Type, methods MethodMap) *FunctionGenerator {
+	if id >= 20 {
+		panic(fmt.Sprintf("id %d is too big", id))
+	}
+	return fg.registerMethods(id, methods)
+}
+
 func (fg *FunctionGenerator) registerMethods(id Type, methods MethodMap) *FunctionGenerator {
 	if int(id) >= len(fg.methods) {
 		panic(fmt.Sprintf("id %d is too big", id))
