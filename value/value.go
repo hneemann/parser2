@@ -29,6 +29,7 @@ const (
 	closureTypeId
 	FormatTypeId
 	LinkTypeId
+	FileTypeId
 )
 
 type Value interface {

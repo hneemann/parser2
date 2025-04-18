@@ -1,7 +1,11 @@
 package export
 
 import (
+	"archive/zip"
+	"bytes"
+	"encoding/base64"
 	"errors"
+	"fmt"
 	"github.com/hneemann/iterator"
 	"github.com/hneemann/parser2"
 	"github.com/hneemann/parser2/funcGen"
@@ -160,6 +164,82 @@ func (l Link) GetType() value.Type {
 	return value.LinkTypeId
 }
 
+type File struct {
+	Name string
+	Data []byte
+}
+
+func (f File) ToList() (*value.List, bool) {
+	return nil, false
+}
+
+func (f File) ToMap() (value.Map, bool) {
+	return value.Map{}, false
+}
+
+func (f File) ToInt() (int, bool) {
+	return 0, false
+}
+
+func (f File) ToFloat() (float64, bool) {
+	return 0, false
+}
+
+func (f File) ToString(st funcGen.Stack[value.Value]) (string, error) {
+	return fmt.Sprintf("file %s (%d bytes)", f.Name, len(f.Data)), nil
+}
+
+func (f File) ToBool() (bool, bool) {
+	return false, false
+}
+
+func (f File) ToClosure() (funcGen.Function[value.Value], bool) {
+	return funcGen.Function[value.Value]{}, false
+}
+
+func (f File) GetType() value.Type {
+	return value.FileTypeId
+}
+
+func AddZipHelpers(f *value.FunctionGenerator) {
+	f.AddStaticFunction("zipFiles", funcGen.Function[value.Value]{
+		Func: func(st funcGen.Stack[value.Value], cs []value.Value) (value.Value, error) {
+			if name, ok := st.Get(0).(value.String); ok {
+				if list, ok := st.Get(1).ToList(); ok {
+					var buffer bytes.Buffer
+					zip := zip.NewWriter(&buffer)
+					err := list.Iterate(st, func(v value.Value) error {
+						if f, ok := v.(File); ok {
+							w, err := zip.Create(f.Name)
+							if err != nil {
+								return err
+							}
+							_, err = w.Write(f.Data)
+							return err
+						}
+						return errors.New("zipFiles requires a list of files")
+					})
+					if err != nil {
+						return nil, err
+					}
+					err = zip.Close()
+					if err != nil {
+						return nil, err
+					}
+
+					return File{
+						Name: string(name) + ".zip",
+						Data: buffer.Bytes(),
+					}, nil
+				}
+			}
+			return nil, errors.New("zipFiles requires a string and a list of files")
+		},
+		Args:   2,
+		IsPure: true,
+	}.SetDescription("name", "list of files", "Used to create a zip file."))
+}
+
 type CustomHTML func(value.Value) (template.HTML, bool, error)
 
 // ToHtml creates an HTML representation of a value
@@ -239,6 +319,13 @@ func (ex *htmlExporter) toHtml(st funcGen.Stack[value.Value], v, style value.Val
 		err := ex.toHtml(st, t.Value, style)
 		ex.w.Close()
 		return err
+	case File:
+		dataStr := base64.StdEncoding.EncodeToString(t.Data)
+		dataStr = "data:application/octet-stream;base64," + dataStr
+		ex.w.Open("a").Attr("href", dataStr)
+		ex.w.Attr("download", t.Name)
+		ex.w.Write("File: " + t.Name)
+		ex.w.Close()
 	case *value.List:
 		if hasKey(style, "plainList") {
 			return t.Iterate(st, func(v value.Value) error {
