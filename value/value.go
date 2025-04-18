@@ -895,6 +895,7 @@ func New() *FunctionGenerator {
 			SetDescription("format", "args", "the classic, well known sprintf function")).
 		AddStaticFunction("sqrt", simpleOnlyFloatFuncCheck("sqrt", func(arg float64) bool { return arg >= 0 }, func(x float64) float64 { return math.Sqrt(x) })).
 		AddStaticFunction("ln", simpleOnlyFloatFuncCheck("ln", func(arg float64) bool { return arg >= 0 }, func(x float64) float64 { return math.Log(x) })).
+		AddStaticFunction("log10", simpleOnlyFloatFuncCheck("log", func(arg float64) bool { return arg >= 0 }, func(x float64) float64 { return math.Log10(x) })).
 		AddStaticFunction("exp", simpleOnlyFloatFunc("exp", func(x float64) float64 { return math.Exp(x) })).
 		AddStaticFunction("sin", simpleOnlyFloatFunc("sin", func(x float64) float64 { return math.Sin(x) })).
 		AddStaticFunction("cos", simpleOnlyFloatFunc("cos", func(x float64) float64 { return math.Cos(x) })).

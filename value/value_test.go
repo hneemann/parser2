@@ -74,6 +74,7 @@ func TestBasic(t *testing.T) {
 		{exp: "let a=2;sqr(a)", res: Int(4)},
 		{exp: "let a=2.0;sqr(a)", res: Float(4.0)},
 		{exp: "let a=2;let b=3;exp(b*ln(a))", res: Float(8.0)},
+		{exp: "let a=100;log10(a)", res: Float(2.0)},
 		{exp: "\"a\"=\"a\"", res: Bool(true)},
 		{exp: "\"a\">=\"a\"", res: Bool(true)},
 		{exp: "\"a\"<=\"a\"", res: Bool(true)},
