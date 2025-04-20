@@ -195,6 +195,11 @@ type Function[V any] struct {
 	Description *FunctionDescription
 }
 
+func (f Function[V]) Pure(pure bool) Function[V] {
+	f.IsPure = pure
+	return f
+}
+
 func (f Function[V]) VarArgs(min, max int) Function[V] {
 	if f.Description != nil && len(f.Description.Args) != max {
 		panic(fmt.Errorf("wrong number of arguments in description: %d, expected %d", len(f.Description.Args), max))
