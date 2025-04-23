@@ -661,7 +661,7 @@ func simpleNumber(r rune) (func(r rune) bool, bool) {
 }
 
 func simpleIdentifier(r rune) (func(r rune) bool, bool) {
-	if unicode.IsLetter(r) {
+	if unicode.IsLetter(r) || r == '_' {
 		return func(r rune) bool {
 			return unicode.IsLetter(r) || (unicode.IsNumber(r) && !strings.ContainsRune("⁰¹²³⁴⁵⁶⁷⁸⁹", r)) || r == '_'
 		}, true
