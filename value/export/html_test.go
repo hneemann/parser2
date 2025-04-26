@@ -74,3 +74,25 @@ func styleCell(v value.Value) value.Value {
 	}
 	return st
 }
+
+func Test_byteSize_String(t *testing.T) {
+	tests := []struct {
+		name string
+		b    byteSize
+		want string
+	}{
+		{"1", byteSize(1), "1 Bytes"},
+		{"2", byteSize(400), "400 Bytes"},
+		{"3", byteSize(600), "600 Bytes"},
+		{"4", byteSize(2400), "2400 Bytes"},
+		{"5", byteSize(20400), "19 kBytes"},
+		{"6", byteSize(20400000), "19 MBytes"},
+		{"7", byteSize(1e12), "931 GBytes"},
+		{"8", byteSize(1e17), "90949 TBytes"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equalf(t, tt.want, tt.b.String(), "String()")
+		})
+	}
+}

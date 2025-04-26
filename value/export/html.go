@@ -289,6 +289,20 @@ func (ex *htmlExporter) getClassName(style string) string {
 	return className
 }
 
+type byteSize int
+
+var byteUnits = []string{"Bytes", "kBytes", "MBytes", "GBytes", "TBytes"}
+
+func (b byteSize) String() string {
+	us := b
+	unit := 0
+	for us > 10000 && unit < len(byteUnits)-1 {
+		unit++
+		us = us / 1024
+	}
+	return strconv.Itoa(int(us)) + " " + byteUnits[unit]
+}
+
 func (ex *htmlExporter) toHtml(st funcGen.Stack[value.Value], v, style value.Value) error {
 	if style != nil {
 		if cl, ok := style.ToClosure(); ok {
@@ -324,7 +338,7 @@ func (ex *htmlExporter) toHtml(st funcGen.Stack[value.Value], v, style value.Val
 		dataStr = "data:application/octet-stream;base64," + dataStr
 		ex.w.Open("a").Attr("href", dataStr)
 		ex.w.Attr("download", t.Name)
-		ex.w.Write("File: " + t.Name)
+		ex.w.Write("File: " + t.Name + " (" + byteSize(len(t.Data)).String() + ")")
 		ex.w.Close()
 	case *value.List:
 		if hasKey(style, "plainList") {
