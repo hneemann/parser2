@@ -721,7 +721,7 @@ func NewParser[V any]() *Parser[V] {
 	}
 }
 
-// Op adds a operator to the parser
+// Op adds an operator to the parser
 // The name gives the operations name e.g."+"
 // The operation with the lowest priority needs to be added first.
 // The operation with the highest priority needs to be added last.
@@ -771,7 +771,7 @@ func (p *Parser[V]) SetIdentMatcher(ident Matcher) *Parser[V] {
 	return p
 }
 
-// SetIdentMatcher sets the identifier Matcher
+// SetKeyWords sets the available keywords
 func (p *Parser[V]) SetKeyWords(keyWords ...string) *Parser[V] {
 	p.keyWords = keyWords
 	return p
@@ -790,7 +790,7 @@ func (p *Parser[V]) SetConstants(constants Constants[V]) *Parser[V] {
 	return p
 }
 
-// SetOptimizer sets a optimizer used to optimize constants
+// SetOptimizer sets an optimizer used to optimize constants
 func (p *Parser[V]) SetOptimizer(optimizer Optimizer) *Parser[V] {
 	p.optimizer = optimizer
 	return p

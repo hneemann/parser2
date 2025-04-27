@@ -138,6 +138,26 @@ func TestNewTokenizer(t *testing.T) {
 			exp:  "a % 10",
 			want: []Token{{tIdent, "a", 1}, {tOperate, "%", 1}, {tNumber, "10", 1}},
 		},
+		{
+			name: "var mul",
+			exp:  "a • 10",
+			want: []Token{{tIdent, "a", 1}, {tOperate, "*", 1}, {tNumber, "10", 1}},
+		},
+		{
+			name: "var mul 2",
+			exp:  "a × 10",
+			want: []Token{{tIdent, "a", 1}, {tOperate, "*", 1}, {tNumber, "10", 1}},
+		},
+		{
+			name: "var div",
+			exp:  "a ÷ 10",
+			want: []Token{{tIdent, "a", 1}, {tOperate, "/", 1}, {tNumber, "10", 1}},
+		},
+		{
+			name: "var sub",
+			exp:  "a – 10",
+			want: []Token{{tIdent, "a", 1}, {tOperate, "-", 1}, {tNumber, "10", 1}},
+		},
 	}
 
 	detect := NewOperatorDetector([]string{"+", "-", "*", "/", "->", "%", "/="})

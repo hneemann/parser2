@@ -356,6 +356,17 @@ func (t *Tokenizer) peek(skipComment bool) rune {
 		}
 	}
 
+	switch t.last {
+	case '•':
+		t.last = '*'
+	case '×':
+		t.last = '*'
+	case '÷':
+		t.last = '/'
+	case '–':
+		t.last = '-'
+	}
+
 	t.isLast = true
 	t.str = t.str[size:]
 	return t.last
