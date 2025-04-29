@@ -303,6 +303,10 @@ func (b byteSize) String() string {
 	return strconv.Itoa(int(us)) + " " + byteUnits[unit]
 }
 
+type ToHtmlInterface interface {
+	ToHtml(st funcGen.Stack[value.Value], w *xmlWriter.XMLWriter) error
+}
+
 func (ex *htmlExporter) toHtml(st funcGen.Stack[value.Value], v, style value.Value) error {
 	if style != nil {
 		if cl, ok := style.ToClosure(); ok {
@@ -392,11 +396,18 @@ func (ex *htmlExporter) toHtml(st funcGen.Stack[value.Value], v, style value.Val
 		if v == nil {
 			ex.w.Write("nil")
 		} else {
-			s, err := v.ToString(st)
-			if err != nil {
-				return err
+			if th, ok := v.(ToHtmlInterface); ok {
+				err := th.ToHtml(st, ex.w)
+				if err != nil {
+					return err
+				}
+			} else {
+				s, err := v.ToString(st)
+				if err != nil {
+					return err
+				}
+				ex.writeHtmlString(s, style)
 			}
-			ex.writeHtmlString(s, style)
 		}
 	}
 	return nil
