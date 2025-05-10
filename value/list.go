@@ -430,6 +430,32 @@ func (l *List) First(st funcGen.Stack[Value]) (Value, error) {
 	return nil, errors.New("error in first, no items in list")
 }
 
+func (l *List) Single(st funcGen.Stack[Value]) (Value, error) {
+	if l.itemsPresent {
+		if len(l.items) == 1 {
+			return l.items[0], nil
+		}
+	} else {
+		var first Value
+		found := false
+		err := l.iterable(st, func(value Value) error {
+			if found {
+				return errors.New("error in single, more than one item in list")
+			}
+			first = value
+			found = true
+			return nil
+		})
+		if err != nil {
+			return nil, err
+		}
+		if found {
+			return first, nil
+		}
+	}
+	return nil, errors.New("error in single not a single item in list")
+}
+
 func (l *List) Last(st funcGen.Stack[Value]) (Value, error) {
 	if l.itemsPresent {
 		if len(l.items) > 0 {
@@ -1501,6 +1527,8 @@ func createListMethods(
 		}).
 			SetMethodDescription("Returns the number of items in the list."),
 		"first": MethodAtType(0, func(list *List, stack funcGen.Stack[Value]) (Value, error) { return list.First(stack) }).
+			SetMethodDescription("Returns the first item in the list."),
+		"single": MethodAtType(0, func(list *List, stack funcGen.Stack[Value]) (Value, error) { return list.Single(stack) }).
 			SetMethodDescription("Returns the first item in the list."),
 		"last": MethodAtType(0, func(list *List, stack funcGen.Stack[Value]) (Value, error) { return list.Last(stack) }).
 			SetMethodDescription("Returns the last item in the list."),
