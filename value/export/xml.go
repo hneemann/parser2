@@ -111,6 +111,6 @@ func XML() Exporter[[]byte] {
 	var b bytes.Buffer
 	b.WriteString("<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\" ?>\n")
 	return &xmlExporter{
-		w: xmlWriter.NewWithBuffer(&b),
+		w: xmlWriter.NewWithBuffer(&b).PrettyPrint(),
 	}
 }

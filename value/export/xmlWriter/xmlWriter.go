@@ -15,16 +15,22 @@ func NewWithBuffer(b *bytes.Buffer) *XMLWriter {
 }
 
 type XMLWriter struct {
-	b          *bytes.Buffer
-	open       []string
-	depth      int
-	inLine     bool
-	tagIsOpen  bool
-	avoidShort bool
+	b           *bytes.Buffer
+	open        []string
+	depth       int
+	inLine      bool
+	tagIsOpen   bool
+	avoidShort  bool
+	prettyPrint bool
 }
 
 func (w *XMLWriter) AvoidShort() *XMLWriter {
 	w.avoidShort = true
+	return w
+}
+
+func (w *XMLWriter) PrettyPrint() *XMLWriter {
+	w.prettyPrint = true
 	return w
 }
 
@@ -111,8 +117,10 @@ func (w *XMLWriter) writeEsc(s string) {
 
 func (w *XMLWriter) checkIndent() {
 	if !w.inLine {
-		for i := 0; i < w.depth; i++ {
-			w.b.WriteString("\t")
+		if w.prettyPrint {
+			for i := 0; i < w.depth; i++ {
+				w.b.WriteString("\t")
+			}
 		}
 		w.inLine = true
 	}
@@ -120,7 +128,9 @@ func (w *XMLWriter) checkIndent() {
 
 func (w *XMLWriter) newLine() {
 	if w.inLine {
-		w.b.WriteRune('\n')
+		if w.prettyPrint {
+			w.b.WriteRune('\n')
+		}
 		w.inLine = false
 	}
 }

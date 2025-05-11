@@ -256,7 +256,7 @@ func ToHtml(v value.Value, maxListSize int, custom CustomHTML, inlineStyle bool)
 	if maxListSize < 1 {
 		maxListSize = 1
 	}
-	w := xmlWriter.New().AvoidShort()
+	w := xmlWriter.New().AvoidShort().PrettyPrint()
 	ex := htmlExporter{w: w, maxListSize: maxListSize, custom: custom, styleMap: make(map[string]string), inlineStyle: inlineStyle}
 	err = ex.toHtml(funcGen.NewEmptyStack[value.Value](), v, nil)
 	if err != nil {
