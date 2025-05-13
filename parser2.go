@@ -1298,6 +1298,10 @@ func (p *Parser[V]) parseArgs(tokenizer *Tokenizer, closeList TokenType, constan
 		if t.typ != tComma {
 			return nil, unexpected(",", t)
 		}
+		if tokenizer.Peek().typ == closeList {
+			tokenizer.Next()
+			return args, nil
+		}
 	}
 }
 
