@@ -2,7 +2,6 @@ package parser2
 
 import (
 	"encoding/hex"
-	"fmt"
 	"strings"
 	"unicode/utf8"
 )
@@ -426,7 +425,8 @@ func (t *Tokenizer) readStr() Token {
 				case '\\':
 					str.WriteRune('\\')
 				default:
-					return Token{tInvalid, fmt.Sprintf("Escape %c", i), t.getLine()}
+					str.WriteRune('\\')
+					str.WriteRune(i)
 				}
 			default:
 				str.WriteRune(c)

@@ -80,8 +80,8 @@ func TestNewTokenizer(t *testing.T) {
 		},
 		{
 			name: "string escape 4",
-			exp:  "\"\\#",
-			want: []Token{{tInvalid, "Escape #", 1}},
+			exp:  "\"\\#\"",
+			want: []Token{{tString, "\\#", 1}},
 		},
 		{
 			name: "exp",
