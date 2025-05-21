@@ -563,7 +563,7 @@ type Sortable struct {
 	st       funcGen.Stack[Value]
 	pickFunc funcGen.Function[Value]
 	err      error
-	less     funcGen.BoolFunc[Value]
+	less     funcGen.OperatorImpl[Value]
 }
 
 func (s *Sortable) Len() int {
@@ -588,13 +588,19 @@ func (s *Sortable) Less(i, j int) bool {
 	pj, okj := s.pick(j)
 	if oki && okj {
 		if s.rev {
-			less, err := s.less(s.st, pj, pi)
+			less, err := s.less.Do(s.st, pj, pi)
 			s.registerError(err)
-			return less
+			if b, ok := less.ToBool(); ok {
+				return b
+			}
+			return false
 		} else {
-			less, err := s.less(s.st, pi, pj)
+			less, err := s.less.Do(s.st, pi, pj)
 			s.registerError(err)
-			return less
+			if b, ok := less.ToBool(); ok {
+				return b
+			}
+			return false
 		}
 	} else {
 		return false
@@ -605,7 +611,7 @@ func (s *Sortable) Swap(i, j int) {
 	s.items[i], s.items[j] = s.items[j], s.items[i]
 }
 
-func (l *List) Order(st funcGen.Stack[Value], rev bool, less funcGen.BoolFunc[Value]) (*List, error) {
+func (l *List) Order(st funcGen.Stack[Value], rev bool, less funcGen.OperatorImpl[Value]) (*List, error) {
 	f, err := ToFunc("order", st, 1, 1)
 	if err != nil {
 		return nil, err
@@ -843,14 +849,14 @@ func (l *List) Reduce(st funcGen.Stack[Value]) (Value, error) {
 	})
 }
 
-func (l *List) Sum(st funcGen.Stack[Value], add func(st funcGen.Stack[Value], a Value, b Value) (Value, error)) (Value, error) {
+func (l *List) Sum(st funcGen.Stack[Value], add funcGen.OperatorImpl[Value]) (Value, error) {
 	var sum Value
 	err := l.iterable(st, func(value Value) error {
 		if sum == nil {
 			sum = value
 		} else {
 			var err error
-			sum, err = add(st, sum, value)
+			sum, err = add.Do(st, sum, value)
 			if err != nil {
 				return err
 			}
@@ -879,7 +885,7 @@ func (l *List) MapReduce(st funcGen.Stack[Value]) (Value, error) {
 	})
 }
 
-func (l *List) MinMax(st funcGen.Stack[Value], less funcGen.BoolFunc[Value]) (Value, error) {
+func (l *List) MinMax(st funcGen.Stack[Value], less funcGen.OperatorImpl[Value]) (Value, error) {
 	f, err := ToFunc("minMax", st, 1, 1)
 	if err != nil {
 		return nil, err
@@ -902,19 +908,19 @@ func (l *List) MinMax(st funcGen.Stack[Value], less funcGen.BoolFunc[Value]) (Va
 			minItem = value
 			maxItem = value
 		} else {
-			le, err := less(st, r, minVal)
+			le, err := less.Do(st, r, minVal)
 			if err != nil {
 				return err
 			}
-			if le {
+			if b, ok := le.ToBool(); ok && b {
 				minVal = r
 				minItem = value
 			}
-			gr, err := less(st, maxVal, r)
+			gr, err := less.Do(st, maxVal, r)
 			if err != nil {
 				return err
 			}
-			if gr {
+			if b, ok := gr.ToBool(); ok && b {
 				maxVal = r
 				maxItem = value
 			}
@@ -932,7 +938,7 @@ func (l *List) MinMax(st funcGen.Stack[Value], less funcGen.BoolFunc[Value]) (Va
 		Append("valid", Bool(!first))), nil
 }
 
-func (l *List) Mean(st funcGen.Stack[Value], add, div func(st funcGen.Stack[Value], a Value, b Value) (Value, error)) (Value, error) {
+func (l *List) Mean(st funcGen.Stack[Value], add, div funcGen.OperatorImpl[Value]) (Value, error) {
 	var sum Value
 	n := 0
 	err := l.iterable(st, func(value Value) error {
@@ -941,7 +947,7 @@ func (l *List) Mean(st funcGen.Stack[Value], add, div func(st funcGen.Stack[Valu
 			n = 1
 		} else {
 			var err error
-			sum, err = add(st, sum, value)
+			sum, err = add.Do(st, sum, value)
 			if err != nil {
 				return err
 			}
@@ -954,7 +960,7 @@ func (l *List) Mean(st funcGen.Stack[Value], add, div func(st funcGen.Stack[Valu
 	}
 
 	if n > 0 {
-		return div(st, sum, Int(n))
+		return div.Do(st, sum, Int(n))
 	} else {
 		return nil, errors.New("mean of empty list")
 	}
@@ -988,7 +994,7 @@ func (l *List) Number(sta funcGen.Stack[Value]) (*List, error) {
 	}), nil
 }
 
-func (l *List) GroupByEqual(st funcGen.Stack[Value], equal funcGen.BoolFunc[Value]) (*List, error) {
+func (l *List) GroupByEqual(st funcGen.Stack[Value], equal funcGen.OperatorImpl[Value]) (*List, error) {
 	keyFunc, err := ToFunc("groupByEqual", st, 1, 1)
 	if err != nil {
 		return nil, err
@@ -1008,10 +1014,10 @@ func (l *List) GroupByEqual(st funcGen.Stack[Value], equal funcGen.BoolFunc[Valu
 		}
 
 		for ind, item := range items {
-			if eq, err := equal(st, item.key, key); err != nil {
+			if eq, err := equal.Do(st, item.key, key); err != nil {
 				return err
 			} else {
-				if eq {
+				if b, ok := eq.ToBool(); ok && b {
 					items[ind].values = append(items[ind].values, value)
 					return nil
 				}
@@ -1373,9 +1379,11 @@ func (l *List) Set(st funcGen.Stack[Value]) (Value, error) {
 	return NewList(sl...), nil
 }
 
-func createListMethods(
-	add, div func(st funcGen.Stack[Value], a Value, b Value) (Value, error),
-	less, equal funcGen.BoolFunc[Value]) MethodMap {
+func createListMethods(f *FunctionGenerator) MethodMap {
+	add := f.GetOp("+")
+	div := f.GetOp("/")
+	less := f.GetOp("<")
+	equal := f.GetOp("=")
 	return MethodMap{
 		"accept": MethodAtType(1, func(list *List, stack funcGen.Stack[Value]) (Value, error) { return list.Accept(stack) }).
 			SetMethodDescription("func(item) bool",

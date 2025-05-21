@@ -97,12 +97,22 @@ func (s Stack[V]) Init(v ...V) Stack[V] {
 	return s
 }
 
+type OperatorImpl[V any] interface {
+	Do(st Stack[V], a, b V) (V, error)
+}
+
+type OperatorImplFunc[V any] func(st Stack[V], a, b V) (V, error)
+
+func (o OperatorImplFunc[V]) Do(st Stack[V], a, b V) (V, error) {
+	return o(st, a, b)
+}
+
 // Operator defines a operator like +
 type Operator[V any] struct {
 	// Operator is the operator as a string like "+"
 	Operator string
 	// Impl is the implementation of the operation
-	Impl func(st Stack[V], a, b V) (V, error)
+	Impl OperatorImpl[V]
 	// IsPure is true if the result of the operation depends only on the operands.
 	// This is usually the case, there are only special corner cases where it is not.
 	// So IsPure is usually true.
@@ -461,9 +471,9 @@ func (g *FunctionGenerator[V]) AddUnary(operator string, impl func(a V) (V, erro
 // The operation with the lowest priority needs to be added first.
 // The operation with the highest priority needs to be added last.
 func (g *FunctionGenerator[V]) AddSimpleOp(operator string, isCommutative bool, impl func(a V, b V) (V, error)) *FunctionGenerator[V] {
-	return g.AddOpPure(operator, isCommutative, func(st Stack[V], a V, b V) (V, error) {
+	return g.AddOpPure(operator, isCommutative, OperatorImplFunc[V](func(st Stack[V], a, b V) (V, error) {
 		return impl(a, b)
-	}, true)
+	}), true)
 }
 
 // AddOp adds an operation to the generator.
@@ -471,13 +481,13 @@ func (g *FunctionGenerator[V]) AddSimpleOp(operator string, isCommutative bool, 
 // The operation with the lowest priority needs to be added first.
 // The operation with the highest priority needs to be added last.
 func (g *FunctionGenerator[V]) AddOp(operator string, isCommutative bool, impl func(st Stack[V], a V, b V) (V, error)) *FunctionGenerator[V] {
-	return g.AddOpPure(operator, isCommutative, impl, true)
+	return g.AddOpPure(operator, isCommutative, OperatorImplFunc[V](impl), true)
 }
 
 // AddOpPure adds an operation to the generator.
 // The operation with the lowest priority needs to be added first.
 // The operation with the highest priority needs to be added last.
-func (g *FunctionGenerator[V]) AddOpPure(operator string, isCommutative bool, impl func(st Stack[V], a V, b V) (V, error), isPure bool) *FunctionGenerator[V] {
+func (g *FunctionGenerator[V]) AddOpPure(operator string, isCommutative bool, impl OperatorImpl[V], isPure bool) *FunctionGenerator[V] {
 	return g.AddOpBehind("", operator, isCommutative, impl, isPure)
 }
 
@@ -485,7 +495,7 @@ func (g *FunctionGenerator[V]) AddOpPure(operator string, isCommutative bool, im
 // Adds the new operator right behind given old operator in the priority list.
 // If the old operator an empty string, the new operator is added at the end
 // or, if the new operator already exists, the existing operator is replaced.
-func (g *FunctionGenerator[V]) AddOpBehind(oldOperator, newOperator string, isCommutative bool, impl func(st Stack[V], a V, b V) (V, error), isPure bool) *FunctionGenerator[V] {
+func (g *FunctionGenerator[V]) AddOpBehind(oldOperator, newOperator string, isCommutative bool, impl OperatorImpl[V], isPure bool) *FunctionGenerator[V] {
 	if g.parser != nil {
 		panic("parser already created")
 	}
@@ -521,15 +531,6 @@ func (g *FunctionGenerator[V]) AddOpBehind(oldOperator, newOperator string, isCo
 		g.operators = append(g.operators[:found+1], append([]Operator[V]{opItem}, g.operators[found+1:]...)...)
 	}
 	return g
-}
-
-func (g *FunctionGenerator[V]) GetOpImpl(name string) func(st Stack[V], a, b V) (V, error) {
-	for _, op := range g.operators {
-		if op.Operator == name {
-			return op.Impl
-		}
-	}
-	return nil
 }
 
 func (g *FunctionGenerator[V]) AddConstant(n string, c V) *FunctionGenerator[V] {
@@ -967,7 +968,7 @@ func (g *FunctionGenerator[V]) GenerateFunc(ast parser2.AST, gc GeneratorContext
 			if err != nil {
 				return zero, a.EnhanceErrorf(err, "error in operation %v", a.Operator)
 			}
-			return op(st, aVal, bVal)
+			return op.Do(st, aVal, bVal)
 		}, nil
 	case *parser2.ClosureLiteral:
 		funcArgs := argsMap{}
