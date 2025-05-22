@@ -78,14 +78,15 @@ func createErrValueMethods() value.MethodMap {
 	}
 }
 
-const errValType = value.Type(20)
+var errValType value.Type
 
 func (e ErrValue) GetType() value.Type {
 	return errValType
 }
 
 var ErrValueParser = value.New().
-	AddFinalizerValue(func(f *value.FunctionGenerator) {
+	Modify(func(f *value.FunctionGenerator) {
+		errValType = f.RegisterType()
 		fromInt := value.UpCast{
 			From: value.IntTypeId,
 			To:   errValType,

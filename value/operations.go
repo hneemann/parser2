@@ -200,6 +200,22 @@ func registerOperators(fg *FunctionGenerator) {
 		}
 		return nil, nil
 	})
+	fg.AddTypedOpFunc("<", IntTypeId, FloatTypeId, func(_ funcGen.Stack[Value], a, b Value) (Value, error) {
+		if aa, ok := a.(Int); ok {
+			if bb, ok := b.(Float); ok {
+				return Bool(Float(aa) < bb), nil
+			}
+		}
+		return nil, nil
+	})
+	fg.AddTypedOpFunc("<", FloatTypeId, IntTypeId, func(_ funcGen.Stack[Value], a, b Value) (Value, error) {
+		if aa, ok := a.(Float); ok {
+			if bb, ok := b.(Int); ok {
+				return Bool(aa < Float(bb)), nil
+			}
+		}
+		return nil, nil
+	})
 	fg.AddTypedOpFunc("<", FloatTypeId, FloatTypeId, func(_ funcGen.Stack[Value], a, b Value) (Value, error) {
 		if aa, ok := a.(Float); ok {
 			if bb, ok := b.(Float); ok {

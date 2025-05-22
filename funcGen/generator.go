@@ -371,7 +371,6 @@ type FunctionGenerator[V any] struct {
 	opMap           map[string]Operator[V]
 	uMap            map[string]UnaryOperator[V]
 	customGenerator Generator[V]
-	finalizer       func(g *FunctionGenerator[V])
 	comfort         bool
 }
 
@@ -569,19 +568,6 @@ func (g *FunctionGenerator[V]) SetCustomGenerator(generator Generator[V]) *Funct
 	return g
 }
 
-func (g *FunctionGenerator[V]) AddFinalizer(finalizer func(*FunctionGenerator[V])) *FunctionGenerator[V] {
-	if g.finalizer == nil {
-		g.finalizer = finalizer
-	} else {
-		old := g.finalizer
-		g.finalizer = func(g *FunctionGenerator[V]) {
-			finalizer(g)
-			old(g)
-		}
-	}
-	return g
-}
-
 func (g *FunctionGenerator[V]) GetParser() *parser2.Parser[V] {
 	if g.parser == nil {
 		parser := parser2.NewParser[V]().
@@ -685,11 +671,6 @@ func (g *FunctionGenerator[V]) GenerateFromString(exp string, args ...string) (P
 }
 
 func (g *FunctionGenerator[V]) generateIntern(args []string, exp string, ThisName string) (Func[V], error) {
-	if g.finalizer != nil {
-		g.finalizer(g)
-		g.finalizer = nil
-	}
-
 	ast, err := g.CreateAst(exp)
 	if err != nil {
 		return nil, err
