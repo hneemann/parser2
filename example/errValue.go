@@ -78,7 +78,7 @@ func createErrValueMethods() value.MethodMap {
 	}
 }
 
-const errValType = value.Type(20)
+var errValType value.Type
 
 func (e ErrValue) GetType() value.Type {
 	return errValType
@@ -147,7 +147,9 @@ func toErr(stack funcGen.Stack[value.Value], store []value.Value) (value.Value, 
 	return nil, fmt.Errorf("err requires a float value")
 }
 
-var ErrValueParser = value.New().
+var ErrValueParser = value.New(func(f *value.FunctionGenerator) {
+	errValType = f.RegisterType()
+}).
 	RegisterMethods(errValType, createErrValueMethods()).
 	SetEqualLess(Equal, value.Less).
 	AddOp("+", false, errOperation("+", value.Add,

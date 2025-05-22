@@ -162,7 +162,7 @@ func TestBasic(t *testing.T) {
 }
 
 func runTest(t *testing.T, tests []testType) {
-	valueParser := New()
+	valueParser := New(nil)
 	for _, test := range tests {
 		test := test
 		t.Run(shrinkSpace(test.exp), func(t *testing.T) {
@@ -227,7 +227,7 @@ func TestOptimizer(t *testing.T) {
 		{exp: "const a=sqrt(2);const b=a*a; b", res: Float(2)},
 	}
 
-	valueParser := New()
+	valueParser := New(nil)
 	for _, test := range tests {
 		test := test
 		t.Run(test.exp, func(t *testing.T) {
@@ -297,7 +297,7 @@ const newtonRaphson = `
     `
 
 func TestMethodError(t *testing.T) {
-	valueParser := New()
+	valueParser := New(nil)
 	f, err := valueParser.Generate("a.notFound()", "a")
 	assert.NoError(t, err)
 	_, err = f(funcGen.NewStack[Value](Float(2)))
@@ -315,7 +315,7 @@ func TestSolve(t *testing.T) {
 		{name: "newtonRaphson", exp: newtonRaphson},
 	}
 
-	valueParser := New()
+	valueParser := New(nil)
 	for _, test := range tests {
 		test := test
 		t.Run(test.name, func(t *testing.T) {
@@ -333,7 +333,7 @@ func TestSolve(t *testing.T) {
 }
 
 func BenchmarkRegulaFalsi(b *testing.B) {
-	f, _ := New().Generate(regulaFalsi, "a")
+	f, _ := New(nil).Generate(regulaFalsi, "a")
 	args := funcGen.NewStack[Value](Float(2))
 
 	b.ResetTimer()
@@ -343,7 +343,7 @@ func BenchmarkRegulaFalsi(b *testing.B) {
 }
 
 func BenchmarkCall(b *testing.B) {
-	f, _ := New().Generate("x+(2*y/x)", "x", "y")
+	f, _ := New(nil).Generate("x+(2*y/x)", "x", "y")
 	args := funcGen.NewStack[Value](Float(3), Float(3))
 
 	b.ResetTimer()
@@ -353,7 +353,7 @@ func BenchmarkCall(b *testing.B) {
 }
 
 func BenchmarkFunc(b *testing.B) {
-	f, _ := New().Generate("func f(x) x*x;f(a)+f(2*a)", "a")
+	f, _ := New(nil).Generate("func f(x) x*x;f(a)+f(2*a)", "a")
 	args := funcGen.NewStack[Value](Float(3))
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
@@ -362,7 +362,7 @@ func BenchmarkFunc(b *testing.B) {
 }
 
 func BenchmarkFunc2(b *testing.B) {
-	f, _ := New().Generate("let c=1.5;func mul(x) y->y*x*c;mul(b)(a)", "a", "b")
+	f, _ := New(nil).Generate("let c=1.5;func mul(x) y->y*x*c;mul(b)(a)", "a", "b")
 	args := funcGen.NewStack[Value](Float(3), Float(2))
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
@@ -371,7 +371,7 @@ func BenchmarkFunc2(b *testing.B) {
 }
 
 func BenchmarkList(b *testing.B) {
-	f, err := New().Generate("l.map(e->e*e).map(e->e/100)", "l")
+	f, err := New(nil).Generate("l.map(e->e*e).map(e->e/100)", "l")
 	if err != nil {
 		fmt.Println(err)
 	}

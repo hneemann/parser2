@@ -14,22 +14,25 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 )
 
 type Type int
 
-const (
-	nilTypeId Type = iota
-	IntTypeId
-	FloatTypeId
-	StringTypeId
-	BoolTypeId
-	ListTypeId
-	MapTypeId
-	closureTypeId
-	FormatTypeId
-	LinkTypeId
-	FileTypeId
+const maxTypeId = 30
+
+var (
+	nilTypeId     Type
+	IntTypeId     Type
+	FloatTypeId   Type
+	StringTypeId  Type
+	BoolTypeId    Type
+	ListTypeId    Type
+	MapTypeId     Type
+	closureTypeId Type
+	FormatTypeId  Type
+	LinkTypeId    Type
+	FileTypeId    Type
 )
 
 type Value interface {
@@ -552,9 +555,22 @@ func notAvail(name string) func(st funcGen.Stack[Value], a Value, b Value) (Valu
 
 type FunctionGenerator struct {
 	*funcGen.FunctionGenerator[Value]
-	methods [100]MethodMap
+	methods [maxTypeId]MethodMap
 	equal   funcGen.BoolFunc[Value]
 	less    funcGen.BoolFunc[Value]
+
+	typeIdMutex sync.Mutex
+	typeId      Type
+}
+
+func (fg *FunctionGenerator) RegisterType() Type {
+	fg.typeIdMutex.Lock()
+	defer fg.typeIdMutex.Unlock()
+	fg.typeId++
+	if fg.typeId >= maxTypeId {
+		panic("too many types")
+	}
+	return fg.typeId
 }
 
 func (fg *FunctionGenerator) GetMethod(value Value, methodName string) (funcGen.Function[Value], error) {
@@ -572,22 +588,10 @@ func (fg *FunctionGenerator) GetMethod(value Value, methodName string) (funcGen.
 }
 
 func (fg *FunctionGenerator) RegisterMethods(id Type, methods MethodMap) *FunctionGenerator {
-	if id < 20 {
-		panic(fmt.Sprintf("id %d is too small", id))
-	}
-	return fg.registerMethods(id, methods)
-}
-
-func (fg *FunctionGenerator) AddMethodsTo(id Type, methods MethodMap) *FunctionGenerator {
-	if id >= 20 {
-		panic(fmt.Sprintf("id %d is too big", id))
-	}
-	return fg.registerMethods(id, methods)
-}
-
-func (fg *FunctionGenerator) registerMethods(id Type, methods MethodMap) *FunctionGenerator {
 	if int(id) >= len(fg.methods) {
 		panic(fmt.Sprintf("id %d is too big", id))
+	} else if id == 0 {
+		panic(fmt.Sprintf("type not registered"))
 	}
 	if fg.methods[id] == nil {
 		fg.methods[id] = methods
@@ -691,8 +695,24 @@ func (fg *FunctionGenerator) SetEqualLess(equal, less funcGen.BoolFunc[Value]) *
 	return fg
 }
 
-func New() *FunctionGenerator {
+func New(setup func(f *FunctionGenerator)) *FunctionGenerator {
 	f := &FunctionGenerator{}
+	nilTypeId = f.RegisterType()
+	IntTypeId = f.RegisterType()
+	FloatTypeId = f.RegisterType()
+	StringTypeId = f.RegisterType()
+	BoolTypeId = f.RegisterType()
+	ListTypeId = f.RegisterType()
+	MapTypeId = f.RegisterType()
+	closureTypeId = f.RegisterType()
+	FormatTypeId = f.RegisterType()
+	LinkTypeId = f.RegisterType()
+	FileTypeId = f.RegisterType()
+
+	if setup != nil {
+		setup(f)
+	}
+
 	fg := funcGen.New[Value]().
 		AddConstant("nil", NIL).
 		AddConstant("pi", Float(math.Pi)).
@@ -908,13 +928,13 @@ func New() *FunctionGenerator {
 	f.FunctionGenerator = fg
 
 	return f.AddFinalizerValue(func(f *FunctionGenerator) {
-		f.registerMethods(ListTypeId, createListMethods(f.GetOpImpl("+"), f.GetOpImpl("/"), f.less, f.equal))
-		f.registerMethods(MapTypeId, createMapMethods())
-		f.registerMethods(StringTypeId, createStringMethods())
-		f.registerMethods(BoolTypeId, createBoolMethods())
-		f.registerMethods(IntTypeId, createIntMethods())
-		f.registerMethods(FloatTypeId, createFloatMethods())
-		f.registerMethods(closureTypeId, createClosureMethods())
+		f.RegisterMethods(ListTypeId, createListMethods(f.GetOpImpl("+"), f.GetOpImpl("/"), f.less, f.equal))
+		f.RegisterMethods(MapTypeId, createMapMethods())
+		f.RegisterMethods(StringTypeId, createStringMethods())
+		f.RegisterMethods(BoolTypeId, createBoolMethods())
+		f.RegisterMethods(IntTypeId, createIntMethods())
+		f.RegisterMethods(FloatTypeId, createFloatMethods())
+		f.RegisterMethods(closureTypeId, createClosureMethods())
 
 		less := f.less
 		f.AddStaticFunction("min", funcGen.Function[Value]{

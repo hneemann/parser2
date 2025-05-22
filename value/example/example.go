@@ -25,7 +25,7 @@ var PersonToMap = value.NewToMapReflection[Person]()
 
 func main() {
 	// Create a parser.
-	parser := value.New()
+	parser := value.New(nil)
 	// Create a list to be used containing the persons.
 	persons := value.NewListOfMaps[Person](PersonToMap, Persons)
 	{
