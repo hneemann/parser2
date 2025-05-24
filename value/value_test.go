@@ -30,7 +30,6 @@ func TestBasic(t *testing.T) {
 		{exp: "1<<2", res: Int(4)},
 		{exp: "8>>2", res: Int(2)},
 		{exp: "1<2", res: Bool(true)},
-		{exp: "1<2.0", res: Bool(true)},
 		{exp: "1>2", res: Bool(false)},
 		{exp: "1>2", res: Bool(false)},
 		{exp: "1<2", res: Bool(true)},

@@ -21,7 +21,7 @@ func (o optimizer[V]) Optimize(ast parser2.AST) (parser2.AST, error) {
 			if bc, ok := o.isConst(oper.B); ok {
 				if operator.IsPure {
 					if ac, ok := o.isConst(oper.A); ok {
-						co, err := operator.Impl.Do(o.st, ac, bc)
+						co, err := operator.Impl(o.st, ac, bc)
 						if err != nil {
 							return nil, ast.GetLine().EnhanceErrorf(err, "error in constant pre evaluation of: %s", operator.Operator)
 						}
@@ -31,7 +31,7 @@ func (o optimizer[V]) Optimize(ast parser2.AST) (parser2.AST, error) {
 				if operator.IsCommutative {
 					if aOp, ok := oper.A.(*parser2.Operate); ok && aOp.Operator == oper.Operator {
 						if iac, ok := o.isConst(aOp.A); ok {
-							co, err := operator.Impl.Do(o.st, iac, bc)
+							co, err := operator.Impl(o.st, iac, bc)
 							if err != nil {
 								return nil, ast.GetLine().EnhanceErrorf(err, "error in constant pre evaluation of: %s", operator.Operator)
 							}
@@ -42,7 +42,7 @@ func (o optimizer[V]) Optimize(ast parser2.AST) (parser2.AST, error) {
 							}, nil
 						}
 						if ibc, ok := o.isConst(aOp.B); ok {
-							co, err := operator.Impl.Do(o.st, ibc, bc)
+							co, err := operator.Impl(o.st, ibc, bc)
 							if err != nil {
 								return nil, ast.GetLine().EnhanceErrorf(err, "error in constant pre evaluation of: %s", operator.Operator)
 							}

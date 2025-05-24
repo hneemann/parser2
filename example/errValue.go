@@ -84,106 +84,110 @@ func (e ErrValue) GetType() value.Type {
 	return errValType
 }
 
+func Equal(st funcGen.Stack[value.Value], aVal, bVal value.Value) (bool, error) {
+	if a, ok := aVal.(ErrValue); ok {
+		if b, ok := bVal.(ErrValue); ok {
+			return a.Matches(b), nil
+		} else {
+			if bf, ok := bVal.ToFloat(); ok {
+				return a.Matches(ErrValue{val: bf}), nil
+			} else {
+				return false, fmt.Errorf("= not alowed on %s=%s", value.TypeName(a), value.TypeName(b))
+			}
+		}
+	} else {
+		if b, ok := bVal.(ErrValue); ok {
+			if af, ok := aVal.ToFloat(); ok {
+				return b.Matches(ErrValue{val: af}), nil
+			} else {
+				return false, fmt.Errorf("= not alowed on %s=%s", value.TypeName(a), value.TypeName(b))
+			}
+		}
+	}
+	return value.Equal(st, aVal, bVal)
+}
+
+func errOperation(name string,
+	def func(st funcGen.Stack[value.Value], a value.Value, b value.Value) (value.Value, error),
+	f func(a, b ErrValue) (value.Value, error)) func(st funcGen.Stack[value.Value], a value.Value, b value.Value) (value.Value, error) {
+
+	return func(st funcGen.Stack[value.Value], a value.Value, b value.Value) (value.Value, error) {
+		if ae, ok := a.(ErrValue); ok {
+			if be, ok := b.(ErrValue); ok {
+				// both are error values
+				return f(ae, be)
+			} else {
+				// a is error value, b is'nt
+				if bf, ok := b.ToFloat(); ok {
+					return f(ae, ErrValue{val: bf})
+				} else {
+					return nil, fmt.Errorf("%s operation not allowed with %v and %v ", name, a, b)
+				}
+			}
+		} else {
+			if be, ok := b.(ErrValue); ok {
+				// b is error value, a is'nt
+				if af, ok := a.ToFloat(); ok {
+					return f(ErrValue{val: af}, be)
+				} else {
+					return nil, fmt.Errorf("%s operation not allowed with %v and %v ", name, a, b)
+				}
+			} else {
+				// no error value at all
+				return def(st, a, b)
+			}
+		}
+	}
+}
+
+func toErr(stack funcGen.Stack[value.Value], store []value.Value) (value.Value, error) {
+	if err, ok := stack.Get(0).ToFloat(); ok {
+		return ErrValue{err: math.Abs(err)}, nil
+	}
+	return nil, fmt.Errorf("err requires a float value")
+}
+
 var ErrValueParser = value.New().
 	Modify(func(f *value.FunctionGenerator) {
 		errValType = f.RegisterType()
-		fromInt := value.UpCast{
-			From: value.IntTypeId,
-			To:   errValType,
-			Cast: func(a value.Value) (value.Value, error) {
-				if aa, ok := a.(value.Int); ok {
-					return ErrValue{val: float64(aa)}, nil
-				}
-				return nil, fmt.Errorf("cannot convert %s to ErrValue", value.TypeName(a))
-			},
-		}
-		fromFloat := value.UpCast{
-			From: value.FloatTypeId,
-			To:   errValType,
-			Cast: func(a value.Value) (value.Value, error) {
-				if aa, ok := a.(value.Float); ok {
-					return ErrValue{val: float64(aa)}, nil
-				}
-				return nil, fmt.Errorf("cannot convert %s to ErrValue", value.TypeName(a))
-			},
-		}
-
-		f.AddTypedOpFunc("+", errValType, errValType, func(st funcGen.Stack[value.Value], a, b value.Value) (value.Value, error) {
-			if aa, ok := a.(ErrValue); ok {
-				if bb, ok := b.(ErrValue); ok {
-					return ErrValue{aa.val + bb.val, aa.err + bb.err}, nil
-				}
-			}
-			return nil, nil
-		}).AddUpCast("+", fromInt, fromFloat)
-
-		f.AddTypedOpFunc("-", errValType, errValType, func(st funcGen.Stack[value.Value], a, b value.Value) (value.Value, error) {
-			if aa, ok := a.(ErrValue); ok {
-				if bb, ok := b.(ErrValue); ok {
-					return ErrValue{aa.val - (bb.val), aa.err + bb.err}, nil
-				}
-			}
-			return nil, nil
-		}).AddUpCast("-", fromInt, fromFloat)
-
-		f.AddTypedOpFunc("*", errValType, errValType, func(st funcGen.Stack[value.Value], a, b value.Value) (value.Value, error) {
-			if aa, ok := a.(ErrValue); ok {
-				if bb, ok := b.(ErrValue); ok {
-					return ErrValue{aa.val * bb.val, math.Abs(aa.val*bb.err) + math.Abs(bb.val*aa.err) + bb.err*aa.err}, nil
-				}
-			}
-			return nil, nil
-		}).AddUpCast("*", fromInt, fromFloat)
-
-		f.AddTypedOpFunc("/", errValType, errValType, func(st funcGen.Stack[value.Value], a, b value.Value) (value.Value, error) {
-			if aa, ok := a.(ErrValue); ok {
-				if bb, ok := b.(ErrValue); ok {
-					val := aa.val / bb.val
-					return ErrValue{val, (math.Abs(aa.val)+aa.err)/(math.Abs(bb.val)-bb.err) - math.Abs(val)}, nil
-				}
-			}
-			return nil, nil
-		}).AddUpCast("/", fromInt, fromFloat)
-
-		f.AddTypedOpFunc("=", errValType, errValType, func(st funcGen.Stack[value.Value], a, b value.Value) (value.Value, error) {
-			if aa, ok := a.(ErrValue); ok {
-				if bb, ok := b.(ErrValue); ok {
-					return value.Bool(aa.Matches(bb)), nil
-				}
-			}
-			return nil, nil
-		}).AddUpCast("=", fromInt, fromFloat)
-
-		f.AddTypedOpFunc("<", errValType, errValType, func(st funcGen.Stack[value.Value], a, b value.Value) (value.Value, error) {
-			if aa, ok := a.(ErrValue); ok {
-				if bb, ok := b.(ErrValue); ok {
-					return value.Bool(aa.val < bb.val), nil
-				}
-			}
-			return nil, nil
-		}).AddUpCast("<", fromInt, fromFloat)
-
-		f.AddOpBehind(">", ">>>", false, f.CreateOpTable(">>>"), true)
-		f.AddTypedOpFunc(">>>", errValType, errValType, func(st funcGen.Stack[value.Value], a, b value.Value) (value.Value, error) {
-			if aa, ok := a.(ErrValue); ok {
-				if bb, ok := b.(ErrValue); ok {
-					return value.Bool(aa.GetMin() > bb.GetMax()), nil
-				}
-			}
-			return nil, fmt.Errorf(">>> not allowed on %s>>>%s", value.TypeName(a), value.TypeName(b))
-		}).AddUpCast(">>>", fromInt, fromFloat)
-
-		f.AddOpBehind("<", "<<<", false, f.CreateOpTable("<<<"), true)
-		f.AddTypedOpFunc("<<<", errValType, errValType, func(st funcGen.Stack[value.Value], a, b value.Value) (value.Value, error) {
-			if aa, ok := a.(ErrValue); ok {
-				if bb, ok := b.(ErrValue); ok {
-					return value.Bool(aa.GetMax() < bb.GetMin()), nil
-				}
-			}
-			return nil, fmt.Errorf("<<< not allowed on %s>>>%s", value.TypeName(a), value.TypeName(b))
-		}).AddUpCast("<<<", fromInt, fromFloat)
+		f.AddOpBehind(">", ">>>", false, errOperation(">>>", f.GetOpImpl(">"),
+			func(a, b ErrValue) (value.Value, error) {
+				return value.Bool(a.GetMin() > b.GetMax()), nil
+			}), true,
+		)
+		f.AddOpBehind("<", "<<<", false, errOperation("<<<", f.GetOpImpl("<"),
+			func(a, b ErrValue) (value.Value, error) {
+				return value.Bool(a.GetMax() < b.GetMin()), nil
+			}), true,
+		)
 	}).
 	RegisterMethods(errValType, createErrValueMethods()).
+	SetEqual(Equal).
+	ReplaceOp("+", false, true, func(old funcGen.OperatorImpl[value.Value]) funcGen.OperatorImpl[value.Value] {
+		return errOperation("+", old,
+			func(a, b ErrValue) (value.Value, error) {
+				return ErrValue{a.val + b.val, a.err + b.err}, nil
+			})
+	}).
+	ReplaceOp("-", false, true, func(old funcGen.OperatorImpl[value.Value]) funcGen.OperatorImpl[value.Value] {
+		return errOperation("-", old,
+			func(a, b ErrValue) (value.Value, error) {
+				return ErrValue{a.val - b.val, a.err + b.err}, nil
+			})
+	}).
+	ReplaceOp("*", true, true, func(old funcGen.OperatorImpl[value.Value]) funcGen.OperatorImpl[value.Value] {
+		return errOperation("*", old,
+			func(a, b ErrValue) (value.Value, error) {
+				return ErrValue{a.val * b.val, math.Abs(a.val*b.err) + math.Abs(b.val*a.err) + b.err*a.err}, nil
+			})
+	}).
+	ReplaceOp("/", true, true, func(old funcGen.OperatorImpl[value.Value]) funcGen.OperatorImpl[value.Value] {
+		return errOperation("/", old,
+			func(a, b ErrValue) (value.Value, error) {
+				val := a.val / b.val
+				return ErrValue{val, (math.Abs(a.val)+a.err)/(math.Abs(b.val)-b.err) - math.Abs(val)}, nil
+			})
+	}).
 	AddOp("+-", false, func(st funcGen.Stack[value.Value], a value.Value, b value.Value) (value.Value, error) {
 		if v, ok := a.ToFloat(); ok {
 			if e, ok := b.ToFloat(); ok {
@@ -193,12 +197,7 @@ var ErrValueParser = value.New().
 		return nil, fmt.Errorf("+- not allowed on %v+-%v", a, b)
 	}).
 	AddStaticFunction("err", funcGen.Function[value.Value]{
-		Func: func(stack funcGen.Stack[value.Value], store []value.Value) (value.Value, error) {
-			if err, ok := stack.Get(0).ToFloat(); ok {
-				return ErrValue{err: math.Abs(err)}, nil
-			}
-			return nil, fmt.Errorf("err requires a float value")
-		},
+		Func:   toErr,
 		Args:   1,
 		IsPure: true,
 	}.SetDescription("float", "Creates an error value with the given float as the error. The value is set to 0."))
