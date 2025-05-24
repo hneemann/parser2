@@ -113,12 +113,14 @@ type Operator[V any] struct {
 	IsCommutative bool
 }
 
-// UnaryOperator defines a operator like - or !
+type UnaryOperatorImpl[V any] func(a V) (V, error)
+
+// UnaryOperator defines an operator like - or !
 type UnaryOperator[V any] struct {
 	// Operator is the operator as a string like "+"
 	Operator string
 	// Impl is the implementation of the operation
-	Impl func(a V) (V, error)
+	Impl UnaryOperatorImpl[V]
 }
 
 // ParserFunc is the signature of the go closures created to build the
@@ -439,7 +441,7 @@ func (g *FunctionGenerator[V]) SetIsEqual(isEqual BoolFunc[V]) *FunctionGenerato
 	return g
 }
 
-func (g *FunctionGenerator[V]) AddUnary(operator string, impl func(a V) (V, error)) *FunctionGenerator[V] {
+func (g *FunctionGenerator[V]) AddUnary(operator string, impl UnaryOperatorImpl[V]) *FunctionGenerator[V] {
 	if g.parser != nil {
 		panic("parser already created")
 	}
@@ -447,13 +449,35 @@ func (g *FunctionGenerator[V]) AddUnary(operator string, impl func(a V) (V, erro
 		Operator: operator,
 		Impl:     impl,
 	}
-	for i, u := range g.unary {
+	for _, u := range g.unary {
 		if u.Operator == operator {
-			g.unary[i] = uni
-			return g
+			panic(fmt.Sprintf("unary operator %s already defined", operator))
 		}
 	}
+
 	g.unary = append(g.unary, uni)
+	return g
+}
+
+func (g *FunctionGenerator[V]) ReplaceUnary(operator string, factory func(UnaryOperatorImpl[V]) UnaryOperatorImpl[V]) *FunctionGenerator[V] {
+	found := -1
+	for i, u := range g.unary {
+		if u.Operator == operator {
+			found = i
+			break
+		}
+	}
+	if found < 0 {
+		panic(fmt.Sprintf("unary operator %s not found", operator))
+	}
+
+	old := g.unary[found]
+
+	uni := UnaryOperator[V]{
+		Operator: operator,
+		Impl:     factory(old.Impl),
+	}
+	g.unary[found] = uni
 	return g
 }
 

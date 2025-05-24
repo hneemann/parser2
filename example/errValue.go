@@ -188,6 +188,14 @@ var ErrValueParser = value.New().
 				return ErrValue{val, (math.Abs(a.val)+a.err)/(math.Abs(b.val)-b.err) - math.Abs(val)}, nil
 			})
 	}).
+	ReplaceUnary("-", func(orig funcGen.UnaryOperatorImpl[value.Value]) funcGen.UnaryOperatorImpl[value.Value] {
+		return func(a value.Value) (value.Value, error) {
+			if v, ok := a.(ErrValue); ok {
+				return ErrValue{val: -v.val, err: v.err}, nil
+			}
+			return orig(a)
+		}
+	}).
 	AddOp("+-", false, func(st funcGen.Stack[value.Value], a value.Value, b value.Value) (value.Value, error) {
 		if v, ok := a.ToFloat(); ok {
 			if e, ok := b.ToFloat(); ok {

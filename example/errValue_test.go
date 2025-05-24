@@ -17,6 +17,7 @@ func TestErrValue(t *testing.T) {
 		{exp: "2*3", res: value.Int(6)},
 		{exp: "6/2", res: value.Float(3)},
 		{exp: "10+-2", res: ErrValue{10, 2}},
+		{exp: "-(10+-2)", res: ErrValue{-10, 2}},
 		{exp: "10+-(-2)", res: ErrValue{10, 2}},
 		{exp: "10+-1+1", res: ErrValue{11, 1}},
 		{exp: "string(10+-1)", res: value.String("10±1")},
