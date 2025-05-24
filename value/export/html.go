@@ -35,7 +35,7 @@ type Format struct {
 //	styleBins(fac):  Simple styling to format binning results. The width of the bars is scaled by the factor fac.
 //
 //	styleBinsSkipFirst(fac):  Simple styling to format binning results. The width of the bars is scaled by the factor fac. The first entry is skipped.
-func AddHTMLStylingHelpers(f *value.FunctionGenerator) {
+func AddHTMLStylingHelpers(f *funcGen.FunctionGenerator[value.Value]) {
 	f.AddStaticFunction("style", styleFunc)
 	f.AddStaticFunction("styleCell", styleFuncCell)
 	f.AddStaticFunction("link", linkFunc)

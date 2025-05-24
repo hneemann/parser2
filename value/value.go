@@ -14,7 +14,6 @@ import (
 	"sort"
 	"strconv"
 	"strings"
-	"sync"
 )
 
 type Type int
@@ -547,25 +546,16 @@ func simpleOnlyFloatFuncCheck(name string, argValid func(float65 float64) bool, 
 	}.SetDescription("float", "The mathematical "+name+" function.")
 }
 
-func notAvail(name string) func(st funcGen.Stack[Value], a Value, b Value) (Value, error) {
-	return func(st funcGen.Stack[Value], a Value, b Value) (Value, error) {
-		return nil, fmt.Errorf("%s not available", name)
-	}
-}
-
 type FunctionGenerator struct {
 	*funcGen.FunctionGenerator[Value]
 	methods [maxTypeId]MethodMap
 	equal   funcGen.BoolFunc[Value]
 	less    funcGen.BoolFunc[Value]
 
-	typeIdMutex sync.Mutex
-	typeId      Type
+	typeId Type
 }
 
 func (fg *FunctionGenerator) RegisterType() Type {
-	fg.typeIdMutex.Lock()
-	defer fg.typeIdMutex.Unlock()
 	fg.typeId++
 	if fg.typeId >= maxTypeId {
 		panic("too many types")
@@ -601,17 +591,13 @@ func (fg *FunctionGenerator) RegisterMethods(id Type, methods MethodMap) *Functi
 	return fg
 }
 
-func (fg *FunctionGenerator) AddFinalizerValue(f func(f *FunctionGenerator)) *FunctionGenerator {
-	fg.AddFinalizer(func(raw *funcGen.FunctionGenerator[Value]) {
-		f(fg)
-	})
+func (fg *FunctionGenerator) Modify(f func(*FunctionGenerator)) *FunctionGenerator {
+	f(fg)
 	return fg
 }
 
-// SetEqualLess is a helper to create the operators '=', '!=', '<', '>', '<=' and '>=' using the
-// given equal and less functions. This method also covers equality of lists and maps.
-func (fg *FunctionGenerator) SetEqualLess(equal, less funcGen.BoolFunc[Value]) *FunctionGenerator {
-
+// SetEqual is a helper to set equals methods.
+func (fg *FunctionGenerator) SetEqual(equal funcGen.BoolFunc[Value]) *FunctionGenerator {
 	var deepEqual funcGen.BoolFunc[Value]
 	deepEqual = func(st funcGen.Stack[Value], a Value, b Value) (bool, error) {
 		if aa, ok := a.(*List); ok {
@@ -628,75 +614,18 @@ func (fg *FunctionGenerator) SetEqualLess(equal, less funcGen.BoolFunc[Value]) *
 	}
 
 	fg.equal = deepEqual
-	fg.less = less
 	fg.SetIsEqual(deepEqual)
-	fg.AddOp("=", false, func(st funcGen.Stack[Value], a Value, b Value) (Value, error) {
-		eq, err := deepEqual(st, a, b)
-		return Bool(eq), err
-	})
-	fg.AddOp("!=", false, func(st funcGen.Stack[Value], a Value, b Value) (Value, error) {
-		eq, err := deepEqual(st, a, b)
-		return Bool(!eq), err
-	})
-	fg.AddOp("<", false, func(st funcGen.Stack[Value], a Value, b Value) (Value, error) {
-		le, err := less(st, a, b)
-		return Bool(le), err
-	})
-	fg.AddOp(">", false, func(st funcGen.Stack[Value], a Value, b Value) (Value, error) {
-		le, err := less(st, b, a)
-		return Bool(le), err
-	})
-	fg.AddOp("<=", false, func(st funcGen.Stack[Value], a Value, b Value) (Value, error) {
-		le, err := less(st, a, b)
-		if err != nil {
-			return nil, err
-		}
-		if le {
-			return Bool(true), nil
-		}
-		eq, err := deepEqual(st, a, b)
-		return Bool(eq), err
-	})
-	fg.AddOp(">=", false, func(st funcGen.Stack[Value], a Value, b Value) (Value, error) {
-		le, err := less(st, b, a)
-		if err != nil {
-			return nil, err
-		}
-		if le {
-			return Bool(true), nil
-		}
-		eq, err := deepEqual(st, a, b)
-		return Bool(eq), err
-	})
-
-	fg.AddOp("~", false, func(st funcGen.Stack[Value], a Value, b Value) (Value, error) {
-		if list, ok := b.(*List); ok {
-			if search, ok := a.(*List); ok {
-				items, err := list.containsAllItems(st, search, equal)
-				return Bool(items), err
-			} else {
-				item, err := list.containsItem(st, a, equal)
-				return Bool(item), err
-			}
-		}
-		if m, ok := b.(Map); ok {
-			if key, ok := a.(String); ok {
-				return m.ContainsKey(key), nil
-			}
-		}
-		if strToLookFor, ok := a.(String); ok {
-			if strToLookIn, ok := b.(String); ok {
-				return Bool(strings.Contains(string(strToLookIn), string(strToLookFor))), nil
-			}
-		}
-		return nil, notAllowed("~", a, b)
-	})
-
 	return fg
 }
 
-func New(setup func(f *FunctionGenerator)) *FunctionGenerator {
-	f := &FunctionGenerator{}
+// SetLess is a helper to set less methods.
+func (fg *FunctionGenerator) SetLess(less funcGen.BoolFunc[Value]) *FunctionGenerator {
+	fg.less = less
+	return fg
+}
+
+func New() *FunctionGenerator {
+	f := &FunctionGenerator{less: Less}
 	nilTypeId = f.RegisterType()
 	IntTypeId = f.RegisterType()
 	FloatTypeId = f.RegisterType()
@@ -708,10 +637,6 @@ func New(setup func(f *FunctionGenerator)) *FunctionGenerator {
 	FormatTypeId = f.RegisterType()
 	LinkTypeId = f.RegisterType()
 	FileTypeId = f.RegisterType()
-
-	if setup != nil {
-		setup(f)
-	}
 
 	fg := funcGen.New[Value]().
 		AddConstant("nil", NIL).
@@ -728,15 +653,70 @@ func New(setup func(f *FunctionGenerator)) *FunctionGenerator {
 		SetStringConverter(f).
 		SetToBool(func(c Value) (bool, bool) { return c.ToBool() }).
 		AddOp("|", true, Or).
-		AddOp("&", true, And).
-		AddOp("=", true, notAvail("=")).
-		AddOp("!=", true, notAvail("!=")).
-		AddOp("~", false, notAvail("~")).
-		AddOp("<", false, notAvail("<")).
-		AddOp(">", false, notAvail(">")).
-		AddOp("<=", false, notAvail("<=")).
-		AddOp(">=", false, notAvail(">=")).
-		AddOp("+", false, Add).
+		AddOp("&", true, And)
+
+	fg.AddOp("=", false, func(st funcGen.Stack[Value], a Value, b Value) (Value, error) {
+		eq, err := f.equal(st, a, b)
+		return Bool(eq), err
+	})
+	fg.AddOp("!=", false, func(st funcGen.Stack[Value], a Value, b Value) (Value, error) {
+		eq, err := f.equal(st, a, b)
+		return Bool(!eq), err
+	})
+	fg.AddOp("~", false, func(st funcGen.Stack[Value], a Value, b Value) (Value, error) {
+		if list, ok := b.(*List); ok {
+			if search, ok := a.(*List); ok {
+				items, err := list.containsAllItems(st, search, f)
+				return Bool(items), err
+			} else {
+				item, err := list.containsItem(st, a, f)
+				return Bool(item), err
+			}
+		}
+		if m, ok := b.(Map); ok {
+			if key, ok := a.(String); ok {
+				return m.ContainsKey(key), nil
+			}
+		}
+		if strToLookFor, ok := a.(String); ok {
+			if strToLookIn, ok := b.(String); ok {
+				return Bool(strings.Contains(string(strToLookIn), string(strToLookFor))), nil
+			}
+		}
+		return nil, notAllowed("~", a, b)
+	})
+	fg.AddOp("<", false, func(st funcGen.Stack[Value], a Value, b Value) (Value, error) {
+		le, err := f.less(st, a, b)
+		return Bool(le), err
+	})
+	fg.AddOp(">", false, func(st funcGen.Stack[Value], a Value, b Value) (Value, error) {
+		le, err := f.less(st, b, a)
+		return Bool(le), err
+	})
+	fg.AddOp("<=", false, func(st funcGen.Stack[Value], a Value, b Value) (Value, error) {
+		le, err := f.less(st, a, b)
+		if err != nil {
+			return nil, err
+		}
+		if le {
+			return Bool(true), nil
+		}
+		eq, err := f.equal(st, a, b)
+		return Bool(eq), err
+	})
+	fg.AddOp(">=", false, func(st funcGen.Stack[Value], a Value, b Value) (Value, error) {
+		le, err := f.less(st, b, a)
+		if err != nil {
+			return nil, err
+		}
+		if le {
+			return Bool(true), nil
+		}
+		eq, err := f.equal(st, a, b)
+		return Bool(eq), err
+	})
+
+	fg.AddOp("+", false, Add).
 		AddOp("-", false, Sub).
 		AddOp("<<", false, Left).
 		AddOp(">>", false, Right).
@@ -927,62 +907,62 @@ func New(setup func(f *FunctionGenerator)) *FunctionGenerator {
 
 	f.FunctionGenerator = fg
 
-	return f.AddFinalizerValue(func(f *FunctionGenerator) {
-		f.RegisterMethods(ListTypeId, createListMethods(f.GetOpImpl("+"), f.GetOpImpl("/"), f.less, f.equal))
-		f.RegisterMethods(MapTypeId, createMapMethods())
-		f.RegisterMethods(StringTypeId, createStringMethods())
-		f.RegisterMethods(BoolTypeId, createBoolMethods())
-		f.RegisterMethods(IntTypeId, createIntMethods())
-		f.RegisterMethods(FloatTypeId, createFloatMethods())
-		f.RegisterMethods(closureTypeId, createClosureMethods())
+	f.RegisterMethods(ListTypeId, createListMethods(f))
+	f.RegisterMethods(MapTypeId, createMapMethods())
+	f.RegisterMethods(StringTypeId, createStringMethods())
+	f.RegisterMethods(BoolTypeId, createBoolMethods())
+	f.RegisterMethods(IntTypeId, createIntMethods())
+	f.RegisterMethods(FloatTypeId, createFloatMethods())
+	f.RegisterMethods(closureTypeId, createClosureMethods())
 
-		less := f.less
-		f.AddStaticFunction("min", funcGen.Function[Value]{
-			Func: func(st funcGen.Stack[Value], cs []Value) (Value, error) {
-				var m Value
-				for i := 0; i < st.Size(); i++ {
-					v := st.Get(i)
-					if i == 0 {
+	f.AddStaticFunction("min", funcGen.Function[Value]{
+		Func: func(st funcGen.Stack[Value], cs []Value) (Value, error) {
+			var m Value
+			for i := 0; i < st.Size(); i++ {
+				v := st.Get(i)
+				if i == 0 {
+					m = v
+				} else {
+					le, err := f.less(st, v, m)
+					if err != nil {
+						return nil, err
+					}
+					if le {
 						m = v
-					} else {
-						le, err := less(st, v, m)
-						if err != nil {
-							return nil, err
-						}
-						if le {
-							m = v
-						}
 					}
 				}
-				return m, nil
-			},
-			Args:   -1,
-			IsPure: true,
-		}.SetDescription("a", "b", "Returns the smaller of a and b."))
-		f.AddStaticFunction("max", funcGen.Function[Value]{
-			Func: func(st funcGen.Stack[Value], cs []Value) (Value, error) {
-				var m Value
-				for i := 0; i < st.Size(); i++ {
-					v := st.Get(i)
-					if i == 0 {
+			}
+			return m, nil
+		},
+		Args:   -1,
+		IsPure: true,
+	}.SetDescription("a", "b", "Returns the smaller of a and b."))
+	f.AddStaticFunction("max", funcGen.Function[Value]{
+		Func: func(st funcGen.Stack[Value], cs []Value) (Value, error) {
+			var m Value
+			for i := 0; i < st.Size(); i++ {
+				v := st.Get(i)
+				if i == 0 {
+					m = v
+				} else {
+					le, err := f.less(st, m, v)
+					if err != nil {
+						return nil, err
+					}
+					if le {
 						m = v
-					} else {
-						le, err := less(st, m, v)
-						if err != nil {
-							return nil, err
-						}
-						if le {
-							m = v
-						}
 					}
 				}
-				return m, nil
-			},
-			Args:   -1,
-			IsPure: true,
-		}.SetDescription("a", "b", "Returns the larger of a and b."))
-	}).
-		SetEqualLess(Equal, Less)
+			}
+			return m, nil
+		},
+		Args:   -1,
+		IsPure: true,
+	}.SetDescription("a", "b", "Returns the larger of a and b."))
+
+	f.SetEqual(Equal)
+
+	return f
 }
 
 func sprintf(st funcGen.Stack[Value], cs []Value) (Value, error) {

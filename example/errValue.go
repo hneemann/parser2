@@ -147,32 +147,47 @@ func toErr(stack funcGen.Stack[value.Value], store []value.Value) (value.Value, 
 	return nil, fmt.Errorf("err requires a float value")
 }
 
-var ErrValueParser = value.New(func(f *value.FunctionGenerator) {
-	errValType = f.RegisterType()
-}).
+var ErrValueParser = value.New().
+	Modify(func(f *value.FunctionGenerator) {
+		errValType = f.RegisterType()
+		f.AddOpBehind(">", ">>>", false, errOperation(">>>", f.GetOpImpl(">"),
+			func(a, b ErrValue) (value.Value, error) {
+				return value.Bool(a.GetMin() > b.GetMax()), nil
+			}), true,
+		)
+		f.AddOpBehind("<", "<<<", false, errOperation("<<<", f.GetOpImpl("<"),
+			func(a, b ErrValue) (value.Value, error) {
+				return value.Bool(a.GetMax() < b.GetMin()), nil
+			}), true,
+		)
+	}).
 	RegisterMethods(errValType, createErrValueMethods()).
-	SetEqualLess(Equal, value.Less).
-	AddOp("+", false, errOperation("+", value.Add,
-		func(a, b ErrValue) (value.Value, error) {
-			return ErrValue{a.val + b.val, a.err + b.err}, nil
-		}),
-	).
-	AddOp("-", false, errOperation("-", value.Sub,
-		func(a, b ErrValue) (value.Value, error) {
-			return ErrValue{a.val - b.val, a.err + b.err}, nil
-		}),
-	).
-	AddOp("*", true, errOperation("*", value.Mul,
-		func(a, b ErrValue) (value.Value, error) {
-			return ErrValue{a.val * b.val, math.Abs(a.val*b.err) + math.Abs(b.val*a.err) + b.err*a.err}, nil
-		}),
-	).
-	AddOp("/", true, errOperation("/", value.Div,
-		func(a, b ErrValue) (value.Value, error) {
-			val := a.val / b.val
-			return ErrValue{val, (math.Abs(a.val)+a.err)/(math.Abs(b.val)-b.err) - math.Abs(val)}, nil
-		}),
-	).
+	SetEqual(Equal).
+	ReplaceOp("+", false, true, func(old funcGen.OperatorImpl[value.Value]) funcGen.OperatorImpl[value.Value] {
+		return errOperation("+", old,
+			func(a, b ErrValue) (value.Value, error) {
+				return ErrValue{a.val + b.val, a.err + b.err}, nil
+			})
+	}).
+	ReplaceOp("-", false, true, func(old funcGen.OperatorImpl[value.Value]) funcGen.OperatorImpl[value.Value] {
+		return errOperation("-", old,
+			func(a, b ErrValue) (value.Value, error) {
+				return ErrValue{a.val - b.val, a.err + b.err}, nil
+			})
+	}).
+	ReplaceOp("*", true, true, func(old funcGen.OperatorImpl[value.Value]) funcGen.OperatorImpl[value.Value] {
+		return errOperation("*", old,
+			func(a, b ErrValue) (value.Value, error) {
+				return ErrValue{a.val * b.val, math.Abs(a.val*b.err) + math.Abs(b.val*a.err) + b.err*a.err}, nil
+			})
+	}).
+	ReplaceOp("/", true, true, func(old funcGen.OperatorImpl[value.Value]) funcGen.OperatorImpl[value.Value] {
+		return errOperation("/", old,
+			func(a, b ErrValue) (value.Value, error) {
+				val := a.val / b.val
+				return ErrValue{val, (math.Abs(a.val)+a.err)/(math.Abs(b.val)-b.err) - math.Abs(val)}, nil
+			})
+	}).
 	AddOp("+-", false, func(st funcGen.Stack[value.Value], a value.Value, b value.Value) (value.Value, error) {
 		if v, ok := a.ToFloat(); ok {
 			if e, ok := b.ToFloat(); ok {
@@ -185,16 +200,4 @@ var ErrValueParser = value.New(func(f *value.FunctionGenerator) {
 		Func:   toErr,
 		Args:   1,
 		IsPure: true,
-	}.SetDescription("float", "Creates an error value with the given float as the error. The value is set to 0.")).
-	AddFinalizer(func(f *funcGen.FunctionGenerator[value.Value]) {
-		f.AddOpBehind(">", ">>>", false, errOperation(">>>", f.GetOpImpl(">"),
-			func(a, b ErrValue) (value.Value, error) {
-				return value.Bool(a.GetMin() > b.GetMax()), nil
-			}), true,
-		)
-		f.AddOpBehind("<", "<<<", false, errOperation("<<<", f.GetOpImpl("<"),
-			func(a, b ErrValue) (value.Value, error) {
-				return value.Bool(a.GetMax() < b.GetMin()), nil
-			}), true,
-		)
-	})
+	}.SetDescription("float", "Creates an error value with the given float as the error. The value is set to 0."))

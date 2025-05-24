@@ -72,7 +72,7 @@ func TestErrors(t *testing.T) {
 		{exp: "[].size(1)", err: ", required 0, found 1"},
 	}
 
-	fg := New(nil).AddStaticFunction("error", toLargeErrorFunc(100))
+	fg := New().AddStaticFunction("error", toLargeErrorFunc(100))
 	for _, tt := range tests {
 		test := tt
 		t.Run(test.exp, func(t *testing.T) {

@@ -97,12 +97,14 @@ func (s Stack[V]) Init(v ...V) Stack[V] {
 	return s
 }
 
+type OperatorImpl[V any] func(st Stack[V], a, b V) (V, error)
+
 // Operator defines a operator like +
 type Operator[V any] struct {
 	// Operator is the operator as a string like "+"
 	Operator string
 	// Impl is the implementation of the operation
-	Impl func(st Stack[V], a, b V) (V, error)
+	Impl OperatorImpl[V]
 	// IsPure is true if the result of the operation depends only on the operands.
 	// This is usually the case, there are only special corner cases where it is not.
 	// So IsPure is usually true.
@@ -361,7 +363,6 @@ type FunctionGenerator[V any] struct {
 	opMap           map[string]Operator[V]
 	uMap            map[string]UnaryOperator[V]
 	customGenerator Generator[V]
-	finalizer       func(g *FunctionGenerator[V])
 	comfort         bool
 }
 
@@ -470,24 +471,29 @@ func (g *FunctionGenerator[V]) AddSimpleOp(operator string, isCommutative bool, 
 // The Operation needs to be pure.
 // The operation with the lowest priority needs to be added first.
 // The operation with the highest priority needs to be added last.
-func (g *FunctionGenerator[V]) AddOp(operator string, isCommutative bool, impl func(st Stack[V], a V, b V) (V, error)) *FunctionGenerator[V] {
+func (g *FunctionGenerator[V]) AddOp(operator string, isCommutative bool, impl OperatorImpl[V]) *FunctionGenerator[V] {
 	return g.AddOpPure(operator, isCommutative, impl, true)
 }
 
 // AddOpPure adds an operation to the generator.
 // The operation with the lowest priority needs to be added first.
 // The operation with the highest priority needs to be added last.
-func (g *FunctionGenerator[V]) AddOpPure(operator string, isCommutative bool, impl func(st Stack[V], a V, b V) (V, error), isPure bool) *FunctionGenerator[V] {
+func (g *FunctionGenerator[V]) AddOpPure(operator string, isCommutative bool, impl OperatorImpl[V], isPure bool) *FunctionGenerator[V] {
 	return g.AddOpBehind("", operator, isCommutative, impl, isPure)
 }
 
 // AddOpBehind adds an operation to the generator.
-// Adds the new operator right behind given old operator in the priority list.
-// If the old operator an empty string, the new operator is added at the end
-// or, if the new operator already exists, the existing operator is replaced.
-func (g *FunctionGenerator[V]) AddOpBehind(oldOperator, newOperator string, isCommutative bool, impl func(st Stack[V], a V, b V) (V, error), isPure bool) *FunctionGenerator[V] {
+// Adds the new operator right behind the given existing operator in the priority list.
+// If the given operator is an empty string, the new operator is added at the end.
+func (g *FunctionGenerator[V]) AddOpBehind(behindOperator, newOperator string, isCommutative bool, impl OperatorImpl[V], isPure bool) *FunctionGenerator[V] {
 	if g.parser != nil {
 		panic("parser already created")
+	}
+
+	for _, op := range g.operators {
+		if op.Operator == newOperator {
+			panic("operator already defined")
+		}
 	}
 
 	opItem := Operator[V]{
@@ -497,21 +503,12 @@ func (g *FunctionGenerator[V]) AddOpBehind(oldOperator, newOperator string, isCo
 		IsCommutative: isCommutative,
 	}
 
-	if oldOperator == "" {
-		for i, op := range g.operators {
-			if op.Operator == newOperator {
-				g.operators[i] = opItem
-				return g
-			}
-		}
+	if behindOperator == "" {
 		g.operators = append(g.operators, opItem)
 	} else {
 		found := -1
 		for i, op := range g.operators {
-			if op.Operator == newOperator {
-				panic("operator already defined")
-			}
-			if op.Operator == oldOperator {
+			if op.Operator == behindOperator {
 				found = i
 			}
 		}
@@ -520,6 +517,32 @@ func (g *FunctionGenerator[V]) AddOpBehind(oldOperator, newOperator string, isCo
 		}
 		g.operators = append(g.operators[:found+1], append([]Operator[V]{opItem}, g.operators[found+1:]...)...)
 	}
+	return g
+}
+
+func (g *FunctionGenerator[V]) ReplaceOp(operator string, isCommutative, isPure bool, opFactory func(OperatorImpl[V]) OperatorImpl[V]) *FunctionGenerator[V] {
+	replaceOpIndex := -1
+	for i, op := range g.operators {
+		if op.Operator == operator {
+			replaceOpIndex = i
+			break
+		}
+	}
+	if replaceOpIndex < 0 {
+		panic(fmt.Sprintf("operator %s not found", operator))
+	}
+
+	oldOp := g.operators[replaceOpIndex]
+
+	opItem := Operator[V]{
+		Operator:      operator,
+		Impl:          opFactory(oldOp.Impl),
+		IsPure:        isPure && oldOp.IsPure,
+		IsCommutative: isCommutative && oldOp.IsCommutative,
+	}
+
+	g.operators[replaceOpIndex] = opItem
+
 	return g
 }
 
@@ -568,16 +591,8 @@ func (g *FunctionGenerator[V]) SetCustomGenerator(generator Generator[V]) *Funct
 	return g
 }
 
-func (g *FunctionGenerator[V]) AddFinalizer(finalizer func(*FunctionGenerator[V])) *FunctionGenerator[V] {
-	if g.finalizer == nil {
-		g.finalizer = finalizer
-	} else {
-		old := g.finalizer
-		g.finalizer = func(g *FunctionGenerator[V]) {
-			finalizer(g)
-			old(g)
-		}
-	}
+func (g *FunctionGenerator[V]) Modify(f func(*FunctionGenerator[V])) *FunctionGenerator[V] {
+	f(g)
 	return g
 }
 
@@ -684,11 +699,6 @@ func (g *FunctionGenerator[V]) GenerateFromString(exp string, args ...string) (P
 }
 
 func (g *FunctionGenerator[V]) generateIntern(args []string, exp string, ThisName string) (Func[V], error) {
-	if g.finalizer != nil {
-		g.finalizer(g)
-		g.finalizer = nil
-	}
-
 	ast, err := g.CreateAst(exp)
 	if err != nil {
 		return nil, err

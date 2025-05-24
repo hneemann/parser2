@@ -605,7 +605,7 @@ func (s *Sortable) Swap(i, j int) {
 	s.items[i], s.items[j] = s.items[j], s.items[i]
 }
 
-func (l *List) Order(st funcGen.Stack[Value], rev bool, less funcGen.BoolFunc[Value]) (*List, error) {
+func (l *List) Order(st funcGen.Stack[Value], rev bool, fg *FunctionGenerator) (*List, error) {
 	f, err := ToFunc("order", st, 1, 1)
 	if err != nil {
 		return nil, err
@@ -614,7 +614,7 @@ func (l *List) Order(st funcGen.Stack[Value], rev bool, less funcGen.BoolFunc[Va
 	if err != nil {
 		return nil, err
 	}
-	s := Sortable{items: items, rev: rev, st: st, pickFunc: f, less: less}
+	s := Sortable{items: items, rev: rev, st: st, pickFunc: f, less: fg.less}
 	sort.Sort(&s)
 	return NewList(items...), s.err
 }
@@ -843,8 +843,9 @@ func (l *List) Reduce(st funcGen.Stack[Value]) (Value, error) {
 	})
 }
 
-func (l *List) Sum(st funcGen.Stack[Value], add func(st funcGen.Stack[Value], a Value, b Value) (Value, error)) (Value, error) {
+func (l *List) Sum(st funcGen.Stack[Value], fg *FunctionGenerator) (Value, error) {
 	var sum Value
+	add := fg.GetOpImpl("+")
 	err := l.iterable(st, func(value Value) error {
 		if sum == nil {
 			sum = value
@@ -879,7 +880,7 @@ func (l *List) MapReduce(st funcGen.Stack[Value]) (Value, error) {
 	})
 }
 
-func (l *List) MinMax(st funcGen.Stack[Value], less funcGen.BoolFunc[Value]) (Value, error) {
+func (l *List) MinMax(st funcGen.Stack[Value], fg *FunctionGenerator) (Value, error) {
 	f, err := ToFunc("minMax", st, 1, 1)
 	if err != nil {
 		return nil, err
@@ -902,7 +903,7 @@ func (l *List) MinMax(st funcGen.Stack[Value], less funcGen.BoolFunc[Value]) (Va
 			minItem = value
 			maxItem = value
 		} else {
-			le, err := less(st, r, minVal)
+			le, err := fg.less(st, r, minVal)
 			if err != nil {
 				return err
 			}
@@ -910,7 +911,7 @@ func (l *List) MinMax(st funcGen.Stack[Value], less funcGen.BoolFunc[Value]) (Va
 				minVal = r
 				minItem = value
 			}
-			gr, err := less(st, maxVal, r)
+			gr, err := fg.less(st, maxVal, r)
 			if err != nil {
 				return err
 			}
@@ -932,7 +933,9 @@ func (l *List) MinMax(st funcGen.Stack[Value], less funcGen.BoolFunc[Value]) (Va
 		Append("valid", Bool(!first))), nil
 }
 
-func (l *List) Mean(st funcGen.Stack[Value], add, div func(st funcGen.Stack[Value], a Value, b Value) (Value, error)) (Value, error) {
+func (l *List) Mean(st funcGen.Stack[Value], fg *FunctionGenerator) (Value, error) {
+	add := fg.GetOpImpl("+")
+	div := fg.GetOpImpl("/")
 	var sum Value
 	n := 0
 	err := l.iterable(st, func(value Value) error {
@@ -988,7 +991,7 @@ func (l *List) Number(sta funcGen.Stack[Value]) (*List, error) {
 	}), nil
 }
 
-func (l *List) GroupByEqual(st funcGen.Stack[Value], equal funcGen.BoolFunc[Value]) (*List, error) {
+func (l *List) GroupByEqual(st funcGen.Stack[Value], fg *FunctionGenerator) (*List, error) {
 	keyFunc, err := ToFunc("groupByEqual", st, 1, 1)
 	if err != nil {
 		return nil, err
@@ -1008,7 +1011,7 @@ func (l *List) GroupByEqual(st funcGen.Stack[Value], equal funcGen.BoolFunc[Valu
 		}
 
 		for ind, item := range items {
-			if eq, err := equal(st, item.key, key); err != nil {
+			if eq, err := fg.equal(st, item.key, key); err != nil {
 				return err
 			} else {
 				if eq {
@@ -1222,10 +1225,10 @@ func (l *List) MovingWindowRemove(st funcGen.Stack[Value]) (*List, error) {
 	return NewList(mainList...), nil
 }
 
-func (l *List) containsItem(st funcGen.Stack[Value], item Value, equal funcGen.BoolFunc[Value]) (bool, error) {
+func (l *List) containsItem(st funcGen.Stack[Value], item Value, fg *FunctionGenerator) (bool, error) {
 	found := false
 	err := l.iterable(st, func(value Value) error {
-		eq, err := equal(st, item, value)
+		eq, err := fg.equal(st, item, value)
 		if err != nil {
 			return err
 		}
@@ -1241,7 +1244,7 @@ func (l *List) containsItem(st funcGen.Stack[Value], item Value, equal funcGen.B
 	return found, nil
 }
 
-func (l *List) containsAllItems(st funcGen.Stack[Value], lookForList *List, equal funcGen.BoolFunc[Value]) (bool, error) {
+func (l *List) containsAllItems(st funcGen.Stack[Value], lookForList *List, fg *FunctionGenerator) (bool, error) {
 	lookFor, err := lookForList.CopyToSlice(st)
 	if err != nil {
 		return false, err
@@ -1253,7 +1256,7 @@ func (l *List) containsAllItems(st funcGen.Stack[Value], lookForList *List, equa
 
 	err = l.iterable(st, func(value Value) error {
 		for i, lf := range lookFor {
-			eq, err2 := equal(st, lf, value)
+			eq, err2 := fg.equal(st, lf, value)
 			if err2 != nil {
 				return err2
 			}
@@ -1373,9 +1376,7 @@ func (l *List) Set(st funcGen.Stack[Value]) (Value, error) {
 	return NewList(sl...), nil
 }
 
-func createListMethods(
-	add, div func(st funcGen.Stack[Value], a Value, b Value) (Value, error),
-	less, equal funcGen.BoolFunc[Value]) MethodMap {
+func createListMethods(fg *FunctionGenerator) MethodMap {
 	return MethodMap{
 		"accept": MethodAtType(1, func(list *List, stack funcGen.Stack[Value]) (Value, error) { return list.Accept(stack) }).
 			SetMethodDescription("func(item) bool",
@@ -1388,17 +1389,17 @@ func createListMethods(
 			SetMethodDescription("func(item, item) item",
 				"Reduces the list by the given function. The function is called with the first two list items, and the result "+
 					"is used as the first argument for the third item and so on."),
-		"sum": MethodAtType(0, func(list *List, stack funcGen.Stack[Value]) (Value, error) { return list.Sum(stack, add) }).
+		"sum": MethodAtType(0, func(list *List, stack funcGen.Stack[Value]) (Value, error) { return list.Sum(stack, fg) }).
 			SetMethodDescription("Returns the sum of all items in the list. Shorthand for reduce((a,b)->a+b)."),
 		"mapReduce": MethodAtType(2, func(list *List, stack funcGen.Stack[Value]) (Value, error) { return list.MapReduce(stack) }).
 			SetMethodDescription("initialSum", "func(sum, item) sum",
 				"MapReduce reduces the list to a single value. The initial value is given as the first argument. The function "+
 					"is called with the initial value and the first item, and the result is used as the first argument for the "+
 					"second item and so on."),
-		"mean": MethodAtType(0, func(list *List, stack funcGen.Stack[Value]) (Value, error) { return list.Mean(stack, add, div) }).
+		"mean": MethodAtType(0, func(list *List, stack funcGen.Stack[Value]) (Value, error) { return list.Mean(stack, fg) }).
 			SetMethodDescription(
 				"Returns the mean value of the list."),
-		"minMax": MethodAtType(1, func(list *List, stack funcGen.Stack[Value]) (Value, error) { return list.MinMax(stack, less) }).
+		"minMax": MethodAtType(1, func(list *List, stack funcGen.Stack[Value]) (Value, error) { return list.MinMax(stack, fg) }).
 			SetMethodDescription("func(item) value",
 				"Returns the minimum and maximum value of the list. The function is called for each item in the list and the "+
 					"result is compared to the previous minimum and maximum."),
@@ -1439,7 +1440,7 @@ func createListMethods(
 				"The function is called for each item in the list and the returned integer is used as the key for the group. "+
 				"The result is a list of maps with the keys 'key' and 'values'. The 'key' contains the integer returned by the function "+
 				"and 'values' contains a list of items that have the same key."),
-		"groupByEqual": MethodAtType(1, func(list *List, stack funcGen.Stack[Value]) (Value, error) { return list.GroupByEqual(stack, equal) }).
+		"groupByEqual": MethodAtType(1, func(list *List, stack funcGen.Stack[Value]) (Value, error) { return list.GroupByEqual(stack, fg) }).
 			SetMethodDescription("func(item) key", "Returns a list of lists grouped by the given function. "+
 				"The function is called for each item in the list and the returned value is used as the key for the group. "+
 				"The result is a list of maps with the keys 'key' and 'values'. The 'key' contains the value returned by the function "+
@@ -1466,11 +1467,11 @@ func createListMethods(
 					"return value is true the value of the original list is taken, otherwise the item from the other list. "+
 					"The is repeated until all items of both lists are processed. "+
 					"If the function returns true if a<b holds and both lists are ordered, also the new list is ordered."),
-		"order": MethodAtType(1, func(list *List, stack funcGen.Stack[Value]) (Value, error) { return list.Order(stack, false, less) }).
+		"order": MethodAtType(1, func(list *List, stack funcGen.Stack[Value]) (Value, error) { return list.Order(stack, false, fg) }).
 			SetMethodDescription("func(item) value",
 				"Returns a new list with the items sorted in the order of the values returned by the given function. "+
 					"The function is called for each item in the list and the returned values determine the order."),
-		"orderRev": MethodAtType(1, func(list *List, stack funcGen.Stack[Value]) (Value, error) { return list.Order(stack, true, less) }).
+		"orderRev": MethodAtType(1, func(list *List, stack funcGen.Stack[Value]) (Value, error) { return list.Order(stack, true, fg) }).
 			SetMethodDescription("func(item) value",
 				"Returns a new list with the items sorted in the reverse order of the values returned by the given function. "+
 					"The function is called for each item in the list and the returned values determine the order."),
