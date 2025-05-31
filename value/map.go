@@ -351,6 +351,7 @@ func (m MergeMap) Size() int {
 
 type ReplaceMap struct {
 	orig, rep MapStorage
+	depth     int
 }
 
 func (m ReplaceMap) Get(key string) (Value, bool) {
@@ -372,6 +373,15 @@ func (m ReplaceMap) Iter(yield func(key string, v Value) bool) bool {
 
 func (m ReplaceMap) Size() int {
 	return m.orig.Size()
+}
+
+func (m ReplaceMap) createFlat() MapStorage {
+	rm := make(RealMap, m.Size())
+	m.Iter(func(key string, v Value) bool {
+		rm[key] = v
+		return true
+	})
+	return rm
 }
 
 func (v Map) Merge(other Map) (Map, error) {
@@ -434,10 +444,24 @@ func (v Map) Replace(stack funcGen.Stack[Value]) (Map, error) {
 	}
 
 	if rep, ok := repMap.ToMap(); ok {
-		return NewMap(ReplaceMap{
-			orig: v.m,
-			rep:  rep,
-		}), nil
+		depth := 0
+		if r, ok := v.m.(ReplaceMap); ok {
+			depth = r.depth
+		}
+		if r, ok := rep.m.(ReplaceMap); ok {
+			if r.depth > depth {
+				depth = r.depth
+			}
+		}
+		rm := ReplaceMap{
+			orig:  v.m,
+			rep:   rep,
+			depth: depth + 1,
+		}
+		if depth >= 10 {
+			return NewMap(rm.createFlat()), nil
+		}
+		return NewMap(rm), nil
 	}
 	return EmptyMap, errors.New("the result of the function passed to replace must be a map")
 }
