@@ -376,12 +376,22 @@ func (m ReplaceMap) Size() int {
 }
 
 func (m ReplaceMap) createFlat() MapStorage {
-	rm := make(RealMap, m.Size())
-	m.Iter(func(key string, v Value) bool {
-		rm[key] = v
-		return true
-	})
-	return rm
+	size := m.Size()
+	if size > 20 {
+		rm := make(RealMap, size)
+		m.Iter(func(key string, v Value) bool {
+			rm[key] = v
+			return true
+		})
+		return rm
+	} else {
+		lm := listMap.New[Value](size)
+		m.Iter(func(key string, v Value) bool {
+			lm = lm.Append(key, v)
+			return true
+		})
+		return lm
+	}
 }
 
 func (v Map) Merge(other Map) (Map, error) {
