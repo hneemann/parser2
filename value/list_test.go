@@ -130,6 +130,8 @@ func TestList(t *testing.T) {
 			res: String("[{t0:0, t1:0, len:1}, {t0:0, t1:0.1, len:2}, {t0:0, t1:0.2, len:3}, {t0:0, t1:0.3, len:4}, {t0:0, t1:0.4, len:5}, {t0:0, t1:0.5, len:6}, {t0:0, t1:0.6, len:7}, {t0:0, t1:0.7, len:8}, {t0:0, t1:0.8, len:9}, {t0:0, t1:0.9, len:10}, {t0:0, t1:1, len:11}, {t0:0.1, t1:1.1, len:11}, {t0:0.2, t1:1.2, len:11}, {t0:0.3, t1:1.3, len:11}, {t0:0.4, t1:1.4, len:11}, {t0:0.5, t1:1.5, len:11}, {t0:0.6, t1:1.6, len:11}, {t0:0.7, t1:1.7, len:11}, {t0:0.8, t1:1.8, len:11}, {t0:0.9, t1:1.9, len:11}]")},
 
 		{exp: interpolate, res: String("[0, 0, 0.5, 1, 0.5, 0, 0]")},
+
+		{exp: `let r=list(10).linearReg(i->i,i->2*i+1); string([r.a,r.b])`, res: String("[2, 1]")},
 	})
 }
 

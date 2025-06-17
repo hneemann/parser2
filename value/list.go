@@ -1360,6 +1360,54 @@ func (l *List) CreateInterpolation(st funcGen.Stack[Value]) (Value, error) {
 	}, nil
 }
 
+func (l *List) Linear(st funcGen.Stack[Value]) (Value, error) {
+	getXFunc, err := ToFunc("linear", st, 1, 1)
+	if err != nil {
+		return nil, err
+	}
+	getYFunc, err := ToFunc("linear", st, 2, 1)
+	if err != nil {
+		return nil, err
+	}
+
+	sxi := 0.0
+	syi := 0.0
+	sxi2 := 0.0
+	sxiyi := 0.0
+	n := 0
+	err = l.iterable(st, func(v Value) error {
+		x, err := MustFloat(getXFunc.Eval(st, v))
+		if err != nil {
+			return err
+		}
+		y, err := MustFloat(getYFunc.Eval(st, v))
+		if err != nil {
+			return err
+		}
+
+		sxi += x
+		syi += y
+		sxi2 += x * x
+		sxiyi += x * y
+		n++
+
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	a := (sxiyi - sxi*syi/float64(n)) / (sxi2 - sxi*sxi/float64(n))
+	b := (syi - a*sxi) / float64(n)
+
+	ms := RealMap{
+		"a": Float(a),
+		"b": Float(b),
+	}
+
+	return NewMap(ms), nil
+}
+
 func (l *List) Set(st funcGen.Stack[Value]) (Value, error) {
 	index, err := MustInt(st.Get(1), nil)
 	if err != nil {
@@ -1553,6 +1601,9 @@ func createListMethods(fg *FunctionGenerator) MethodMap {
 		"createInterpolation": MethodAtType(2, func(list *List, stack funcGen.Stack[Value]) (Value, error) { return list.CreateInterpolation(stack) }).
 			SetMethodDescription("func(item) x", "func(item) y",
 				"Returns a function that interpolates between the given points."),
+		"linearReg": MethodAtType(2, func(list *List, stack funcGen.Stack[Value]) (Value, error) { return list.Linear(stack) }).
+			SetMethodDescription("func(item) x", "func(item) y",
+				"Returns a map containing the values a and b of the linear regression function y=a*x+b that fits the data points."),
 		"binning": MethodAtType(5, Binning).
 			SetMethodDescription("start", "size", "count", "indexFunc", "valueFunc",
 				"Returns a map with the binning results. The index function must return the index of the bin for a specific element "+
