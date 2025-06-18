@@ -852,7 +852,7 @@ func New() *FunctionGenerator {
 			},
 			Args:   2,
 			IsPure: true,
-		}.SetDescription("a", "b", "Returns the binary and of a, b")).
+		}.SetDescription("a", "b", "Returns the binary and of a, b.")).
 		AddStaticFunction("binOr", funcGen.Function[Value]{
 			Func: func(st funcGen.Stack[Value], cs []Value) (Value, error) {
 				if a, ok := st.Get(0).ToInt(); ok {
@@ -864,17 +864,17 @@ func New() *FunctionGenerator {
 			},
 			Args:   2,
 			IsPure: true,
-		}.SetDescription("a", "b", "Returns the binary or of a, b")).
+		}.SetDescription("a", "b", "Returns the binary or of a, b.")).
 		AddStaticFunction("bisection", funcGen.Function[Value]{
-			Func:   bisectionMethod,
-			Args:   3,
+			Func:   bisectionValue,
+			Args:   4,
 			IsPure: true,
-		}.SetDescription("func(float) float", "min", "max", "Searches a zero in the given function by using the bisection method")).
+		}.SetDescription("func(float) float", "min", "max", "eps", "Searches a zero in the given function by using the bisection method.").VarArgs(3, 4)).
 		AddStaticFunction("createLowPass", funcGen.Function[Value]{
 			Func:   createLowPass,
 			Args:   4,
 			IsPure: true,
-		}.SetDescription("name", "func(p) float", "func(p) float", "tau", "Returns a low pass filter creating signal [name]")).
+		}.SetDescription("name", "func(p) float", "func(p) float", "tau", "Returns a low pass filter creating signal [name].")).
 		AddStaticFunction("list", funcGen.Function[Value]{
 			Func: func(st funcGen.Stack[Value], cs []Value) (Value, error) {
 				v := st.Get(0)
@@ -898,7 +898,7 @@ func New() *FunctionGenerator {
 			IsPure: true,
 		}.SetDescription("n", "Returns a map with the key 'state' set to the given value.")).
 		AddStaticFunction("sprintf", funcGen.Function[Value]{Func: sprintf, Args: -1, IsPure: true}.
-			SetDescription("format", "args", "the classic, well known sprintf function")).
+			SetDescription("format", "args", "The classic, well known sprintf function.")).
 		AddStaticFunction("sqrt", simpleOnlyFloatFuncCheck("sqrt", func(arg float64) bool { return arg >= 0 }, func(x float64) float64 { return math.Sqrt(x) })).
 		AddStaticFunction("ln", simpleOnlyFloatFuncCheck("ln", func(arg float64) bool { return arg >= 0 }, func(x float64) float64 { return math.Log(x) })).
 		AddStaticFunction("log10", simpleOnlyFloatFuncCheck("log", func(arg float64) bool { return arg >= 0 }, func(x float64) float64 { return math.Log10(x) })).
@@ -1062,7 +1062,7 @@ func createLowPass(st funcGen.Stack[Value], store []Value) (Value, error) {
 	return NewMap(listMap.New[Value](2).Append("filter", lp).Append("initial", in)), nil
 }
 
-func bisectionMethod(st funcGen.Stack[Value], _ []Value) (Value, error) {
+func bisectionValue(st funcGen.Stack[Value], _ []Value) (Value, error) {
 	if f, err := ToFunc("bisection", st, 0, 1); err != nil {
 		return nil, err
 	} else {
@@ -1072,20 +1072,45 @@ func bisectionMethod(st funcGen.Stack[Value], _ []Value) (Value, error) {
 			if xMax, err := ToFloat("bisection", st, 2); err != nil {
 				return nil, err
 			} else {
-				return bisectionImpl(f, st, xMin, xMax)
+
+				eps := 1e-10
+				if e, ok := st.GetOptional(3, Float(1e-10)).ToFloat(); ok {
+					eps = e
+				}
+
+				fu := func(x float64) (float64, error) {
+					r, err := f.Eval(st, Float(x))
+					if err != nil {
+						return 0, err
+					}
+					if r, ok := r.ToFloat(); ok {
+						return r, nil
+					}
+					return 0, fmt.Errorf("solve function must return a float, but returned %s", TypeName(r))
+				}
+
+				r, err := bisection(fu, xMin, xMax, eps)
+				return Float(r), err
 			}
 		}
 	}
 }
 
-func bisectionImpl(f funcGen.Function[Value], st funcGen.Stack[Value], xMin float64, xMax float64) (Float, error) {
-	yMin, err := bisectionCalc(f, st, xMin)
+func bisection(f func(float64) (float64, error), xMin, xMax, eps float64) (float64, error) {
+	yMin, err := f(xMin)
 	if err != nil {
 		return 0, err
 	}
-	yMax, err := bisectionCalc(f, st, xMax)
+	if math.Abs(yMin) < eps {
+		return xMin, nil
+	}
+
+	yMax, err := f(xMax)
 	if err != nil {
 		return 0, err
+	}
+	if math.Abs(yMax) < eps {
+		return xMax, nil
 	}
 
 	if (yMin < 0) == (yMax < 0) {
@@ -1095,13 +1120,13 @@ func bisectionImpl(f funcGen.Function[Value], st funcGen.Stack[Value], xMin floa
 	n := 0
 	for {
 		xMid := (xMin + xMax) / 2
-		yMid, err := bisectionCalc(f, st, xMid)
+		yMid, err := f(xMid)
 		if err != nil {
 			return 0, err
 		}
 
-		if math.Abs(yMid) < 1e-10 {
-			return Float(xMid), nil
+		if math.Abs(yMid) < eps {
+			return xMid, nil
 		}
 
 		if (yMin < 0) == (yMid < 0) {
@@ -1117,17 +1142,6 @@ func bisectionImpl(f funcGen.Function[Value], st funcGen.Stack[Value], xMin floa
 			return 0, fmt.Errorf("solve function did not converge in 1000 iterations for interval [%f,%f]", xMin, xMax)
 		}
 	}
-}
-
-func bisectionCalc(f funcGen.Function[Value], st funcGen.Stack[Value], x float64) (float64, error) {
-	r, err := f.Eval(st, Float(x))
-	if err != nil {
-		return 0, err
-	}
-	if r, ok := r.ToFloat(); ok {
-		return r, nil
-	}
-	return 0, fmt.Errorf("solve function must return a float, but returned %s", TypeName(r))
 }
 
 func Must[V any](v V, err error) V {
