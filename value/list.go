@@ -1400,12 +1400,9 @@ func (l *List) Linear(st funcGen.Stack[Value]) (Value, error) {
 	a := (sxiyi - sxi*syi/float64(n)) / (sxi2 - sxi*sxi/float64(n))
 	b := (syi - a*sxi) / float64(n)
 
-	ms := RealMap{
-		"a": Float(a),
-		"b": Float(b),
-	}
-
-	return NewMap(ms), nil
+	return NewMap(listMap.New[Value](2).
+		Append("a", Float(a)).
+		Append("b", Float(b))), nil
 }
 
 func (l *List) Set(st funcGen.Stack[Value]) (Value, error) {
