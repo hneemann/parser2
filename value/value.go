@@ -865,6 +865,11 @@ func New() *FunctionGenerator {
 			Args:   2,
 			IsPure: true,
 		}.SetDescription("a", "b", "Returns the binary or of a, b")).
+		AddStaticFunction("bisection", funcGen.Function[Value]{
+			Func:   bisectionMethod,
+			Args:   3,
+			IsPure: true,
+		}.SetDescription("func(float) float", "min", "max", "Searches a zero in the given function by using the bisection method")).
 		AddStaticFunction("createLowPass", funcGen.Function[Value]{
 			Func:   createLowPass,
 			Args:   4,
@@ -1055,6 +1060,74 @@ func createLowPass(st funcGen.Stack[Value], store []Value) (Value, error) {
 		IsPure: true,
 	})
 	return NewMap(listMap.New[Value](2).Append("filter", lp).Append("initial", in)), nil
+}
+
+func bisectionMethod(st funcGen.Stack[Value], _ []Value) (Value, error) {
+	if f, err := ToFunc("bisection", st, 0, 1); err != nil {
+		return nil, err
+	} else {
+		if xMin, err := ToFloat("bisection", st, 1); err != nil {
+			return nil, err
+		} else {
+			if xMax, err := ToFloat("bisection", st, 2); err != nil {
+				return nil, err
+			} else {
+				return bisectionImpl(f, st, xMin, xMax)
+			}
+		}
+	}
+}
+
+func bisectionImpl(f funcGen.Function[Value], st funcGen.Stack[Value], xMin float64, xMax float64) (Float, error) {
+	yMin, err := bisectionCalc(f, st, xMin)
+	if err != nil {
+		return 0, err
+	}
+	yMax, err := bisectionCalc(f, st, xMax)
+	if err != nil {
+		return 0, err
+	}
+
+	if (yMin < 0) == (yMax < 0) {
+		return 0, fmt.Errorf("no zero in interval [%f,%f] for function", xMin, xMax)
+	}
+
+	n := 0
+	for {
+		xMid := (xMin + xMax) / 2
+		yMid, err := bisectionCalc(f, st, xMid)
+		if err != nil {
+			return 0, err
+		}
+
+		if math.Abs(yMid) < 1e-10 {
+			return Float(xMid), nil
+		}
+
+		if (yMin < 0) == (yMid < 0) {
+			xMin = xMid
+			yMin = yMid
+		} else {
+			xMax = xMid
+			yMax = yMid
+		}
+
+		n++
+		if n > 1000 {
+			return 0, fmt.Errorf("solve function did not converge in 1000 iterations for interval [%f,%f]", xMin, xMax)
+		}
+	}
+}
+
+func bisectionCalc(f funcGen.Function[Value], st funcGen.Stack[Value], x float64) (float64, error) {
+	r, err := f.Eval(st, Float(x))
+	if err != nil {
+		return 0, err
+	}
+	if r, ok := r.ToFloat(); ok {
+		return r, nil
+	}
+	return 0, fmt.Errorf("solve function must return a float, but returned %s", TypeName(r))
 }
 
 func Must[V any](v V, err error) V {

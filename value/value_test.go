@@ -147,6 +147,8 @@ func TestBasic(t *testing.T) {
 
                try 2*mySqrt(-1)+1 catch e-> "sqrt of neg value" ~ e`, res: Bool(true)},
 
+		{exp: "bisection(x->sqr(x)-2,1,2)", res: Float(math.Sqrt(2))},
+
 		{exp: "let p={a:1,b:2}; try p.a catch 5", res: Int(1)},
 		{exp: "let p={a:1,b:2}; try p.c catch 5", res: Int(5)},
 		{exp: "let p={a:1,b:2}; try p.c catch e->\"caught error: \"+e", res: String("caught error: key 'c' not found in map; available are: a, b")},
