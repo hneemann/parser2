@@ -389,3 +389,48 @@ func BenchmarkList(b *testing.B) {
 		f(args)
 	}
 }
+
+func Test_bisection(t *testing.T) {
+	tests := []struct {
+		name string
+		f    func(float64) (float64, error)
+		xMin float64
+		xMax float64
+		want float64
+	}{
+		{
+			name: "sqrt(2)",
+			f: func(f float64) (float64, error) {
+				return f*f - 2, nil
+			},
+			xMin: 1,
+			xMax: 2,
+			want: math.Sqrt(2),
+		},
+		{
+			name: "sqrt(4)",
+			f: func(f float64) (float64, error) {
+				return f*f - 4, nil
+			},
+			xMin: 2,
+			xMax: 4,
+			want: 2,
+		},
+		{
+			name: "sqrt(4) b",
+			f: func(f float64) (float64, error) {
+				return f*f - 4, nil
+			},
+			xMin: 1,
+			xMax: 2,
+			want: 2,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := bisection(tt.f, tt.xMin, tt.xMax, 1e-10)
+			assert.NoError(t, err, "bisection(%v, %v, %v)", tt.f, tt.xMin, tt.xMax)
+			assert.InDelta(t, tt.want, got, 1e-6, "bisection(%v, %v, %v)", tt.f, tt.xMin, tt.xMax)
+		})
+	}
+}
