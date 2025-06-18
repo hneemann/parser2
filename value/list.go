@@ -1549,7 +1549,7 @@ func createListMethods(fg *FunctionGenerator) MethodMap {
 		"visit": MethodAtType(2, func(list *List, stack funcGen.Stack[Value]) (Value, error) { return list.Visit(stack) }).
 			SetMethodDescription("initial_visitor", "func(visitor, item) visitor",
 				"Visits each item in the list with the given function. The function is called with the visitor and the item. "+
-					"An initial visitor is given as the first argument. The return value of the function is used as the new visitor "),
+					"An initial visitor is given as the first argument. The return value of the function is used as the new visitor."),
 		"fsm": MethodAtType(1, func(list *List, stack funcGen.Stack[Value]) (Value, error) { return list.FSM(stack) }).
 			SetMethodDescription("func(state, item) state",
 				"Returns a new list with the given function applied to the items in the list. "+

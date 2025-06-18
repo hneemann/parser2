@@ -258,8 +258,8 @@ func TestFunctionDescription_String(t *testing.T) {
 		},
 		{
 			name: "z",
-			fu:   Function[int]{Args: 2}.SetMethodDescription("func([item])", "a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a"),
-			want: "z(func([item]))\n\ta a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a\n\ta a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a\n\ta",
+			fu:   Function[int]{Args: 2}.SetMethodDescription("func([item])", "A a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a."),
+			want: "z(func([item]))\n\tA a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a\n\ta a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a\n\ta.",
 		},
 	}
 	for _, tt := range tests {

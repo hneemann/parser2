@@ -185,6 +185,29 @@ func (f *FunctionDescription) WriteTo(b *bytes.Buffer, name string) {
 	appendWord()
 }
 
+func (f *FunctionDescription) addOptional(min int, max int) *FunctionDescription {
+	var desc string
+	if min > 0 {
+		opt := max - min
+		if opt == 1 {
+			desc = " The last argument is optional."
+		} else {
+			desc = fmt.Sprintf(" The last %d arguments are optional.", opt)
+		}
+	} else {
+		if max == 1 {
+			desc = " The argument is optional."
+		} else {
+			desc = " The arguments are optional."
+		}
+	}
+
+	return &FunctionDescription{
+		Args:        f.Args,
+		Description: f.Description + desc,
+	}
+}
+
 // Function represents a function
 type Function[V any] struct {
 	// Func is the function itself
@@ -219,7 +242,7 @@ func (f Function[V]) VarArgs(min, max int) Function[V] {
 		},
 		Args:        -1,
 		IsPure:      f.IsPure,
-		Description: f.Description,
+		Description: f.Description.addOptional(min, max),
 	}
 }
 
@@ -238,7 +261,7 @@ func (f Function[V]) VarArgsMethod(min, max int) Function[V] {
 		},
 		Args:        -1,
 		IsPure:      f.IsPure,
-		Description: f.Description,
+		Description: f.Description.addOptional(min, max),
 	}
 }
 

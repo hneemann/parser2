@@ -65,16 +65,16 @@ func createErrValueMethods() value.MethodMap {
 		"val": value.MethodAtType(0, func(ev ErrValue, stack funcGen.Stack[value.Value]) (value.Value, error) {
 			return value.Float(ev.val), nil
 		}).
-			SetMethodDescription("Returns the value of the error value"),
+			SetMethodDescription("Returns the value of the error value."),
 		"err": value.MethodAtType(0, func(ev ErrValue, stack funcGen.Stack[value.Value]) (value.Value, error) {
 			return value.Float(ev.err), nil
 		}).
-			SetMethodDescription("Returns the error of the error value"),
+			SetMethodDescription("Returns the error of the error value."),
 		"string": value.MethodAtType(0, func(ev ErrValue, stack funcGen.Stack[value.Value]) (value.Value, error) {
 			s, err := ev.ToString(stack)
 			return value.String(s), err
 		}).
-			SetMethodDescription("Returns the string representation of the error value"),
+			SetMethodDescription("Returns the string representation of the error value."),
 	}
 }
 
