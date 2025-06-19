@@ -35,20 +35,31 @@ type Format struct {
 //	styleBins(fac):  Simple styling to format binning results. The width of the bars is scaled by the factor fac.
 //
 //	styleBinsSkipFirst(fac):  Simple styling to format binning results. The width of the bars is scaled by the factor fac. The first entry is skipped.
-func AddHTMLStylingHelpers(f *funcGen.FunctionGenerator[value.Value]) {
+func AddHTMLStylingHelpers(f *value.FunctionGenerator) {
 	f.AddStaticFunction("style", styleFunc)
 	f.AddStaticFunction("styleCell", styleFuncCell)
 	f.AddStaticFunction("link", linkFunc)
-	f.AddStaticFunction("styleBins", funcGen.Function[value.Value]{
-		Func:   value.Must(f.GenerateFromString("m->m.descr.number((n,e)->[e.str, [[style(\"background:red;width:\"+(m.values[n]*fac)+\"px\",\"\"),m.values[n]]] ])", "fac")),
-		Args:   1,
+	//If the parser is used, further modifications are not possible
+	//f.AddStaticFunction("styleBins", funcGen.Function[value.Value]{
+	//	Func:   value.Must(f.GenerateFromString("m->m.descr.number((n,e)->[e.str, [[style(\"background:red;width:\"+(m.values[n]*fac)+\"px\",\"\"),m.values[n]]] ])", "fac")),
+	//	Args:   1,
+	//	IsPure: true,
+	//}.SetDescription("fac", "Simple styling to format binning results. The width of the bars is scaled by the factor fac."))
+	//f.AddStaticFunction("styleBinsSkipFirst", funcGen.Function[value.Value]{
+	//	Func:   value.Must(f.GenerateFromString("m->m.descr.skip(1).number((n,e)->[e.str, [[style(\"background:red;width:\"+(m.values[n+1]*fac)+\"px\",\"\"),m.values[n+1]]] ])", "fac")),
+	//	Args:   1,
+	//	IsPure: true,
+	//}.SetDescription("fac", "Simple styling to format binning results. The width of the bars is scaled by the factor fac."))
+	f.AddStaticFunction("help", funcGen.Function[value.Value]{
+		Func: func(st funcGen.Stack[value.Value], cs []value.Value) (value.Value, error) {
+			return Format{
+				Value:  value.String(f.GetHelp()),
+				Format: value.String("font-family: monospace; white-space: pre;"),
+			}, nil
+		},
+		Args:   0,
 		IsPure: true,
-	}.SetDescription("fac", "Simple styling to format binning results. The width of the bars is scaled by the factor fac."))
-	f.AddStaticFunction("styleBinsSkipFirst", funcGen.Function[value.Value]{
-		Func:   value.Must(f.GenerateFromString("m->m.descr.skip(1).number((n,e)->[e.str, [[style(\"background:red;width:\"+(m.values[n+1]*fac)+\"px\",\"\"),m.values[n+1]]] ])", "fac")),
-		Args:   1,
-		IsPure: true,
-	}.SetDescription("fac", "Simple styling to format binning results. The width of the bars is scaled by the factor fac."))
+	}.SetDescription("Returns a help text."))
 }
 
 // linkFunc can be used to create a link

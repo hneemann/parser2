@@ -1399,6 +1399,27 @@ func (g *FunctionGenerator[V]) generateStaticFunctionDocu(err error) error {
 	return fmt.Errorf("%w\n\nAvailable functions are:%s", err, b.String())
 }
 
+func (g *FunctionGenerator[V]) GetHelp() string {
+	type fes struct {
+		name string
+		fu   Function[V]
+	}
+	var l []fes
+	for k, f := range g.staticFunctions {
+		l = append(l, fes{name: k, fu: f})
+	}
+	sort.Slice(l, func(i, j int) bool {
+		return l[i].name < l[j].name
+	})
+	var b bytes.Buffer
+	for _, fe := range l {
+		b.WriteRune('\n')
+		fe.fu.Description.WriteTo(&b, fe.name)
+	}
+	return b.String()
+
+}
+
 func methodByReflection[V any](value V, name string) (Function[V], error) {
 	name = firstRuneUpper(name)
 	typeOf := reflect.TypeOf(value)

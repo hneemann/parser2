@@ -61,6 +61,10 @@ func (mm MethodMap) Get(name string) (funcGen.Function[Value], error) {
 		return m, nil
 	}
 
+	return funcGen.Function[Value]{}, parser2.NewNotFoundError(name, fmt.Errorf("method '%s' not found; available are:\n%s", name, mm.documentation()))
+}
+
+func (mm MethodMap) documentation() string {
 	type fes struct {
 		name string
 		fu   funcGen.Function[Value]
@@ -77,7 +81,7 @@ func (mm MethodMap) Get(name string) (funcGen.Function[Value], error) {
 		b.WriteRune('\n')
 		fe.fu.Description.WriteTo(&b, fe.name)
 	}
-	return funcGen.Function[Value]{}, parser2.NewNotFoundError(name, fmt.Errorf("method '%s' not found; available are:\n%s", name, b.String()))
+	return b.String()
 }
 
 func (mm MethodMap) add(more MethodMap) {
@@ -548,18 +552,20 @@ func simpleOnlyFloatFuncCheck(name string, argValid func(float65 float64) bool, 
 
 type FunctionGenerator struct {
 	*funcGen.FunctionGenerator[Value]
-	methods [maxTypeId]MethodMap
-	equal   funcGen.BoolFunc[Value]
-	less    funcGen.BoolFunc[Value]
+	methods   [maxTypeId]MethodMap
+	equal     funcGen.BoolFunc[Value]
+	less      funcGen.BoolFunc[Value]
+	typeNames [maxTypeId]string
 
 	typeId Type
 }
 
-func (fg *FunctionGenerator) RegisterType() Type {
+func (fg *FunctionGenerator) RegisterType(name string) Type {
 	fg.typeId++
 	if fg.typeId >= maxTypeId {
 		panic("too many types")
 	}
+	fg.typeNames[fg.typeId] = name
 	return fg.typeId
 }
 
@@ -624,19 +630,31 @@ func (fg *FunctionGenerator) SetLess(less funcGen.BoolFunc[Value]) *FunctionGene
 	return fg
 }
 
+func (fg *FunctionGenerator) GetHelp() string {
+	var b bytes.Buffer
+	for i := Type(1); i <= fg.typeId; i++ {
+		b.WriteString(fmt.Sprintf("Methods on type %s:\n%s\n\n", fg.typeNames[i], fg.methods[i].documentation()))
+	}
+	b.WriteString("\nAvailable static functions:\n")
+
+	b.WriteString(fg.FunctionGenerator.GetHelp())
+
+	return b.String()
+}
+
 func New() *FunctionGenerator {
 	f := &FunctionGenerator{less: Less}
-	nilTypeId = f.RegisterType()
-	IntTypeId = f.RegisterType()
-	FloatTypeId = f.RegisterType()
-	StringTypeId = f.RegisterType()
-	BoolTypeId = f.RegisterType()
-	ListTypeId = f.RegisterType()
-	MapTypeId = f.RegisterType()
-	closureTypeId = f.RegisterType()
-	FormatTypeId = f.RegisterType()
-	LinkTypeId = f.RegisterType()
-	FileTypeId = f.RegisterType()
+	nilTypeId = f.RegisterType("nil")
+	IntTypeId = f.RegisterType("int")
+	FloatTypeId = f.RegisterType("float")
+	StringTypeId = f.RegisterType("string")
+	BoolTypeId = f.RegisterType("bool")
+	ListTypeId = f.RegisterType("list")
+	MapTypeId = f.RegisterType("map")
+	closureTypeId = f.RegisterType("closure")
+	FormatTypeId = f.RegisterType("format")
+	LinkTypeId = f.RegisterType("link")
+	FileTypeId = f.RegisterType("file")
 
 	fg := funcGen.New[Value]().
 		AddConstant("nil", NIL).

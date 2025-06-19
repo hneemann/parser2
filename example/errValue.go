@@ -149,7 +149,7 @@ func toErr(stack funcGen.Stack[value.Value], store []value.Value) (value.Value, 
 
 var ErrValueParser = value.New().
 	Modify(func(f *value.FunctionGenerator) {
-		errValType = f.RegisterType()
+		errValType = f.RegisterType("errValue")
 		f.AddOpBehind(">", ">>>", false, errOperation(">>>", f.GetOpImpl(">"),
 			func(a, b ErrValue) (value.Value, error) {
 				return value.Bool(a.GetMin() > b.GetMax()), nil
