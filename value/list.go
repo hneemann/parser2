@@ -1400,9 +1400,22 @@ func (l *List) Linear(st funcGen.Stack[Value]) (Value, error) {
 	a := (sxiyi - sxi*syi/float64(n)) / (sxi2 - sxi*sxi/float64(n))
 	b := (syi - a*sxi) / float64(n)
 
+	f := Closure{
+		Func: func(stack funcGen.Stack[Value], closureStore []Value) (Value, error) {
+			if x, ok := stack.Get(0).ToFloat(); ok {
+				return Float(a*x + b), nil
+			} else {
+				return nil, errors.New("argument in linear needs to be a float")
+			}
+		},
+		Args:   1,
+		IsPure: true,
+	}
+
 	return NewMap(listMap.New[Value](2).
 		Append("a", Float(a)).
-		Append("b", Float(b))), nil
+		Append("b", Float(b)).
+		Append("lineFunc", f)), nil
 }
 
 func (l *List) Set(st funcGen.Stack[Value]) (Value, error) {
