@@ -633,7 +633,10 @@ func (fg *FunctionGenerator) SetLess(less funcGen.BoolFunc[Value]) *FunctionGene
 func (fg *FunctionGenerator) GetHelp() string {
 	var b bytes.Buffer
 	for i := Type(1); i <= fg.typeId; i++ {
-		b.WriteString(fmt.Sprintf("Methods on type %s:\n%s\n\n", fg.typeNames[i], fg.methods[i].documentation()))
+		methodMap := fg.methods[i]
+		if len(methodMap) > 0 {
+			b.WriteString(fmt.Sprintf("Methods on type %s:\n%s\n\n", fg.typeNames[i], methodMap.documentation()))
+		}
 	}
 	b.WriteString("\nAvailable static functions:\n")
 
