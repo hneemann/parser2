@@ -1280,32 +1280,26 @@ type point struct {
 	x, y float64
 }
 
-type pointFunc struct {
-	points []point
-	lastX  float64
-	lastN  int
-}
-
-func (pf *pointFunc) interpolate(x float64) float64 {
+func interpolatePoints(points []point, x float64) float64 {
 	n0 := 0
-	n1 := len(pf.points) - 1
+	n1 := len(points) - 1
 
-	if x <= pf.points[n0].x {
-		return pf.points[n0].y
-	} else if x >= pf.points[n1].x {
-		return pf.points[n1].y
+	if x <= points[n0].x {
+		return points[n0].y
+	} else if x >= points[n1].x {
+		return points[n1].y
 	} else {
 		for n1-n0 > 1 {
 			n := (n0 + n1) / 2
-			if x < pf.points[n].x {
+			if x < points[n].x {
 				n1 = n
 			} else {
 				n0 = n
 			}
 		}
 
-		xr := (x - pf.points[n0].x) / (pf.points[n1].x - pf.points[n0].x)
-		y := pf.points[n0].y + (pf.points[n1].y-pf.points[n0].y)*xr
+		xr := (x - points[n0].x) / (points[n1].x - points[n0].x)
+		y := points[n0].y + (points[n1].y-points[n0].y)*xr
 		return y
 	}
 }
@@ -1341,19 +1335,13 @@ func (l *List) CreateInterpolation(st funcGen.Stack[Value]) (Value, error) {
 		return nil, err
 	}
 
-	pf := pointFunc{
-		points: points,
-		lastX:  0,
-		lastN:  -1,
-	}
-
 	return Closure{
 		Func: func(st funcGen.Stack[Value], cs []Value) (Value, error) {
 			fl, ok := st.Get(0).ToFloat()
 			if !ok {
 				return nil, errors.New("argument in interpolation needs to be a float")
 			}
-			return Float(pf.interpolate(fl)), nil
+			return Float(interpolatePoints(points, fl)), nil
 		},
 		Args:   1,
 		IsPure: true,
