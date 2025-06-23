@@ -222,6 +222,35 @@ type Function[V any] struct {
 	Description *FunctionDescription
 }
 
+type FunctionDocumentation struct {
+	Name        string
+	Description *FunctionDescription
+}
+
+type TypeDocumentation struct {
+	Name        string
+	Description string
+	Functions   []FunctionDocumentation
+}
+
+func CreateTypeDocumentation[V any](typeName string, mm map[string]Function[V]) TypeDocumentation {
+	var l []FunctionDocumentation
+	for k, f := range mm {
+		l = append(l, FunctionDocumentation{
+			Name:        k,
+			Description: f.Description,
+		})
+	}
+	sort.Slice(l, func(i, j int) bool {
+		return l[i].Name < l[j].Name
+	})
+	return TypeDocumentation{
+		Name:        typeName,
+		Description: "Methods",
+		Functions:   l,
+	}
+}
+
 func (f Function[V]) Pure(pure bool) Function[V] {
 	f.IsPure = pure
 	return f
@@ -1399,25 +1428,22 @@ func (g *FunctionGenerator[V]) generateStaticFunctionDocu(err error) error {
 	return fmt.Errorf("%w\n\nAvailable functions are:%s", err, b.String())
 }
 
-func (g *FunctionGenerator[V]) GetHelp() string {
-	type fes struct {
-		name string
-		fu   Function[V]
-	}
-	var l []fes
+func (g *FunctionGenerator[V]) GetStaticDocumentation() TypeDocumentation {
+	var l []FunctionDocumentation
 	for k, f := range g.staticFunctions {
-		l = append(l, fes{name: k, fu: f})
+		l = append(l, FunctionDocumentation{
+			Name:        k,
+			Description: f.Description,
+		})
 	}
 	sort.Slice(l, func(i, j int) bool {
-		return l[i].name < l[j].name
+		return l[i].Name < l[j].Name
 	})
-	var b bytes.Buffer
-	for _, fe := range l {
-		b.WriteRune('\n')
-		fe.fu.Description.WriteTo(&b, fe.name)
+	return TypeDocumentation{
+		Name:        "static",
+		Description: "Functions",
+		Functions:   l,
 	}
-	return b.String()
-
 }
 
 func methodByReflection[V any](value V, name string) (Function[V], error) {

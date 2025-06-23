@@ -50,16 +50,6 @@ func AddHTMLStylingHelpers(f *value.FunctionGenerator) {
 	//	Args:   1,
 	//	IsPure: true,
 	//}.SetDescription("fac", "Simple styling to format binning results. The width of the bars is scaled by the factor fac."))
-	f.AddStaticFunction("help", funcGen.Function[value.Value]{
-		Func: func(st funcGen.Stack[value.Value], cs []value.Value) (value.Value, error) {
-			return Format{
-				Value:  value.String(f.GetHelp()),
-				Format: value.String("font-family: monospace; white-space: pre;"),
-			}, nil
-		},
-		Args:   0,
-		IsPure: true,
-	}.SetDescription("Returns a help text."))
 }
 
 // linkFunc can be used to create a link

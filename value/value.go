@@ -61,10 +61,6 @@ func (mm MethodMap) Get(name string) (funcGen.Function[Value], error) {
 		return m, nil
 	}
 
-	return funcGen.Function[Value]{}, parser2.NewNotFoundError(name, fmt.Errorf("method '%s' not found; available are:\n%s", name, mm.documentation()))
-}
-
-func (mm MethodMap) documentation() string {
 	type fes struct {
 		name string
 		fu   funcGen.Function[Value]
@@ -81,7 +77,9 @@ func (mm MethodMap) documentation() string {
 		b.WriteRune('\n')
 		fe.fu.Description.WriteTo(&b, fe.name)
 	}
-	return b.String()
+	documentation := b.String()
+
+	return funcGen.Function[Value]{}, parser2.NewNotFoundError(name, fmt.Errorf("method '%s' not found; available are:\n%s", name, documentation))
 }
 
 func (mm MethodMap) add(more MethodMap) {
@@ -630,19 +628,16 @@ func (fg *FunctionGenerator) SetLess(less funcGen.BoolFunc[Value]) *FunctionGene
 	return fg
 }
 
-func (fg *FunctionGenerator) GetHelp() string {
-	var b bytes.Buffer
+func (fg *FunctionGenerator) GetDocumentation() []funcGen.TypeDocumentation {
+	var td []funcGen.TypeDocumentation
 	for i := Type(1); i <= fg.typeId; i++ {
 		methodMap := fg.methods[i]
 		if len(methodMap) > 0 {
-			b.WriteString(fmt.Sprintf("Methods on type %s:\n%s\n\n", fg.typeNames[i], methodMap.documentation()))
+			td = append(td, funcGen.CreateTypeDocumentation(fg.typeNames[i], methodMap))
 		}
 	}
-	b.WriteString("\nAvailable static functions:\n")
-
-	b.WriteString(fg.FunctionGenerator.GetHelp())
-
-	return b.String()
+	td = append(td, fg.FunctionGenerator.GetStaticDocumentation())
+	return td
 }
 
 func New() *FunctionGenerator {
