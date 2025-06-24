@@ -1105,14 +1105,14 @@ func bisectionValue(st funcGen.Stack[Value], _ []Value) (Value, error) {
 					return 0, fmt.Errorf("solve function must return a float, but returned %s", TypeName(r))
 				}
 
-				r, err := bisection(fu, xMin, xMax, eps)
+				r, err := Bisection(fu, xMin, xMax, eps)
 				return Float(r), err
 			}
 		}
 	}
 }
 
-func bisection(f func(float64) (float64, error), xMin, xMax, eps float64) (float64, error) {
+func Bisection(f func(float64) (float64, error), xMin, xMax, eps float64) (float64, error) {
 	yMin, err := f(xMin)
 	if err != nil {
 		return 0, err
