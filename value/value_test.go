@@ -70,6 +70,12 @@ func TestBasic(t *testing.T) {
 		{exp: "let a=2.0;abs(a)", res: Float(2.0)},
 		{exp: "let a=2.0;abs(-a)", res: Float(2.0)},
 		{exp: "let a=-2.0;abs(a)", res: Float(2.0)},
+		{exp: "let a=2;sign(a)", res: Int(1)},
+		{exp: "let a=2;sign(-a)", res: Int(-1)},
+		{exp: "let a=0;sign(a)", res: Int(0)},
+		{exp: "let a=2.0;sign(a)", res: Float(1.0)},
+		{exp: "let a=2.0;sign(-a)", res: Float(-1.0)},
+		{exp: "let a=0.0;sign(a)", res: Float(0.0)},
 		{exp: "let a=5;12%a", res: Int(2)},
 		{exp: "let a=2;sqr(a)", res: Int(4)},
 		{exp: "let a=2.0;sqr(a)", res: Float(4.0)},
@@ -428,7 +434,7 @@ func Test_bisection(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := bisection(tt.f, tt.xMin, tt.xMax, 1e-10)
+			got, err := Bisection(tt.f, tt.xMin, tt.xMax, 1e-10)
 			assert.NoError(t, err, "bisection(%v, %v, %v)", tt.f, tt.xMin, tt.xMax)
 			assert.InDelta(t, tt.want, got, 1e-6, "bisection(%v, %v, %v)", tt.f, tt.xMin, tt.xMax)
 		})

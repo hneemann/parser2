@@ -818,6 +818,30 @@ func New() *FunctionGenerator {
 			Args:   1,
 			IsPure: true,
 		}.SetDescription("value", "If value is negative, returns -value. Otherwise returns the value unchanged.")).
+		AddStaticFunction("sign", funcGen.Function[Value]{
+			Func: func(st funcGen.Stack[Value], cs []Value) (Value, error) {
+				v := st.Get(0)
+				if v, ok := v.(Int); ok {
+					if v < 0 {
+						return Int(-1), nil
+					} else if v == 0 {
+						return Int(0), nil
+					}
+					return Int(1), nil
+				}
+				if f, ok := v.ToFloat(); ok {
+					if f < 0 {
+						return Float(-1), nil
+					} else if f == 0 {
+						return Float(0), nil
+					}
+					return Float(1), nil
+				}
+				return nil, fmt.Errorf("abs not alowed on %s", TypeName(v))
+			},
+			Args:   1,
+			IsPure: true,
+		}.SetDescription("value", "If value is negative, returns -value. Otherwise returns the value unchanged.")).
 		AddStaticFunction("sqr", funcGen.Function[Value]{
 			Func: func(st funcGen.Stack[Value], cs []Value) (Value, error) {
 				v := st.Get(0)
