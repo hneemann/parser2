@@ -143,6 +143,17 @@ func (f *FunctionDescription) String(name string) string {
 	return b.String()
 }
 
+func (f *FunctionDescription) StringArgs() string {
+	args := "("
+	for i, a := range f.Args {
+		if i > 0 {
+			args += ", "
+		}
+		args += a
+	}
+	return args + ")"
+}
+
 func (f *FunctionDescription) WriteTo(b *bytes.Buffer, name string) {
 	b.WriteString(name)
 	if f == nil {
@@ -265,7 +276,7 @@ func (f Function[V]) VarArgs(min, max int) Function[V] {
 			n := stack.Size()
 			if n < min || n > max {
 				var zero V
-				return zero, fmt.Errorf("wrong number of arguments at call of function, required %d to %d, found %d", min, max, n)
+				return zero, fmt.Errorf("wrong number of arguments at call of function, required %d to %d %s, found %d", min, max, f.Description.StringArgs(), n)
 			}
 			return f.Func(stack, closureStore)
 		},
@@ -284,7 +295,7 @@ func (f Function[V]) VarArgsMethod(min, max int) Function[V] {
 			n := stack.Size()
 			if n < min+1 || n > max+1 {
 				var zero V
-				return zero, fmt.Errorf("wrong number of arguments at call of method, required %d to %d, found %d", min, max, n-1)
+				return zero, fmt.Errorf("wrong number of arguments at call of method, required %d to %d %s, found %d\n", min, max, f.Description.StringArgs(), n-1)
 			}
 			return f.Func(stack, closureStore)
 		},
