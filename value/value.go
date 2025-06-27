@@ -28,7 +28,7 @@ var (
 	BoolTypeId    Type
 	ListTypeId    Type
 	MapTypeId     Type
-	closureTypeId Type
+	ClosureTypeId Type
 	FormatTypeId  Type
 	LinkTypeId    Type
 	FileTypeId    Type
@@ -180,7 +180,7 @@ func createClosureMethods() MethodMap {
 }
 
 func (c Closure) GetType() Type {
-	return closureTypeId
+	return ClosureTypeId
 }
 
 func (c Closure) ToClosure() (funcGen.Function[Value], bool) {
@@ -649,7 +649,7 @@ func New() *FunctionGenerator {
 	BoolTypeId = f.RegisterType("bool")
 	ListTypeId = f.RegisterType("list")
 	MapTypeId = f.RegisterType("map")
-	closureTypeId = f.RegisterType("closure")
+	ClosureTypeId = f.RegisterType("closure")
 	FormatTypeId = f.RegisterType("format")
 	LinkTypeId = f.RegisterType("link")
 	FileTypeId = f.RegisterType("file")
@@ -958,7 +958,7 @@ func New() *FunctionGenerator {
 	f.RegisterMethods(BoolTypeId, createBoolMethods())
 	f.RegisterMethods(IntTypeId, createIntMethods())
 	f.RegisterMethods(FloatTypeId, createFloatMethods())
-	f.RegisterMethods(closureTypeId, createClosureMethods())
+	f.RegisterMethods(ClosureTypeId, createClosureMethods())
 
 	f.AddStaticFunction("min", funcGen.Function[Value]{
 		Func: func(st funcGen.Stack[Value], cs []Value) (Value, error) {
