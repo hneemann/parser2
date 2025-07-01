@@ -933,6 +933,60 @@ func (l *List) MinMax(st funcGen.Stack[Value], fg *FunctionGenerator) (Value, er
 		Append("valid", Bool(!first))), nil
 }
 
+func (l *List) Min(st funcGen.Stack[Value], fg *FunctionGenerator) (Value, error) {
+	first := true
+	var minVal Value = Int(0)
+	err := l.iterable(st, func(value Value) error {
+		if first {
+			first = false
+			minVal = value
+		} else {
+			le, err := fg.less(st, value, minVal)
+			if err != nil {
+				return err
+			}
+			if le {
+				minVal = value
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	if first {
+		return nil, errors.New("min of empty list")
+	}
+	return minVal, nil
+}
+
+func (l *List) Max(st funcGen.Stack[Value], fg *FunctionGenerator) (Value, error) {
+	first := true
+	var maxVal Value = Int(0)
+	err := l.iterable(st, func(value Value) error {
+		if first {
+			first = false
+			maxVal = value
+		} else {
+			le, err := fg.less(st, maxVal, value)
+			if err != nil {
+				return err
+			}
+			if le {
+				maxVal = value
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	if first {
+		return nil, errors.New("max of empty list")
+	}
+	return maxVal, nil
+}
+
 func (l *List) Mean(st funcGen.Stack[Value], fg *FunctionGenerator) (Value, error) {
 	add := fg.GetOpImpl("+")
 	div := fg.GetOpImpl("/")
@@ -1445,6 +1499,10 @@ func createListMethods(fg *FunctionGenerator) MethodMap {
 		"mean": MethodAtType(0, func(list *List, stack funcGen.Stack[Value]) (Value, error) { return list.Mean(stack, fg) }).
 			SetMethodDescription(
 				"Returns the mean value of the list."),
+		"min": MethodAtType(0, func(list *List, stack funcGen.Stack[Value]) (Value, error) { return list.Min(stack, fg) }).
+			SetMethodDescription("Returns the minimum value of the list."),
+		"max": MethodAtType(0, func(list *List, stack funcGen.Stack[Value]) (Value, error) { return list.Max(stack, fg) }).
+			SetMethodDescription("Returns the maximum value of the list."),
 		"minMax": MethodAtType(1, func(list *List, stack funcGen.Stack[Value]) (Value, error) { return list.MinMax(stack, fg) }).
 			SetMethodDescription("func(item) value",
 				"Returns the minimum and maximum value of the list. The function is called for each item in the list and the "+
