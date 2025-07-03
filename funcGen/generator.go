@@ -125,7 +125,7 @@ type UnaryOperator[V any] struct {
 
 // ParserFunc is the signature of the go closures created to build the
 // generated function. The stack is used to store arguments and local
-// variables created by let, and the closureStore is used to pass the
+// named value created by let, and the closureStore is used to pass the
 // accessed outer values to the function.
 type ParserFunc[V any] func(stack Stack[V], closureStore []V) (V, error)
 
@@ -718,7 +718,7 @@ func (am argsMap) add(name string) error {
 		return fmt.Errorf("empty names are not allowed")
 	}
 	if _, ok := am[name]; ok {
-		return fmt.Errorf("variable redeclared: %s", name)
+		return fmt.Errorf("let redeclares '%s'", name)
 	}
 	am[name] = len(am)
 	return nil
