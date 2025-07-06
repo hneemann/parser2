@@ -166,8 +166,9 @@ func (l Link) GetType() value.Type {
 }
 
 type File struct {
-	Name string
-	Data []byte
+	Name     string
+	MimeType string
+	Data     []byte
 }
 
 func (f File) ToList() (*value.List, bool) {
@@ -229,8 +230,9 @@ func AddZipHelpers(f *value.FunctionGenerator) {
 					}
 
 					return File{
-						Name: string(name) + ".zip",
-						Data: buffer.Bytes(),
+						Name:     string(name) + ".zip",
+						MimeType: "application/zip",
+						Data:     buffer.Bytes(),
 					}, nil
 				}
 			}
@@ -340,7 +342,11 @@ func (ex *htmlExporter) toHtml(st funcGen.Stack[value.Value], v, style value.Val
 		return err
 	case File:
 		dataStr := base64.StdEncoding.EncodeToString(t.Data)
-		dataStr = "data:application/octet-stream;base64," + dataStr
+		mime := t.MimeType
+		if mime == "" {
+			mime = "application/octet-stream"
+		}
+		dataStr = "data:" + mime + ";base64," + dataStr
 		ex.w.Open("a").Attr("href", dataStr)
 		ex.w.Attr("download", t.Name)
 		ex.w.Write("File: " + t.Name + " (" + byteSize(len(t.Data)).String() + ")")
