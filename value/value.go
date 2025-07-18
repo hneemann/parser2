@@ -281,6 +281,69 @@ func (f Float) ToFloat() (float64, bool) {
 	return float64(f), true
 }
 
+// Format formats the float value in a more human-readable way.
+// Instead of "2e-6" the  string "2⋅10⁻⁶" is returned.
+func (f Float) Format(prec int) string {
+	s := strconv.FormatFloat(float64(f), 'g', prec, 64)
+	if !strings.ContainsRune(s, 'e') {
+		return s
+	}
+
+	va := math.Abs(float64(f))
+	log := int(math.Floor(math.Log10(va)))
+	val := strconv.FormatFloat(va/Exp10(log), 'g', prec, 64)
+	s = "10" + ExpStr(log)
+	if val != "1" {
+		s = val + "⋅" + s
+	}
+	if f < 0 {
+		s = "-" + s
+	}
+	return s
+}
+
+func Exp10(log int) float64 {
+	return math.Pow(10, float64(log))
+}
+
+func ExpStr(log int) string {
+	l := log
+	if log < 0 {
+		l = -log
+	}
+	s := ""
+	for l > 0 {
+		dig := l % 10
+		l /= 10
+		switch dig {
+		case 0:
+			s = "⁰" + s
+		case 1:
+			s = "¹" + s
+		case 2:
+			s = "²" + s
+		case 3:
+			s = "³" + s
+		case 4:
+			s = "⁴" + s
+		case 5:
+			s = "⁵" + s
+		case 6:
+			s = "⁶" + s
+		case 7:
+			s = "⁷" + s
+		case 8:
+			s = "⁸" + s
+		case 9:
+			s = "⁹" + s
+		}
+	}
+	if log < 0 {
+		s = "⁻" + s
+	}
+	return s
+}
+
 type Int int
 
 func (i Int) ToList() (*List, bool) {

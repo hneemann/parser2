@@ -399,6 +399,8 @@ func (ex *htmlExporter) toHtml(st funcGen.Stack[value.Value], v, style value.Val
 			ex.w.Close()
 		}
 		ex.w.Close()
+	case value.Float:
+		ex.w.Write(t.Format(6))
 	default:
 		if v == nil {
 			ex.w.Write("nil")
