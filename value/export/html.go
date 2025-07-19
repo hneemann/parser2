@@ -403,7 +403,7 @@ func (ex *htmlExporter) toHtml(st funcGen.Stack[value.Value], v, style value.Val
 	case value.Float:
 		// Create a Unicode representation of the float value.
 		// I don't want to enforce the availability of MathMl just for this.
-		ex.w.Write(FormatFloat(float64(t), 6))
+		ex.w.Write(NewFormattedFloat(float64(t), 6).Unicode())
 	default:
 		if v == nil {
 			ex.w.Write("nil")
@@ -425,25 +425,76 @@ func (ex *htmlExporter) toHtml(st funcGen.Stack[value.Value], v, style value.Val
 	return nil
 }
 
-// FormatFloat formats the float value in a more human-readable way.
-// Instead of "2e-6" the string "2⋅10⁻⁶" is returned.
-func FormatFloat(f float64, prec int) string {
+type FormatedFloat struct {
+	Mantissa string
+	Exponent int
+}
+
+func NewFormattedFloat(f float64, prec int) FormatedFloat {
 	s := strconv.FormatFloat(float64(f), 'g', prec, 64)
 	if !strings.ContainsRune(s, 'e') {
-		return s
+		return FormatedFloat{
+			Mantissa: s,
+			Exponent: 0,
+		}
 	}
-
 	va := math.Abs(float64(f))
-	log := int(math.Floor(math.Log10(va)))
-	val := strconv.FormatFloat(va/Exp10(log), 'g', prec, 64)
-	s = "10" + ExpStr(log)
-	if val != "1" {
-		s = val + "⋅" + s
+	log10 := int(math.Floor(math.Log10(va)))
+	val := strconv.FormatFloat(f/Exp10(log10), 'g', prec, 64)
+	return FormatedFloat{
+		Mantissa: val,
+		Exponent: log10,
 	}
-	if f < 0 {
-		s = "-" + s
+}
+
+func (f FormatedFloat) IsZero() bool {
+	return f.Mantissa == "0" && f.Exponent == 0
+}
+
+func (f FormatedFloat) IsOne() bool {
+	return f.Mantissa == "1" && f.Exponent == 0
+}
+
+// Ascii formats the float value in a more human-readable way.
+// Instead of "2e6" the string "2*10^6" is returned.
+func (f FormatedFloat) Ascii() string {
+	if f.Exponent == 0 {
+		return f.Mantissa
+	}
+	s := "10^" + strconv.Itoa(f.Exponent)
+	if f.Mantissa != "1" {
+		s = f.Mantissa + "*" + s
 	}
 	return s
+}
+
+// Unicode formats the float value in a more human-readable way.
+// Instead of "2e-6" the string "2⋅10⁻⁶" is returned.
+func (f FormatedFloat) Unicode() string {
+	if f.Exponent == 0 {
+		return f.Mantissa
+	}
+	s := "10" + ExpStr(f.Exponent)
+	if f.Mantissa != "1" {
+		s = f.Mantissa + "⋅" + s
+	}
+	return s
+}
+
+// MathMl formats the float value in MathML.
+func (f FormatedFloat) MathMl(w *xmlWriter.XMLWriter) {
+	if f.Exponent == 0 {
+		w.Open("mn").Write(f.Mantissa).Close()
+		return
+	}
+	if f.Mantissa != "1" {
+		w.Open("mn").Write(f.Mantissa).Close()
+		w.Open("mo").WriteHTML("&middot;").Close()
+	}
+	w.Open("msup")
+	w.Open("mn").Write("10").Close()
+	w.Open("mn").Write(strconv.Itoa(f.Exponent)).Close()
+	w.Close()
 }
 
 func Exp10(log int) float64 {
