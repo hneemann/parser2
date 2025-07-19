@@ -13,6 +13,7 @@ import (
 	"github.com/hneemann/parser2/value/export/xmlWriter"
 	"html/template"
 	"log"
+	"math"
 	"sort"
 	"strconv"
 	"strings"
@@ -400,7 +401,9 @@ func (ex *htmlExporter) toHtml(st funcGen.Stack[value.Value], v, style value.Val
 		}
 		ex.w.Close()
 	case value.Float:
-		ex.w.Write(t.Format(6))
+		// Create a Unicode representation of the float value.
+		// I don't want to enforce the availability of MathMl just for this.
+		ex.w.Write(FormatFloat(float64(t), 6))
 	default:
 		if v == nil {
 			ex.w.Write("nil")
@@ -420,6 +423,51 @@ func (ex *htmlExporter) toHtml(st funcGen.Stack[value.Value], v, style value.Val
 		}
 	}
 	return nil
+}
+
+// FormatFloat formats the float value in a more human-readable way.
+// Instead of "2e-6" the string "2⋅10⁻⁶" is returned.
+func FormatFloat(f float64, prec int) string {
+	s := strconv.FormatFloat(float64(f), 'g', prec, 64)
+	if !strings.ContainsRune(s, 'e') {
+		return s
+	}
+
+	va := math.Abs(float64(f))
+	log := int(math.Floor(math.Log10(va)))
+	val := strconv.FormatFloat(va/Exp10(log), 'g', prec, 64)
+	s = "10" + ExpStr(log)
+	if val != "1" {
+		s = val + "⋅" + s
+	}
+	if f < 0 {
+		s = "-" + s
+	}
+	return s
+}
+
+func Exp10(log int) float64 {
+	return math.Pow(10, float64(log))
+}
+
+func ExpStr(log int) string {
+	if log == 0 {
+		return "⁰"
+	}
+	var digits = [...]rune{'⁰', '¹', '²', '³', '⁴', '⁵', '⁶', '⁷', '⁸', '⁹'}
+	l := log
+	if log < 0 {
+		l = -log
+	}
+	s := ""
+	for l > 0 {
+		s = string(digits[l%10]) + s
+		l /= 10
+	}
+	if log < 0 {
+		s = "⁻" + s
+	}
+	return s
 }
 
 func hasKey(style value.Value, key string) bool {
