@@ -307,36 +307,18 @@ func Exp10(log int) float64 {
 }
 
 func ExpStr(log int) string {
+	if log == 0 {
+		return "⁰"
+	}
+	var digits = [...]rune{'⁰', '¹', '²', '³', '⁴', '⁵', '⁶', '⁷', '⁸', '⁹'}
 	l := log
 	if log < 0 {
 		l = -log
 	}
 	s := ""
 	for l > 0 {
-		dig := l % 10
+		s = string(digits[l%10]) + s
 		l /= 10
-		switch dig {
-		case 0:
-			s = "⁰" + s
-		case 1:
-			s = "¹" + s
-		case 2:
-			s = "²" + s
-		case 3:
-			s = "³" + s
-		case 4:
-			s = "⁴" + s
-		case 5:
-			s = "⁵" + s
-		case 6:
-			s = "⁶" + s
-		case 7:
-			s = "⁷" + s
-		case 8:
-			s = "⁸" + s
-		case 9:
-			s = "⁹" + s
-		}
 	}
 	if log < 0 {
 		s = "⁻" + s

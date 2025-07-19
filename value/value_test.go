@@ -8,6 +8,7 @@ import (
 	"github.com/hneemann/parser2/listMap"
 	"github.com/stretchr/testify/assert"
 	"math"
+	"strconv"
 	"strings"
 	"testing"
 	"unicode"
@@ -511,6 +512,23 @@ func TestExp10(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			assert.Equalf(t, tt.want, Exp10(tt.log), "Exp10(%v)", tt.log)
+		})
+	}
+}
+
+func TestExpStr(t *testing.T) {
+	tests := []struct {
+		n    int
+		want string
+	}{
+		{n: 0, want: "⁰"},
+		{n: 1, want: "¹"},
+		{n: -1, want: "⁻¹"},
+		{n: 4368231579, want: "⁴³⁶⁸²³¹⁵⁷⁹"},
+	}
+	for _, tt := range tests {
+		t.Run(strconv.Itoa(tt.n), func(t *testing.T) {
+			assert.Equalf(t, tt.want, ExpStr(tt.n), "ExpStr(%v)", tt.n)
 		})
 	}
 }
