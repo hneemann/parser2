@@ -440,7 +440,7 @@ func NewFormattedFloat(f float64, prec int) FormatedFloat {
 	}
 	va := math.Abs(float64(f))
 	log10 := int(math.Floor(math.Log10(va)))
-	val := strconv.FormatFloat(f/Exp10(log10), 'g', prec, 64)
+	val := strconv.FormatFloat(f/math.Pow(10, float64(log10)), 'g', prec, 64)
 	return FormatedFloat{
 		Mantissa: val,
 		Exponent: log10,
@@ -497,8 +497,17 @@ func (f FormatedFloat) MathMl(w *xmlWriter.XMLWriter) {
 	w.Close()
 }
 
-func Exp10(log int) float64 {
-	return math.Pow(10, float64(log))
+// LaTeX formats the float value to a LaTeX representation.
+// Instead of "2e-6" the string "2\cdot 10^{-6}" is returned.
+func (f FormatedFloat) LaTeX() string {
+	if f.Exponent == 0 {
+		return f.Mantissa
+	}
+	s := "10^{" + strconv.Itoa(f.Exponent) + "}"
+	if f.Mantissa != "1" {
+		s = f.Mantissa + "\\cdot " + s
+	}
+	return s
 }
 
 func ExpStr(log int) string {
