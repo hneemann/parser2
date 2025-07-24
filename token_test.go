@@ -158,6 +158,46 @@ func TestNewTokenizer(t *testing.T) {
 			exp:  "a – 10",
 			want: []Token{{tIdent, "a", 1}, {tOperate, "-", 1}, {tNumber, "10", 1}},
 		},
+		{
+			name: "ml comment 1",
+			exp:  "a/* test */+1",
+			want: []Token{{tIdent, "a", 1}, {tOperate, "+", 1}, {tNumber, "1", 1}},
+		},
+		{
+			name: "ml comment 2",
+			exp:  "a/*****/+1",
+			want: []Token{{tIdent, "a", 1}, {tOperate, "+", 1}, {tNumber, "1", 1}},
+		},
+		{
+			name: "ml comment 3",
+			exp:  "a\n/*****/\n+1",
+			want: []Token{{tIdent, "a", 1}, {tOperate, "+", 3}, {tNumber, "1", 3}},
+		},
+		{
+			name: "ml comment 4",
+			exp:  "a\n/*\n***\n*/\n+1",
+			want: []Token{{tIdent, "a", 1}, {tOperate, "+", 5}, {tNumber, "1", 5}},
+		},
+		{
+			name: "ml comment 5",
+			exp:  "a\n/* test",
+			want: []Token{{tIdent, "a", 1}},
+		},
+		{
+			name: "ml comment 6",
+			exp:  "a\n/*",
+			want: []Token{{tIdent, "a", 1}},
+		},
+		{
+			name: "ml comment 7",
+			exp:  "a\n/* *",
+			want: []Token{{tIdent, "a", 1}},
+		},
+		{
+			name: "ml comment 8",
+			exp:  "a\n/* */",
+			want: []Token{{tIdent, "a", 1}},
+		},
 	}
 
 	detect := NewOperatorDetector([]string{"+", "-", "*", "/", "->", "%", "/="})

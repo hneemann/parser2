@@ -351,6 +351,32 @@ func (t *Tokenizer) peek(skipComment bool) rune {
 					}
 				}
 				t.last, size = utf8.DecodeRuneInString(t.str)
+			} else if s == '*' {
+				t.str = t.str[size+l:]
+				for {
+					s, l := utf8.DecodeRuneInString(t.str)
+					if s == '*' && len(t.str) > l {
+						s, l2 := utf8.DecodeRuneInString(t.str[l:])
+						if s == '/' {
+							t.str = t.str[l+l2:]
+							if len(t.str) == 0 {
+								return EOF
+							}
+							break
+						} else {
+							t.str = t.str[l:]
+						}
+					} else {
+						if s == '\n' {
+							t.line++
+						}
+						t.str = t.str[l:]
+						if len(t.str) == 0 {
+							return EOF
+						}
+					}
+				}
+				t.last, size = utf8.DecodeRuneInString(t.str)
 			}
 		}
 	}
