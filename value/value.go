@@ -841,7 +841,7 @@ func New() *FunctionGenerator {
 			},
 			Args:   1,
 			IsPure: true,
-		}.SetDescription("value", "If value is negative, returns -value. Otherwise returns the value unchanged.")).
+		}.SetDescription("value", "If value is negative -1 is returned. Otherwise 1 is returned.")).
 		AddStaticFunction("sqr", funcGen.Function[Value]{
 			Func: func(st funcGen.Stack[Value], cs []Value) (Value, error) {
 				v := st.Get(0)
