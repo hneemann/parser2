@@ -14,32 +14,32 @@ import (
 // NewListConvert creates a list containing the given elements if the elements
 // do not implement the Value interface. The given function converts the type.
 func NewListConvert[I any](conv func(I) Value, items []I) *List {
-	return NewListFromIterable(func(s funcGen.Stack[Value], yield iterator.Consumer[Value]) error {
+	return NewListFromSizedIterable(func(s funcGen.Stack[Value], yield iterator.Consumer[Value]) error {
 		for _, item := range items {
 			if e := yield(conv(item)); e != nil {
 				return e
 			}
 		}
 		return nil
-	})
+	}, len(items))
 }
 
 // NewListOfMaps creates a list containing the given elements converted to a map using
 // the given ToMapInterface.
 func NewListOfMaps[I any](toMap ToMapInterface[I], items []I) *List {
-	return NewListFromIterable(func(s funcGen.Stack[Value], yield iterator.Consumer[Value]) error {
+	return NewListFromSizedIterable(func(s funcGen.Stack[Value], yield iterator.Consumer[Value]) error {
 		for _, item := range items {
 			if e := yield(toMap.Create(item)); e != nil {
 				return e
 			}
 		}
 		return nil
-	})
+	}, len(items))
 }
 
 // NewList creates a new list containing the given elements
 func NewList(items ...Value) *List {
-	return &List{items: items, itemsPresent: true, iterable: createSliceIterable(items)}
+	return &List{items: items, itemsPresent: true, iterable: createSliceIterable(items), size: len(items)}
 }
 
 func createSliceIterable(items []Value) iterator.Producer[Value, funcGen.Stack[Value]] {
@@ -55,7 +55,14 @@ func createSliceIterable(items []Value) iterator.Producer[Value, funcGen.Stack[V
 
 // NewListFromIterable creates a list based on the given Iterable
 func NewListFromIterable(li iterator.Producer[Value, funcGen.Stack[Value]]) *List {
-	return &List{iterable: li, itemsPresent: false}
+	return &List{iterable: li, itemsPresent: false, size: -1}
+}
+
+// NewListFromSizedIterable creates a list based on the given Iterable.
+// In contrast to NewListFromIterable, this function is to be used if the
+// size of the iterable is known.
+func NewListFromSizedIterable(li iterator.Producer[Value, funcGen.Stack[Value]], size int) *List {
+	return &List{iterable: li, itemsPresent: false, size: size}
 }
 
 // List represents a list of values
@@ -63,6 +70,7 @@ type List struct {
 	items        []Value
 	itemsPresent bool
 	iterable     iterator.Producer[Value, funcGen.Stack[Value]]
+	size         int
 }
 
 func (l *List) ToMap() (Map, bool) {
@@ -262,6 +270,16 @@ func (l *List) Append(st funcGen.Stack[Value]) (*List, error) {
 	return NewList(newList...), nil
 }
 
+func (l *List) SizeIfKnown() (int, bool) {
+	if l.itemsPresent {
+		return len(l.items), true
+	} else if l.size >= 0 {
+		return l.size, true
+	} else {
+		return 0, false
+	}
+}
+
 func (l *List) Size(st funcGen.Stack[Value]) (int, error) {
 	err := l.Eval(st)
 	if err != nil {
@@ -316,12 +334,12 @@ func (l *List) Map(sta funcGen.Stack[Value]) (*List, error) {
 		return nil, err
 	}
 
-	return NewListFromIterable(iterator.MapAuto[Value, Value](l.iterable, func() func(i int, v Value) (Value, error) {
+	return NewListFromSizedIterable(iterator.MapAuto[Value, Value](l.iterable, func() func(i int, v Value) (Value, error) {
 		lst := funcGen.NewEmptyStack[Value]()
 		return func(i int, v Value) (Value, error) {
 			return f.Eval(lst, v)
 		}
-	})), nil
+	}), l.size), nil
 
 }
 
@@ -679,7 +697,7 @@ func (l *List) IIr(sta funcGen.Stack[Value]) (*List, error) {
 	if err != nil {
 		return nil, err
 	}
-	return NewListFromIterable(iterator.IirMap[Value, Value](l.iterable,
+	return NewListFromSizedIterable(iterator.IirMap[Value, Value](l.iterable,
 		func(st funcGen.Stack[Value], item Value) (Value, error) {
 			return initial.Eval(st, item)
 		},
@@ -687,7 +705,7 @@ func (l *List) IIr(sta funcGen.Stack[Value]) (*List, error) {
 			st.Push(item)
 			st.Push(last)
 			return function.Func(st.CreateFrame(2), nil)
-		})), nil
+		}), l.size), nil
 }
 
 func (l *List) IIrCombine(sta funcGen.Stack[Value]) (*List, error) {
@@ -699,7 +717,7 @@ func (l *List) IIrCombine(sta funcGen.Stack[Value]) (*List, error) {
 	if err != nil {
 		return nil, err
 	}
-	return NewListFromIterable(iterator.IirMap[Value, Value](l.iterable,
+	return NewListFromSizedIterable(iterator.IirMap[Value, Value](l.iterable,
 		func(st funcGen.Stack[Value], item Value) (Value, error) {
 			return initial.Eval(st, item)
 		},
@@ -708,7 +726,7 @@ func (l *List) IIrCombine(sta funcGen.Stack[Value]) (*List, error) {
 			st.Push(item)
 			st.Push(last)
 			return function.Func(st.CreateFrame(3), nil)
-		})), nil
+		}), l.size), nil
 }
 
 func (l *List) IIrApply(sta funcGen.Stack[Value]) (*List, error) {
@@ -718,7 +736,7 @@ func (l *List) IIrApply(sta funcGen.Stack[Value]) (*List, error) {
 			return nil, err
 		}
 		function, err := funcFromMap(m, "filter", 3)
-		return NewListFromIterable(iterator.IirMap[Value, Value](l.iterable,
+		return NewListFromSizedIterable(iterator.IirMap[Value, Value](l.iterable,
 			func(st funcGen.Stack[Value], item Value) (Value, error) {
 				return initial.Eval(st, item)
 			},
@@ -727,7 +745,7 @@ func (l *List) IIrApply(sta funcGen.Stack[Value]) (*List, error) {
 				st.Push(item)
 				st.Push(last)
 				return function.Func(st.CreateFrame(3), nil)
-			})), nil
+			}), l.size), nil
 	} else {
 		return nil, errors.New("first argument in iirApply needs to be a map")
 	}
@@ -776,7 +794,7 @@ func (l *List) FSM(sta funcGen.Stack[Value]) (Value, error) {
 	if err != nil {
 		return nil, err
 	}
-	return NewListFromIterable(iterator.IirMap[Value, Value](l.iterable,
+	return NewListFromSizedIterable(iterator.IirMap[Value, Value](l.iterable,
 		func(st funcGen.Stack[Value], item Value) (Value, error) {
 			st.Push(createState(0))
 			st.Push(item)
@@ -786,7 +804,7 @@ func (l *List) FSM(sta funcGen.Stack[Value]) (Value, error) {
 			st.Push(last)
 			st.Push(item)
 			return function.Func(st.CreateFrame(2), nil)
-		})), nil
+		}), l.size), nil
 }
 
 func (l *List) Present(st funcGen.Stack[Value]) (Value, error) {
@@ -1030,7 +1048,7 @@ func (l *List) Number(sta funcGen.Stack[Value]) (*List, error) {
 	if err != nil {
 		return nil, err
 	}
-	return NewListFromIterable(func(st funcGen.Stack[Value], yield iterator.Consumer[Value]) error {
+	return NewListFromSizedIterable(func(st funcGen.Stack[Value], yield iterator.Consumer[Value]) error {
 		n := Int(0)
 		return l.iterable(st, func(value Value) error {
 			st.Push(n)
@@ -1042,7 +1060,7 @@ func (l *List) Number(sta funcGen.Stack[Value]) (*List, error) {
 			}
 			return yield(v)
 		})
-	}), nil
+	}, l.size), nil
 }
 
 func (l *List) GroupByEqual(st funcGen.Stack[Value], fg *FunctionGenerator) (*List, error) {
