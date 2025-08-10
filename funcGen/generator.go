@@ -1253,7 +1253,11 @@ func (g *FunctionGenerator[V]) GenerateFunc(ast parser2.AST, gc GeneratorContext
 							}
 							st.Push(v)
 						}
-						return theFunc.Func(st.CreateFrame(len(argsFuncList)), cs)
+						v, err := theFunc.Func(st.CreateFrame(len(argsFuncList)), cs)
+						if err != nil {
+							err = fmt.Errorf("error in call of closure %s: %w", name, err)
+						}
+						return v, err
 					}
 				}
 			}
@@ -1273,7 +1277,11 @@ func (g *FunctionGenerator[V]) GenerateFunc(ast parser2.AST, gc GeneratorContext
 					}
 					st.Push(v)
 				}
-				return me.Func(st.CreateFrame(len(argsFuncList)+1), nil)
+				v, err := me.Func(st.CreateFrame(len(argsFuncList)+1), nil)
+				if err != nil {
+					err = fmt.Errorf("error in method %s: %w", name, err)
+				}
+				return v, err
 			}
 			return zero, parser2.NewNotFoundError(name, a.Errorf("method %s not found", name))
 		}, nil
