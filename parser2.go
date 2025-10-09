@@ -947,7 +947,7 @@ func (p *Parser[V]) parseLet(tokenizer *Tokenizer, constants Constants[V]) (AST,
 			if t := tokenizer.Next(); t.typ != tOpen {
 				return nil, unexpected("(", t)
 			}
-			names, err := p.parseIdentList(tokenizer)
+			names, err := p.parseIdentList(tokenizer, constants)
 			if err != nil {
 				return nil, err
 			}
@@ -1111,6 +1111,9 @@ func (p *Parser[V]) parseLiteral(tokenizer *Tokenizer, constants Constants[V]) (
 		name := t.image
 		if cl := tokenizer.Peek(); cl.typ == tOperate && cl.image == "->" {
 			// closure, short definition x->[exp]
+			if _, ok := constants.GetConst(name); ok {
+				return nil, t.Errorf("there is already a constant named '%s'", name)
+			}
 			tokenizer.Next()
 			e, err := p.parseLet(tokenizer, constants)
 			if err != nil {
@@ -1247,7 +1250,7 @@ func (p *Parser[V]) parseLiteral(tokenizer *Tokenizer, constants Constants[V]) (
 		}
 	case tOpen:
 		if tokenizer.Peek().typ == tIdent && tokenizer.PeekPeek().typ == tComma {
-			names, err := p.parseIdentList(tokenizer)
+			names, err := p.parseIdentList(tokenizer, constants)
 			if err != nil {
 				return nil, err
 			}
@@ -1337,11 +1340,14 @@ func (p *Parser[V]) parseMap(tokenizer *Tokenizer, constants Constants[V]) (*Map
 	}
 }
 
-func (p *Parser[V]) parseIdentList(tokenizer *Tokenizer) ([]string, error) {
+func (p *Parser[V]) parseIdentList(tokenizer *Tokenizer, constants Constants[V]) ([]string, error) {
 	var names []string
 	for {
 		t := tokenizer.Next()
 		if t.typ == tIdent {
+			if _, ok := constants.GetConst(t.image); ok {
+				return nil, t.Errorf("there is already a constant named '%s'", t.image)
+			}
 			names = append(names, t.image)
 			t = tokenizer.Next()
 			switch t.typ {
