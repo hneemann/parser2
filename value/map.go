@@ -21,6 +21,39 @@ type MapStorage interface {
 	Size() int
 }
 
+type MapFunction[V Value] func(value V, key string) (Value, bool)
+
+func NewFuncMap[V Value](value V, fn MapFunction[V], keys ...string) Map {
+	return Map{funcMapType[V]{keys: keys, fMap: fn, value: value}}
+}
+
+type funcMapType[V Value] struct {
+	keys  []string
+	fMap  MapFunction[V]
+	value V
+}
+
+func (f funcMapType[V]) Get(key string) (Value, bool) {
+	return f.fMap(f.value, key)
+}
+
+func (f funcMapType[V]) Iter(yield func(key string, v Value) bool) bool {
+	for _, k := range f.keys {
+		v, ok := f.fMap(f.value, k)
+		if !ok {
+			continue
+		}
+		if !yield(k, v) {
+			return false
+		}
+	}
+	return true
+}
+
+func (f funcMapType[V]) Size() int {
+	return len(f.keys)
+}
+
 type emptyMapStorage struct {
 }
 
