@@ -81,3 +81,33 @@ func TestMap_Equals(t *testing.T) {
 		})
 	}
 }
+
+func TestFuncMap(t *testing.T) {
+	m := NewFuncMap[Int](1, func(i Int, key string) (Value, bool) {
+		if key == "a" {
+			return i, true
+		} else if key == "b" {
+			return i, true
+		}
+		return Int(0), false
+	}, "a", "b")
+
+	v, ok := m.Get("a")
+	assert.True(t, ok)
+	assert.EqualValues(t, 1, v)
+	v, ok = m.Get("b")
+	assert.True(t, ok)
+	assert.EqualValues(t, 1, v)
+	_, ok = m.Get("v")
+	assert.False(t, ok)
+
+	n := 0
+	m.Iter(func(key string, value Value) bool {
+		assert.True(t, key == "a" || key == "b")
+		assert.EqualValues(t, 1, value)
+		n++
+		return true
+	})
+	assert.EqualValues(t, 2, n)
+
+}
