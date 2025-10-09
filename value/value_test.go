@@ -166,6 +166,9 @@ func TestBasic(t *testing.T) {
 		// Currying
 		{exp: "let m=a->b->a*b; [m(2)(3),m(4)(5),m(4.5)(5.5)].string()", res: String("[6, 20, 24.75]")},
 		{exp: "func mul(a) b->a*b; [mul(2)(3),mul(4)(5),mul(4.5)(5.5)].string()", res: String("[6, 20, 24.75]")},
+
+		//https://stackoverflow.com/questions/3883780/javascript-recursive-anonymous-function
+		{exp: "(((f->f(f))(h->f->f(x->(f->f(f))(h)(f)(x))))(f->a->b->x->if x=0 then a else f(b)(a+b)(x-1))(0)(1))(12)", res: Int(144)},
 	})
 }
 
