@@ -83,7 +83,7 @@ func TestMap_Equals(t *testing.T) {
 }
 
 func TestFuncMap(t *testing.T) {
-	m := NewFuncMap[Int](1, func(i Int, key string) (Value, bool) {
+	mf := NewFuncMapFactory(func(i Int, key string) (Value, bool) {
 		if key == "a" {
 			return i, true
 		} else if key == "b" {
@@ -91,6 +91,7 @@ func TestFuncMap(t *testing.T) {
 		}
 		return Int(0), false
 	}, "a", "b")
+	m := mf.Create(1)
 
 	v, ok := m.Get("a")
 	assert.True(t, ok)

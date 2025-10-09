@@ -23,23 +23,31 @@ type MapStorage interface {
 
 type MapFunction[V Value] func(value V, key string) (Value, bool)
 
-func NewFuncMap[V Value](value V, fn MapFunction[V], keys ...string) Map {
-	return Map{funcMapType[V]{keys: keys, fMap: fn, value: value}}
+type MapFuncFactory[V Value] struct {
+	keys []string
+	fMap MapFunction[V]
+}
+
+func NewFuncMapFactory[V Value](fn MapFunction[V], keys ...string) MapFuncFactory[V] {
+	return MapFuncFactory[V]{keys: keys, fMap: fn}
+}
+
+func (mff *MapFuncFactory[V]) Create(value V) Map {
+	return Map{funcMapType[V]{mff: mff, value: value}}
 }
 
 type funcMapType[V Value] struct {
-	keys  []string
-	fMap  MapFunction[V]
+	mff   *MapFuncFactory[V]
 	value V
 }
 
 func (f funcMapType[V]) Get(key string) (Value, bool) {
-	return f.fMap(f.value, key)
+	return f.mff.fMap(f.value, key)
 }
 
 func (f funcMapType[V]) Iter(yield func(key string, v Value) bool) bool {
-	for _, k := range f.keys {
-		v, ok := f.fMap(f.value, k)
+	for _, k := range f.mff.keys {
+		v, ok := f.mff.fMap(f.value, k)
 		if !ok {
 			continue
 		}
@@ -51,7 +59,7 @@ func (f funcMapType[V]) Iter(yield func(key string, v Value) bool) bool {
 }
 
 func (f funcMapType[V]) Size() int {
-	return len(f.keys)
+	return len(f.mff.keys)
 }
 
 type emptyMapStorage struct {
