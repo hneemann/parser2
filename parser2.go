@@ -167,6 +167,13 @@ func (l Line) Errorf(m string, a ...any) error {
 	}
 }
 
+func (l Line) Error(m string) error {
+	return errorWithLine{
+		message: m,
+		line:    l,
+	}
+}
+
 func enhanceErrorfInternal(cause any, m string, a ...any) errorWithLine {
 	return errorWithLine{
 		message: fmt.Sprintf(m, a...),

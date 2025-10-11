@@ -1,6 +1,6 @@
 module github.com/hneemann/parser2
 
-go 1.20
+go 1.25
 
 require (
 	github.com/hneemann/iterator v0.0.0-20240630073221-aab15310e28c

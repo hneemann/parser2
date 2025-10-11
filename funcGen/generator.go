@@ -1176,7 +1176,7 @@ func (g *FunctionGenerator[V]) GenerateFunc(ast parser2.AST, gc GeneratorContext
 		if id, ok := a.Func.(*parser2.Ident); ok {
 			if fun, ok := g.staticFunctions[id.Name]; ok {
 				if fun.argsNumberNotMatching(len(a.Args)) {
-					return nil, id.Errorf(fun.argsNumberNotMatchingError(id.Name, len(a.Args)))
+					return nil, id.Error(fun.argsNumberNotMatchingError(id.Name, len(a.Args)))
 				}
 				argsFuncList, err := g.genFuncList(a.Args, gc)
 				if err != nil {
@@ -1212,7 +1212,7 @@ func (g *FunctionGenerator[V]) GenerateFunc(ast parser2.AST, gc GeneratorContext
 				return zero, parser2.NewNotAFunction(a.String(), a.Errorf("not a function: %v", a.Func))
 			}
 			if theFunc.argsNumberNotMatching(len(argsFuncList)) {
-				return zero, a.Errorf(theFunc.argsNumberNotMatchingError(a.Func.String(), len(argsFuncList)))
+				return zero, a.Error(theFunc.argsNumberNotMatchingError(a.Func.String(), len(argsFuncList)))
 			}
 			for _, argFunc := range argsFuncList {
 				v, err := argFunc(st, cs)
@@ -1244,7 +1244,7 @@ func (g *FunctionGenerator[V]) GenerateFunc(ast parser2.AST, gc GeneratorContext
 				if va, err := g.mapHandler.AccessMap(value, name); err == nil {
 					if theFunc, ok := g.ExtractFunction(va); ok {
 						if theFunc.argsNumberNotMatching(len(argsFuncList)) {
-							return zero, a.Errorf(theFunc.argsNumberNotMatchingError(name, len(argsFuncList)))
+							return zero, a.Error(theFunc.argsNumberNotMatchingError(name, len(argsFuncList)))
 						}
 						for _, argFunc := range argsFuncList {
 							v, err := argFunc(st, cs)
