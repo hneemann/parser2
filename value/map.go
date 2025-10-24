@@ -166,14 +166,6 @@ func (v Map) String() string {
 	return s
 }
 
-func (v Map) ToBool() (bool, bool) {
-	return false, false
-}
-
-func (v Map) ToClosure() (funcGen.Function[Value], bool) {
-	return funcGen.Function[Value]{}, false
-}
-
 func (v Map) ToMap() (Map, bool) {
 	return v, true
 }
@@ -222,7 +214,7 @@ func (v Map) Accept(st funcGen.Stack[Value]) (Map, error) {
 		if innerErr != nil {
 			return false
 		}
-		if cond, ok := value.ToBool(); ok {
+		if cond, ok := value.(Bool); ok {
 			if cond {
 				newMap = newMap.Append(key, v)
 			}

@@ -28,14 +28,6 @@ func (s String) ToFloat() (float64, bool) {
 	return 0, false
 }
 
-func (s String) ToBool() (bool, bool) {
-	return false, false
-}
-
-func (s String) ToClosure() (funcGen.Function[Value], bool) {
-	return funcGen.Function[Value]{}, false
-}
-
 func (s String) ToString(funcGen.Stack[Value]) (string, error) {
 	return string(s), nil
 }

@@ -134,13 +134,6 @@ func TestBasic(t *testing.T) {
 		{exp: "let a=2; func cl(b) x->x*a*b; cl(4)(3)", res: Int(24)},
 		{exp: "let a=2; func cl(b) let f=a*b;x->x*f; cl(4)(3)", res: Int(24)},
 
-		{exp: `func bool(a)  
-                 if a then true else false;
-               {ff:bool(0.0), 
-                ft:bool(1.5),
-                il:bool(0),
-                it:bool(1)}.string()`, res: String("{ff:false, ft:true, il:false, it:true}")},
-
 		{exp: `func mySqrt(a)  
                  if a<0 then throw("sqrt of neg value") else sqrt(a);
 

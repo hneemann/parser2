@@ -117,14 +117,6 @@ func (f Format) ToString(st funcGen.Stack[value.Value]) (string, error) {
 	return f.Value.ToString(st)
 }
 
-func (f Format) ToBool() (bool, bool) {
-	return f.Value.ToBool()
-}
-
-func (f Format) ToClosure() (funcGen.Function[value.Value], bool) {
-	return f.Value.ToClosure()
-}
-
 func (f Format) GetType() value.Type {
 	return value.FormatTypeId
 }
@@ -152,14 +144,6 @@ func (l Link) ToFloat() (float64, bool) {
 
 func (l Link) ToString(st funcGen.Stack[value.Value]) (string, error) {
 	return l.Value.ToString(st)
-}
-
-func (l Link) ToBool() (bool, bool) {
-	return l.Value.ToBool()
-}
-
-func (l Link) ToClosure() (funcGen.Function[value.Value], bool) {
-	return funcGen.Function[value.Value]{}, false
 }
 
 func (l Link) GetType() value.Type {
@@ -190,14 +174,6 @@ func (f File) ToFloat() (float64, bool) {
 
 func (f File) ToString(st funcGen.Stack[value.Value]) (string, error) {
 	return fmt.Sprintf("file %s (%d bytes)", f.Name, len(f.Data)), nil
-}
-
-func (f File) ToBool() (bool, bool) {
-	return false, false
-}
-
-func (f File) ToClosure() (funcGen.Function[value.Value], bool) {
-	return funcGen.Function[value.Value]{}, false
 }
 
 func (f File) GetType() value.Type {
@@ -313,7 +289,7 @@ type ToHtmlInterface interface {
 
 func (ex *htmlExporter) toHtml(st funcGen.Stack[value.Value], v, style value.Value) error {
 	if style != nil {
-		if cl, ok := style.ToClosure(); ok {
+		if cl, ok := style.(value.Closure); ok {
 			if cl.Args == 1 {
 				if res, err := cl.Eval(st, v); err == nil {
 					return ex.toHtml(st, res, nil)
@@ -748,7 +724,7 @@ func (t *tableExporter) format(row, col int, item value.Value) value.Value {
 		return item
 	}
 
-	if cl, ok := format.ToClosure(); ok {
+	if cl, ok := format.(value.Closure); ok {
 		if cl.Args == 1 {
 			if res, err := cl.Eval(t.st, item); err == nil {
 				return res

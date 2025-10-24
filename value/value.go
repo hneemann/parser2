@@ -40,8 +40,6 @@ type Value interface {
 	ToInt() (int, bool)
 	ToFloat() (float64, bool)
 	ToString(st funcGen.Stack[Value]) (string, error)
-	ToBool() (bool, bool)
-	ToClosure() (funcGen.Function[Value], bool)
 	GetType() Type
 }
 
@@ -110,8 +108,12 @@ func (c Closure) ToString(funcGen.Stack[Value]) (string, error) {
 	return "<function>", nil
 }
 
-func (c Closure) ToBool() (bool, bool) {
-	return false, false
+func (c Closure) Eval(st funcGen.Stack[Value], a Value) (Value, error) {
+	return funcGen.Function[Value](c).Eval(st, a)
+}
+
+func (c Closure) EvalSt(st funcGen.Stack[Value], a ...Value) (Value, error) {
+	return funcGen.Function[Value](c).EvalSt(st, a...)
 }
 
 func createClosureMethods() MethodMap {
@@ -143,10 +145,6 @@ func (c Closure) GetType() Type {
 	return ClosureTypeId
 }
 
-func (c Closure) ToClosure() (funcGen.Function[Value], bool) {
-	return funcGen.Function[Value](c), true
-}
-
 type Bool bool
 
 func (b Bool) ToList() (*List, bool) {
@@ -172,10 +170,6 @@ func (b Bool) ToString(funcGen.Stack[Value]) (string, error) {
 	return "false", nil
 }
 
-func (b Bool) ToClosure() (funcGen.Function[Value], bool) {
-	return funcGen.Function[Value]{}, false
-}
-
 func createBoolMethods() MethodMap {
 	return MethodMap{
 		"string": MethodAtType(0, func(b Bool, stack funcGen.Stack[Value]) (Value, error) {
@@ -188,10 +182,6 @@ func createBoolMethods() MethodMap {
 
 func (b Bool) GetType() Type {
 	return BoolTypeId
-}
-
-func (b Bool) ToBool() (bool, bool) {
-	return bool(b), true
 }
 
 type Float float64
@@ -208,10 +198,6 @@ func (f Float) ToString(funcGen.Stack[Value]) (string, error) {
 	return strconv.FormatFloat(float64(f), 'g', -1, 64), nil
 }
 
-func (f Float) ToClosure() (funcGen.Function[Value], bool) {
-	return funcGen.Function[Value]{}, false
-}
-
 func createFloatMethods() MethodMap {
 	return MethodMap{
 		"string": MethodAtType(0, func(f Float, stack funcGen.Stack[Value]) (Value, error) {
@@ -224,13 +210,6 @@ func createFloatMethods() MethodMap {
 
 func (f Float) GetType() Type {
 	return FloatTypeId
-}
-
-func (f Float) ToBool() (bool, bool) {
-	if f != 0 {
-		return true, true
-	}
-	return false, true
 }
 
 func (f Float) ToInt() (int, bool) {
@@ -255,10 +234,6 @@ func (i Int) ToString(funcGen.Stack[Value]) (string, error) {
 	return strconv.Itoa(int(i)), nil
 }
 
-func (i Int) ToClosure() (funcGen.Function[Value], bool) {
-	return funcGen.Function[Value]{}, false
-}
-
 func createIntMethods() MethodMap {
 	return MethodMap{
 		"string": MethodAtType(0, func(i Int, stack funcGen.Stack[Value]) (Value, error) {
@@ -271,13 +246,6 @@ func createIntMethods() MethodMap {
 
 func (i Int) GetType() Type {
 	return IntTypeId
-}
-
-func (i Int) ToBool() (bool, bool) {
-	if i != 0 {
-		return true, true
-	}
-	return false, true
 }
 
 func (i Int) ToInt() (int, bool) {
@@ -351,7 +319,10 @@ func (fg *FunctionGenerator) FromClosure(c funcGen.Function[Value]) Value {
 }
 
 func (fg *FunctionGenerator) ToClosure(value Value) (funcGen.Function[Value], bool) {
-	return value.ToClosure()
+	if cl, ok := value.(Closure); ok {
+		return funcGen.Function[Value](cl), true
+	}
+	return funcGen.Function[Value]{}, false
 }
 
 func (fg *FunctionGenerator) FromMap(items listMap.ListMap[Value]) Value {
@@ -460,7 +431,7 @@ func (fg *FunctionGenerator) GenerateCustom(ast parser2.AST, gc funcGen.Generato
 				if err != nil {
 					return nil, err
 				}
-				if a, ok := aVal.ToBool(); ok {
+				if a, ok := aVal.(Bool); ok {
 					if !a {
 						return Bool(false), nil
 					} else {
@@ -468,7 +439,7 @@ func (fg *FunctionGenerator) GenerateCustom(ast parser2.AST, gc funcGen.Generato
 						if err != nil {
 							return nil, err
 						}
-						if b, ok := bVal.ToBool(); ok {
+						if b, ok := bVal.(Bool); ok {
 							return Bool(b), nil
 						} else {
 							return nil, fmt.Errorf("not a bool: %s", TypeName(bVal))
@@ -492,7 +463,7 @@ func (fg *FunctionGenerator) GenerateCustom(ast parser2.AST, gc funcGen.Generato
 				if err != nil {
 					return nil, err
 				}
-				if a, ok := aVal.ToBool(); ok {
+				if a, ok := aVal.(Bool); ok {
 					if a {
 						return Bool(true), nil
 					} else {
@@ -500,7 +471,7 @@ func (fg *FunctionGenerator) GenerateCustom(ast parser2.AST, gc funcGen.Generato
 						if err != nil {
 							return nil, err
 						}
-						if b, ok := bVal.ToBool(); ok {
+						if b, ok := bVal.(Bool); ok {
 							return Bool(b), nil
 						} else {
 							return nil, fmt.Errorf("not a bool: %s", TypeName(bVal))
@@ -652,7 +623,12 @@ func New() *FunctionGenerator {
 		SetMethodHandler(f).
 		SetCustomGenerator(f).
 		SetStringConverter(f).
-		SetToBool(func(c Value) (bool, bool) { return c.ToBool() }).
+		SetToBool(func(c Value) (bool, bool) {
+			if b, ok := c.(Bool); ok {
+				return bool(b), true
+			}
+			return false, false
+		}).
 		AddOpImpl("|", true, Or(f)).
 		AddOpImpl("&", true, And(f))
 

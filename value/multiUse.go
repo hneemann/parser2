@@ -23,7 +23,7 @@ func (l *List) MultiUse(st funcGen.Stack[Value]) (Map, error) {
 		var muList multiUseList
 		var innerErr error
 		m.Iter(func(key string, value Value) bool {
-			if f, ok := value.ToClosure(); ok {
+			if f, ok := value.(Closure); ok {
 				if f.Args == 1 {
 					muList = append(muList, &multiUseEntry{name: key, fu: f.Func})
 				} else {

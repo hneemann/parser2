@@ -146,14 +146,6 @@ func (l *List) String() string {
 	return b.String()
 }
 
-func (l *List) ToBool() (bool, bool) {
-	return false, false
-}
-
-func (l *List) ToClosure() (funcGen.Function[Value], bool) {
-	return funcGen.Function[Value]{}, false
-}
-
 func (l *List) ToList() (*List, bool) {
 	return l, true
 }
@@ -289,9 +281,9 @@ func (l *List) Size(st funcGen.Stack[Value]) (int, error) {
 }
 
 func ToFunc(name string, st funcGen.Stack[Value], n int, args int) (funcGen.Function[Value], error) {
-	if c, ok := st.Get(n).ToClosure(); ok {
+	if c, ok := st.Get(n).(Closure); ok {
 		if c.Args == args {
-			return c, nil
+			return funcGen.Function[Value](c), nil
 		} else {
 			return funcGen.Function[Value]{}, fmt.Errorf("%d. argument of %s needs to be a function with %d arguments", n, name, args)
 		}
@@ -320,8 +312,8 @@ func (l *List) Accept(sta funcGen.Stack[Value]) (*List, error) {
 			if err != nil {
 				return false, err
 			}
-			if accept, ok := eval.ToBool(); ok {
-				return accept, nil
+			if accept, ok := eval.(Bool); ok {
+				return bool(accept), nil
 			}
 			return false, fmt.Errorf("function in accept does not return a bool")
 		}
@@ -399,8 +391,8 @@ func (l *List) Merge(sta funcGen.Stack[Value]) (*List, error) {
 			if err2 != nil {
 				return false, err2
 			}
-			if less, ok := value.ToBool(); ok {
-				return less, nil
+			if less, ok := value.(Bool); ok {
+				return bool(less), nil
 			} else {
 				return false, errors.New("function in merge needs to return a bool, (a<b)")
 			}
@@ -497,7 +489,7 @@ func (l *List) IndexWhere(st funcGen.Stack[Value]) (Int, error) {
 		if err != nil {
 			return err
 		}
-		if f, ok := found.ToBool(); ok {
+		if f, ok := found.(Bool); ok {
 			if f {
 				index = i
 				return iterator.SBC
@@ -534,8 +526,8 @@ func (s SortableLess) Less(i, j int) bool {
 			s.err = err
 		}
 	}
-	if l, ok := value.ToBool(); ok {
-		return l
+	if l, ok := value.(Bool); ok {
+		return bool(l)
 	} else {
 		if s.err == nil {
 			s.err = errors.New("function in orderLess needs to return a bool")
@@ -740,9 +732,9 @@ func (l *List) IIrApply(sta funcGen.Stack[Value]) (*List, error) {
 
 func funcFromMap(m Map, key string, args int) (funcGen.Function[Value], error) {
 	if f, ok := m.Get(key); ok {
-		if ff, ok := f.ToClosure(); ok {
+		if ff, ok := f.(Closure); ok {
 			if ff.Args == args {
-				return ff, nil
+				return funcGen.Function[Value](ff), nil
 			} else {
 				return funcGen.Function[Value]{}, fmt.Errorf("function in %s needs to have %d arguments", key, args)
 			}
@@ -806,7 +798,7 @@ func (l *List) Present(st funcGen.Stack[Value]) (Value, error) {
 		if err2 != nil {
 			return err2
 		}
-		if pr, ok := v.ToBool(); ok {
+		if pr, ok := v.(Bool); ok {
 			if pr {
 				isPresent = true
 				return iterator.SBC
@@ -1268,7 +1260,7 @@ func (l *List) MovingWindowRemove(st funcGen.Stack[Value]) (*List, error) {
 				if err != nil {
 					return nil, err
 				}
-				remove, ok := removeValue.ToBool()
+				remove, ok := removeValue.(Bool)
 				if !ok {
 					return nil, errors.New("function in movingWindowList needs to return a bool")
 				}

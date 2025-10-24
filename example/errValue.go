@@ -40,10 +40,6 @@ func (e ErrValue) ToString(st funcGen.Stack[value.Value]) (string, error) {
 	return va + "±" + er, nil
 }
 
-func (e ErrValue) ToBool() (bool, bool) {
-	return false, false
-}
-
 func (e ErrValue) GetMin() float64 {
 	return e.val - e.err
 }
@@ -58,10 +54,6 @@ func (e ErrValue) Matches(b ErrValue) bool {
 
 func (e ErrValue) MatchesFloat(b float64) bool {
 	return e.GetMin() <= b && e.GetMax() >= b
-}
-
-func (e ErrValue) ToClosure() (funcGen.Function[value.Value], bool) {
-	return funcGen.Function[value.Value]{}, false
 }
 
 func createErrValueMethods() value.MethodMap {
