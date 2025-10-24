@@ -1,6 +1,7 @@
 package value
 
 import (
+	"errors"
 	"github.com/hneemann/parser2/funcGen"
 	"github.com/hneemann/parser2/listMap"
 	"github.com/stretchr/testify/assert"
@@ -75,7 +76,14 @@ func TestMap_Equals(t *testing.T) {
 	for _, tt := range tests {
 		test := tt
 		t.Run(test.name, func(t *testing.T) {
-			equals, err := test.a.Equals(funcGen.NewEmptyStack[Value](), test.b, Equal)
+			equals, err := test.a.Equals(funcGen.NewEmptyStack[Value](), test.b, func(st funcGen.Stack[Value], a, b Value) (bool, error) {
+				if aa, ok := a.(Int); ok {
+					if bb, ok := b.(Int); ok {
+						return aa == bb, nil
+					}
+				}
+				return false, errors.New("not an int")
+			})
 			assert.NoError(t, err)
 			assert.Equalf(t, test.want, equals, "Equals(%v)", test.b)
 		})

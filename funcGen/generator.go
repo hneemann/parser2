@@ -97,7 +97,15 @@ func (s Stack[V]) Init(v ...V) Stack[V] {
 	return s
 }
 
-type OperatorImpl[V any] func(st Stack[V], a, b V) (V, error)
+type OperatorFunc[V any] func(st Stack[V], a, b V) (V, error)
+
+func (o OperatorFunc[V]) Calc(st Stack[V], a, b V) (V, error) {
+	return o(st, a, b)
+}
+
+type OperatorImpl[V any] interface {
+	Calc(st Stack[V], a, b V) (V, error)
+}
 
 // Operator defines a operator like +
 type Operator[V any] struct {
@@ -549,16 +557,24 @@ func (g *FunctionGenerator[V]) ReplaceUnary(operator string, factory func(UnaryO
 // The operation with the lowest priority needs to be added first.
 // The operation with the highest priority needs to be added last.
 func (g *FunctionGenerator[V]) AddSimpleOp(operator string, isCommutative bool, impl func(a V, b V) (V, error)) *FunctionGenerator[V] {
-	return g.AddOpPure(operator, isCommutative, func(st Stack[V], a V, b V) (V, error) {
+	return g.AddOpPure(operator, isCommutative, OperatorFunc[V](func(st Stack[V], a V, b V) (V, error) {
 		return impl(a, b)
-	}, true)
+	}), true)
 }
 
 // AddOp adds an operation to the generator.
 // The Operation needs to be pure.
 // The operation with the lowest priority needs to be added first.
 // The operation with the highest priority needs to be added last.
-func (g *FunctionGenerator[V]) AddOp(operator string, isCommutative bool, impl OperatorImpl[V]) *FunctionGenerator[V] {
+func (g *FunctionGenerator[V]) AddOp(operator string, isCommutative bool, impl OperatorFunc[V]) *FunctionGenerator[V] {
+	return g.AddOpPure(operator, isCommutative, impl, true)
+}
+
+// AddOpImpl adds an operation to the generator.
+// The Operation needs to be pure.
+// The operation with the lowest priority needs to be added first.
+// The operation with the highest priority needs to be added last.
+func (g *FunctionGenerator[V]) AddOpImpl(operator string, isCommutative bool, impl OperatorImpl[V]) *FunctionGenerator[V] {
 	return g.AddOpPure(operator, isCommutative, impl, true)
 }
 
@@ -607,6 +623,7 @@ func (g *FunctionGenerator[V]) AddOpBehind(behindOperator, newOperator string, i
 	return g
 }
 
+/*
 func (g *FunctionGenerator[V]) ReplaceOp(operator string, isCommutative, isPure bool, opFactory func(OperatorImpl[V]) OperatorImpl[V]) *FunctionGenerator[V] {
 	replaceOpIndex := -1
 	for i, op := range g.operators {
@@ -631,9 +648,9 @@ func (g *FunctionGenerator[V]) ReplaceOp(operator string, isCommutative, isPure 
 	g.operators[replaceOpIndex] = opItem
 
 	return g
-}
+}*/
 
-func (g *FunctionGenerator[V]) GetOpImpl(name string) func(st Stack[V], a, b V) (V, error) {
+func (g *FunctionGenerator[V]) GetOpImpl(name string) OperatorImpl[V] {
 	for _, op := range g.operators {
 		if op.Operator == name {
 			return op.Impl
@@ -1064,7 +1081,7 @@ func (g *FunctionGenerator[V]) GenerateFunc(ast parser2.AST, gc GeneratorContext
 			if err != nil {
 				return zero, a.EnhanceErrorf(err, "error in operation %v", a.Operator)
 			}
-			return op(st, aVal, bVal)
+			return op.Calc(st, aVal, bVal)
 		}, nil
 	case *parser2.ClosureLiteral:
 		funcArgs := argsMap{}

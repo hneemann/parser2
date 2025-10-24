@@ -88,46 +88,6 @@ func (mm MethodMap) add(more MethodMap) {
 	}
 }
 
-const NIL = nilType(0)
-
-type nilType int
-
-func (n nilType) ToList() (*List, bool) {
-	return nil, false
-}
-
-func (n nilType) ToMap() (Map, bool) {
-	return EmptyMap, false
-}
-
-func (n nilType) ToInt() (int, bool) {
-	return 0, false
-}
-
-func (n nilType) ToFloat() (float64, bool) {
-	return 0, false
-}
-
-func (n nilType) ToString(funcGen.Stack[Value]) (string, error) {
-	return "nil", nil
-}
-
-func (n nilType) String() string {
-	return "nil"
-}
-
-func (n nilType) ToBool() (bool, bool) {
-	return false, false
-}
-
-func (n nilType) ToClosure() (funcGen.Function[Value], bool) {
-	return funcGen.Function[Value]{}, false
-}
-
-func (n nilType) GetType() Type {
-	return nilTypeId
-}
-
 type Closure funcGen.Function[Value]
 
 func (c Closure) ToList() (*List, bool) {
@@ -328,6 +288,48 @@ func (i Int) ToFloat() (float64, bool) {
 	return float64(i), true
 }
 
+type OperationMatrix interface {
+	funcGen.OperatorImpl[Value]
+	Register(a, b Type, op funcGen.OperatorFunc[Value])
+}
+
+type operationMatrixSimple struct {
+	matrix [][]funcGen.OperatorImpl[Value]
+	fg     *FunctionGenerator
+	op     string
+}
+
+func NewOperationMatrix(fg *FunctionGenerator, op string) OperationMatrix {
+	return &operationMatrixSimple{fg: fg, op: op}
+}
+
+func (o *operationMatrixSimple) Calc(st funcGen.Stack[Value], a, b Value) (Value, error) {
+	aType := a.GetType()
+	bType := b.GetType()
+	if aType < Type(len(o.matrix)) {
+		line := o.matrix[aType]
+		if bType < Type(len(line)) {
+			oi := line[bType]
+			if oi != nil {
+				return oi.Calc(st, a, b)
+			}
+		}
+	}
+	return nil, errors.New("operation '" + o.op + "' not defined on " + o.fg.typeNames[aType] + ", " + o.fg.typeNames[bType])
+}
+
+func (o *operationMatrixSimple) Register(a, b Type, op funcGen.OperatorFunc[Value]) {
+	for a >= Type(len(o.matrix)) {
+		o.matrix = append(o.matrix, []funcGen.OperatorImpl[Value]{})
+	}
+	for b >= Type(len(o.matrix[a])) {
+		o.matrix[a] = append(o.matrix[a], nil)
+	}
+	if o.matrix[a][b] != nil {
+		panic("operation '" + o.op + "' is already registered on this types")
+	}
+	o.matrix[a][b] = op
+}
 func (fg *FunctionGenerator) ParseNumber(n string) (Value, error) {
 	i, err := strconv.Atoi(n)
 	if err == nil {
@@ -595,36 +597,20 @@ func (fg *FunctionGenerator) RegisterMethods(id Type, methods MethodMap) *Functi
 	return fg
 }
 
+func (fg *FunctionGenerator) GetOpMatrix(op string) OperationMatrix {
+	impl := fg.GetOpImpl(op)
+	if impl == nil {
+		return nil
+	}
+	if im, ok := impl.(OperationMatrix); ok {
+		return im
+	} else {
+		return nil
+	}
+}
+
 func (fg *FunctionGenerator) Modify(f func(*FunctionGenerator)) *FunctionGenerator {
 	f(fg)
-	return fg
-}
-
-// SetEqual is a helper to set equals methods.
-func (fg *FunctionGenerator) SetEqual(equal funcGen.BoolFunc[Value]) *FunctionGenerator {
-	var deepEqual funcGen.BoolFunc[Value]
-	deepEqual = func(st funcGen.Stack[Value], a Value, b Value) (bool, error) {
-		if aa, ok := a.(*List); ok {
-			if bb, ok := b.(*List); ok {
-				return aa.Equals(st, bb, deepEqual)
-			}
-		}
-		if aa, ok := a.(Map); ok {
-			if bb, ok := b.(Map); ok {
-				return aa.Equals(st, bb, deepEqual)
-			}
-		}
-		return equal(st, a, b)
-	}
-
-	fg.equal = deepEqual
-	fg.SetIsEqual(deepEqual)
-	return fg
-}
-
-// SetLess is a helper to set less methods.
-func (fg *FunctionGenerator) SetLess(less funcGen.BoolFunc[Value]) *FunctionGenerator {
-	fg.less = less
 	return fg
 }
 
@@ -641,7 +627,7 @@ func (fg *FunctionGenerator) GetDocumentation() []funcGen.TypeDocumentation {
 }
 
 func New() *FunctionGenerator {
-	f := &FunctionGenerator{less: Less}
+	f := &FunctionGenerator{}
 	nilTypeId = f.RegisterType("nil")
 	IntTypeId = f.RegisterType("int")
 	FloatTypeId = f.RegisterType("float")
@@ -655,7 +641,6 @@ func New() *FunctionGenerator {
 	FileTypeId = f.RegisterType("file")
 
 	fg := funcGen.New[Value]().
-		AddConstant("nil", NIL).
 		AddConstant("pi", Float(math.Pi)).
 		AddConstant("true", Bool(true)).
 		AddConstant("false", Bool(false)).
@@ -668,16 +653,17 @@ func New() *FunctionGenerator {
 		SetCustomGenerator(f).
 		SetStringConverter(f).
 		SetToBool(func(c Value) (bool, bool) { return c.ToBool() }).
-		AddOp("|", true, Or).
-		AddOp("&", true, And)
+		AddOpImpl("|", true, Or(f)).
+		AddOpImpl("&", true, And(f))
 
-	fg.AddOp("=", false, func(st funcGen.Stack[Value], a Value, b Value) (Value, error) {
-		eq, err := f.equal(st, a, b)
-		return Bool(eq), err
-	})
+	f.FunctionGenerator = fg
+	equal := Equal(f)
+	less := Less(f)
+
+	fg.AddOpImpl("=", true, equal)
 	fg.AddOp("!=", false, func(st funcGen.Stack[Value], a Value, b Value) (Value, error) {
-		eq, err := f.equal(st, a, b)
-		return Bool(!eq), err
+		eq, err := equal.Calc(st, a, b)
+		return !(eq.(Bool)), err
 	})
 	fg.AddOp("~", false, func(st funcGen.Stack[Value], a Value, b Value) (Value, error) {
 		if list, ok := b.(*List); ok {
@@ -701,45 +687,39 @@ func New() *FunctionGenerator {
 		}
 		return nil, notAllowed("~", a, b)
 	})
-	fg.AddOp("<", false, func(st funcGen.Stack[Value], a Value, b Value) (Value, error) {
-		le, err := f.less(st, a, b)
-		return Bool(le), err
-	})
+	fg.AddOpImpl("<", false, less)
 	fg.AddOp(">", false, func(st funcGen.Stack[Value], a Value, b Value) (Value, error) {
-		le, err := f.less(st, b, a)
-		return Bool(le), err
+		return less.Calc(st, b, a)
 	})
 	fg.AddOp("<=", false, func(st funcGen.Stack[Value], a Value, b Value) (Value, error) {
-		le, err := f.less(st, a, b)
+		le, err := less.Calc(st, a, b)
 		if err != nil {
 			return nil, err
 		}
-		if le {
+		if le.(Bool) {
 			return Bool(true), nil
 		}
-		eq, err := f.equal(st, a, b)
-		return Bool(eq), err
+		return equal.Calc(st, a, b)
 	})
 	fg.AddOp(">=", false, func(st funcGen.Stack[Value], a Value, b Value) (Value, error) {
-		le, err := f.less(st, b, a)
+		le, err := less.Calc(st, b, a)
 		if err != nil {
 			return nil, err
 		}
-		if le {
+		if le.(Bool) {
 			return Bool(true), nil
 		}
-		eq, err := f.equal(st, a, b)
-		return Bool(eq), err
+		return equal.Calc(st, a, b)
 	})
 
-	fg.AddOp("+", false, Add).
-		AddOp("-", false, Sub).
-		AddOp("<<", false, Left).
-		AddOp(">>", false, Right).
-		AddOp("*", true, Mul).
-		AddOp("%", false, Mod).
-		AddOp("/", false, Div).
-		AddOp("^", false, Pow).
+	fg.AddOpImpl("+", false, Add(f)).
+		AddOpImpl("-", false, Sub(f)).
+		AddOpImpl("<<", false, Left(f)).
+		AddOpImpl(">>", false, Right(f)).
+		AddOpImpl("*", true, Mul(f)).
+		AddOpImpl("%", false, Mod(f)).
+		AddOpImpl("/", false, Div(f)).
+		AddOpImpl("^", false, Pow(f)).
 		AddUnary("-", func(a Value) (Value, error) { return Neg(a) }).
 		AddUnary("!", func(a Value) (Value, error) { return Not(a) }).
 		AddStaticFunction("throw", funcGen.Function[Value]{
@@ -952,8 +932,6 @@ func New() *FunctionGenerator {
 		AddStaticFunction("acos", simpleOnlyFloatFuncCheck("acos", func(arg float64) bool { return arg >= -1 && arg <= 1 }, func(x float64) float64 { return math.Acos(x) })).
 		AddStaticFunction("atan", simpleOnlyFloatFunc("atan", func(x float64) float64 { return math.Atan(x) }))
 
-	f.FunctionGenerator = fg
-
 	f.RegisterMethods(ListTypeId, createListMethods(f))
 	f.RegisterMethods(MapTypeId, createMapMethods())
 	f.RegisterMethods(StringTypeId, createStringMethods())
@@ -970,11 +948,11 @@ func New() *FunctionGenerator {
 				if i == 0 {
 					m = v
 				} else {
-					le, err := f.less(st, v, m)
+					le, err := less.Calc(st, v, m)
 					if err != nil {
 						return nil, err
 					}
-					if le {
+					if le.(Bool) {
 						m = v
 					}
 				}
@@ -992,11 +970,11 @@ func New() *FunctionGenerator {
 				if i == 0 {
 					m = v
 				} else {
-					le, err := f.less(st, m, v)
+					le, err := less.Calc(st, m, v)
 					if err != nil {
 						return nil, err
 					}
-					if le {
+					if le.(Bool) {
 						m = v
 					}
 				}
@@ -1006,9 +984,6 @@ func New() *FunctionGenerator {
 		Args:   -1,
 		IsPure: true,
 	}.SetDescription("a", "b", "Returns the larger of a and b."))
-
-	f.SetEqual(Equal)
-
 	return f
 }
 

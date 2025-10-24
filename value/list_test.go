@@ -78,9 +78,9 @@ func TestList(t *testing.T) {
 			res: String("[{key:0, values:[0, 1]}, {key:1, values:[2, 3, 4, 5]}, {key:2, values:[6, 7, 8, 9]}, {key:3, values:[10, 11]}]")},
 		{exp: "list(12).uniqueString(i->\"n\"+round(i/4)).order(a->a).string()", res: String("[n0, n1, n2, n3]")},
 		{exp: "list(12).uniqueInt(i->round(i/4)).order(a->a).string()", res: String("[0, 1, 2, 3]")},
-		{exp: "list(12).map(i->round(i/4)).compact((a,b)->if a=b then a else nil).string()", res: String("[0, 1, 2, 3]")},
-		{exp: "list(1).compact((a,b)->if a=b then a else nil).string()", res: String("[0]")},
-		{exp: "[].compact((a,b)->if a=b then a else nil).string()", res: String("[]")},
+		{exp: "list(12).map(i->round(i/4)).compact().string()", res: String("[0, 1, 2, 3]")},
+		{exp: "list(1).compact().string()", res: String("[0]")},
+		{exp: "[].compact().string()", res: String("[]")},
 		{exp: "string(list(3).map(i->(i+1)*10).number((n,e)->\"\"+n+\"->\"+e))", res: String("[0->10, 1->20, 2->30]")},
 		{exp: "[].reverse().string()", res: String("[]")},
 		{exp: "[1].reverse().string()", res: String("[1]")},
@@ -114,7 +114,7 @@ func TestList(t *testing.T) {
 		{exp: "list(10).present(n->n>100)", res: Bool(false)},
 
 		{exp: "[1,5,3,2,4].minMax(n->n).string()", res: String("{min:1, max:5, minItem:1, maxItem:5, valid:true}")},
-		{exp: "[].minMax(n->n).string()", res: String("{min:0, max:0, minItem:nil, maxItem:nil, valid:false}")},
+		{exp: "[].minMax(n->n).string()", res: String("{min:0, max:0, minItem:0, maxItem:0, valid:false}")},
 		{exp: "[{a:1},{a:5},{a:3},{a:2},{a:4}].minMax(n->n.a).string()", res: String("{min:1, max:5, minItem:{a:1}, maxItem:{a:5}, valid:true}")},
 
 		{exp: "[1,5,3,2,4].min()", res: Int(1)},

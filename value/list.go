@@ -343,41 +343,28 @@ func (l *List) Map(sta funcGen.Stack[Value]) (*List, error) {
 
 }
 
-func (l *List) Compact(sta funcGen.Stack[Value]) (*List, error) {
-	f, err := ToFunc("compact", sta, 1, 2)
-	if err != nil {
-		return nil, err
-	}
+func (l *List) Compact(fg *FunctionGenerator) (*List, error) {
 	return NewListFromIterable(func(st funcGen.Stack[Value], yield iterator.Consumer[Value]) error {
 		var last Value
+		fmt.Println("start")
 		err := l.iterable(st, func(v Value) error {
 			if last == nil {
 				last = v
-				return nil
+				return yield(v)
 			}
-			st.Push(last)
-			st.Push(v)
-			val, err := f.Func(st.CreateFrame(2), nil)
+
+			eq, err := fg.equal(st, last, v)
 			if err != nil {
 				return err
 			}
-			if val == NIL {
-				la := last
-				last = v
-				return yield(la)
+			last = v
+			if !eq {
+				return yield(v)
 			} else {
-				last = val
 				return nil
 			}
 		})
-		if err != nil {
-			return err
-		}
-		if last == nil {
-			return nil
-		} else {
-			return yield(last)
-		}
+		return err
 	}), nil
 }
 
@@ -869,7 +856,7 @@ func (l *List) Sum(st funcGen.Stack[Value], fg *FunctionGenerator) (Value, error
 			sum = value
 		} else {
 			var err error
-			sum, err = add(st, sum, value)
+			sum, err = add.Calc(st, sum, value)
 			if err != nil {
 				return err
 			}
@@ -905,9 +892,9 @@ func (l *List) MinMax(st funcGen.Stack[Value], fg *FunctionGenerator) (Value, er
 	}
 	first := true
 	var minVal Value = Int(0)
-	var minItem Value = NIL
+	var minItem Value = Int(0)
 	var maxVal Value = Int(0)
-	var maxItem Value = NIL
+	var maxItem Value = Int(0)
 	err = l.iterable(st, func(value Value) error {
 		st.Push(value)
 		r, err := f.Func(st.CreateFrame(1), nil)
@@ -1016,7 +1003,7 @@ func (l *List) Mean(st funcGen.Stack[Value], fg *FunctionGenerator) (Value, erro
 			n = 1
 		} else {
 			var err error
-			sum, err = add(st, sum, value)
+			sum, err = add.Calc(st, sum, value)
 			if err != nil {
 				return err
 			}
@@ -1029,7 +1016,7 @@ func (l *List) Mean(st funcGen.Stack[Value], fg *FunctionGenerator) (Value, erro
 	}
 
 	if n > 0 {
-		return div(st, sum, Int(n))
+		return div.Calc(st, sum, Int(n))
 	} else {
 		return nil, errors.New("mean of empty list")
 	}
@@ -1573,10 +1560,10 @@ func createListMethods(fg *FunctionGenerator) MethodMap {
 			SetMethodDescription("func(item) string", "Returns a list of unique strings returned by the given function."),
 		"uniqueInt": MethodAtType(1, func(list *List, stack funcGen.Stack[Value]) (Value, error) { return list.UniqueInt(stack) }).
 			SetMethodDescription("func(item) int", "Returns a list of unique integers returned by the given function."),
-		"compact": MethodAtType(1, func(list *List, stack funcGen.Stack[Value]) (Value, error) { return list.Compact(stack) }).
-			SetMethodDescription("func(a, b) value", "Returns a new list with the items compacted. "+
-				"The given function is called for each successive pair of items in the list."+
-				"If the function returns nil, both values are kept, if not, both values are replaced by the returned value."),
+		"compact": MethodAtType(0, func(list *List, stack funcGen.Stack[Value]) (Value, error) { return list.Compact(fg) }).
+			SetMethodDescription("Returns a new list with the items compacted. " +
+				"The given function is called for each successive pair of items in the list." +
+				"If the items are equal, one is removed."),
 		"cross": MethodAtType(2, func(list *List, stack funcGen.Stack[Value]) (Value, error) { return list.Cross(stack) }).
 			SetMethodDescription("other_list", "func(a,b) newItem",
 				"Returns a new list with the given function applied to each pair of items in the list and the given list. "+
