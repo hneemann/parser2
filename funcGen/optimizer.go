@@ -62,7 +62,7 @@ func (o optimizer[V]) Optimize(ast parser2.AST) (parser2.AST, error) {
 	if oper, ok := ast.(*parser2.Unary); ok {
 		if operator, ok := o.g.uMap[oper.Operator]; ok {
 			if c, ok := o.isConst(oper.Value); ok {
-				co, err := operator.Impl(c)
+				co, err := operator.Impl.Calc(c)
 				if err != nil {
 					return nil, ast.GetLine().EnhanceErrorf(err, "error in constant pre evaluation of unary: %s", operator.Operator)
 				}

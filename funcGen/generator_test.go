@@ -77,13 +77,13 @@ func NewGen() *FunctionGenerator[Value] {
 			}
 			return Float(aVal * bVal), nil
 		}).
-		AddUnary("-", func(a Value) (Value, error) {
+		AddUnary("-", UnaryOperatorFunc[Value](func(a Value) (Value, error) {
 			fl, err := a.Float()
 			if err != nil {
 				return nil, err
 			}
 			return Float(-fl), nil
-		}).
+		})).
 		SetToBool(func(c Value) (bool, bool) {
 			fl, err := c.Float()
 			if err != nil {

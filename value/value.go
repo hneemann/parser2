@@ -239,6 +239,37 @@ func (i Int) ToFloat() (float64, bool) {
 	return float64(i), true
 }
 
+type SimpleUnary struct {
+	list []funcGen.UnaryOperatorFunc[Value]
+	fg   *FunctionGenerator
+	op   string
+}
+
+func NewUnaryOperationList(fg *FunctionGenerator, op string) *SimpleUnary {
+	return &SimpleUnary{fg: fg, op: op}
+}
+
+func (su *SimpleUnary) Calc(v Value) (Value, error) {
+	aType := v.GetType()
+	if aType < Type(len(su.list)) {
+		un := su.list[aType]
+		if un != nil {
+			return un(v)
+		}
+	}
+	return nil, errors.New("unary operation '" + su.op + "' not defined on " + su.fg.typeNames[aType])
+}
+
+func (su *SimpleUnary) Register(a Type, op funcGen.UnaryOperatorFunc[Value]) {
+	for a >= Type(len(su.list)) {
+		su.list = append(su.list, nil)
+	}
+	if su.list[a] != nil {
+		panic("unary operation '" + su.op + "' is already registered on this types")
+	}
+	su.list[a] = op
+}
+
 type OperationMatrix interface {
 	funcGen.OperatorImpl[Value]
 	Register(a, b Type, op funcGen.OperatorFunc[Value])
@@ -563,6 +594,18 @@ func (fg *FunctionGenerator) GetOpMatrix(op string) OperationMatrix {
 	}
 }
 
+func (fg *FunctionGenerator) GetUnaryList(op string) *SimpleUnary {
+	impl := fg.GetUnaryOpImpl(op)
+	if impl == nil {
+		return nil
+	}
+	if im, ok := impl.(*SimpleUnary); ok {
+		return im
+	} else {
+		return nil
+	}
+}
+
 func (fg *FunctionGenerator) Modify(f func(*FunctionGenerator)) *FunctionGenerator {
 	f(fg)
 	return fg
@@ -679,8 +722,8 @@ func New() *FunctionGenerator {
 		AddOpImpl("%", false, Mod(f)).
 		AddOpImpl("/", false, Div(f)).
 		AddOpImpl("^", false, Pow(f)).
-		AddUnary("-", func(a Value) (Value, error) { return Neg(a) }).
-		AddUnary("!", func(a Value) (Value, error) { return Not(a) }).
+		AddUnary("-", Neg(f)).
+		AddUnary("!", Not(f)).
 		AddStaticFunction("throw", funcGen.Function[Value]{
 			Func: func(st funcGen.Stack[Value], cs []Value) (Value, error) {
 				if s, ok := st.Get(0).(String); ok {

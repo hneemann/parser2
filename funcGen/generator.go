@@ -121,7 +121,15 @@ type Operator[V any] struct {
 	IsCommutative bool
 }
 
-type UnaryOperatorImpl[V any] func(a V) (V, error)
+type UnaryOperatorImpl[V any] interface {
+	Calc(V) (V, error)
+}
+
+type UnaryOperatorFunc[V any] func(a V) (V, error)
+
+func (u UnaryOperatorFunc[V]) Calc(v V) (V, error) {
+	return u(v)
+}
 
 // UnaryOperator defines an operator like - or !
 type UnaryOperator[V any] struct {
@@ -512,6 +520,10 @@ func (g *FunctionGenerator[V]) SetIsEqual(isEqual BoolFunc[V]) *FunctionGenerato
 	return g
 }
 
+func (g *FunctionGenerator[V]) AddUnaryFunc(operator string, impl UnaryOperatorFunc[V]) *FunctionGenerator[V] {
+	return g.AddUnary(operator, impl)
+}
+
 func (g *FunctionGenerator[V]) AddUnary(operator string, impl UnaryOperatorImpl[V]) *FunctionGenerator[V] {
 	if g.parser != nil {
 		panic("parser already created")
@@ -527,28 +539,6 @@ func (g *FunctionGenerator[V]) AddUnary(operator string, impl UnaryOperatorImpl[
 	}
 
 	g.unary = append(g.unary, uni)
-	return g
-}
-
-func (g *FunctionGenerator[V]) ReplaceUnary(operator string, factory func(UnaryOperatorImpl[V]) UnaryOperatorImpl[V]) *FunctionGenerator[V] {
-	found := -1
-	for i, u := range g.unary {
-		if u.Operator == operator {
-			found = i
-			break
-		}
-	}
-	if found < 0 {
-		panic(fmt.Sprintf("unary operator %s not found", operator))
-	}
-
-	old := g.unary[found]
-
-	uni := UnaryOperator[V]{
-		Operator: operator,
-		Impl:     factory(old.Impl),
-	}
-	g.unary[found] = uni
 	return g
 }
 
@@ -652,6 +642,15 @@ func (g *FunctionGenerator[V]) ReplaceOp(operator string, isCommutative, isPure 
 
 func (g *FunctionGenerator[V]) GetOpImpl(name string) OperatorImpl[V] {
 	for _, op := range g.operators {
+		if op.Operator == name {
+			return op.Impl
+		}
+	}
+	return nil
+}
+
+func (g *FunctionGenerator[V]) GetUnaryOpImpl(name string) UnaryOperatorImpl[V] {
+	for _, op := range g.unary {
 		if op.Operator == name {
 			return op.Impl
 		}
@@ -1060,7 +1059,7 @@ func (g *FunctionGenerator[V]) GenerateFunc(ast parser2.AST, gc GeneratorContext
 			if err != nil {
 				return zero, a.EnhanceErrorf(err, "error in unary %v", a.Operator)
 			}
-			return op(v)
+			return op.Calc(v)
 		}, nil
 	case *parser2.Operate:
 		aFunc, err := g.GenerateFunc(a.A, gc)

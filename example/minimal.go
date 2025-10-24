@@ -20,7 +20,7 @@ var minimal = funcGen.New[float64]().
 	AddSimpleOp("*", true, func(a, b float64) (float64, error) { return a * b, nil }).
 	AddSimpleOp("/", false, func(a, b float64) (float64, error) { return a / b, nil }).
 	AddSimpleOp("^", false, func(a, b float64) (float64, error) { return math.Pow(a, b), nil }).
-	AddUnary("-", func(a float64) (float64, error) { return -a, nil }).
+	AddUnaryFunc("-", func(a float64) (float64, error) { return -a, nil }).
 	AddSimpleFunction("sin", math.Sin).
 	AddSimpleFunction("cos", math.Cos).
 	AddSimpleFunction("tan", math.Tan).

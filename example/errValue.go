@@ -92,16 +92,9 @@ var ErrValueParser = value.New().
 		addDiv(f)
 		addEqual(f)
 		addLess(f)
+		addNeg(f)
 	}).
 	RegisterMethods(errValType, createErrValueMethods()).
-	ReplaceUnary("-", func(orig funcGen.UnaryOperatorImpl[value.Value]) funcGen.UnaryOperatorImpl[value.Value] {
-		return func(a value.Value) (value.Value, error) {
-			if v, ok := a.(ErrValue); ok {
-				return ErrValue{val: -v.val, err: v.err}, nil
-			}
-			return orig(a)
-		}
-	}).
 	AddOp("+-", false, func(st funcGen.Stack[value.Value], a value.Value, b value.Value) (value.Value, error) {
 		if v, ok := a.ToFloat(); ok {
 			if e, ok := b.ToFloat(); ok {
@@ -266,5 +259,13 @@ func addLess(f *value.FunctionGenerator) {
 		a := float64(av.(value.Int))
 		b := bv.(ErrValue)
 		return value.Bool(a < b.GetMin()), nil
+	})
+}
+
+func addNeg(f *value.FunctionGenerator) {
+	m := f.GetUnaryList("-")
+	m.Register(errValType, func(av value.Value) (value.Value, error) {
+		a := av.(ErrValue)
+		return ErrValue{-a.val, a.err}, nil
 	})
 }

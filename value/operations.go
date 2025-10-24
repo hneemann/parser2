@@ -238,21 +238,23 @@ func Pow(fg *FunctionGenerator) OperationMatrix {
 	return m
 }
 
-func Neg(a Value) (Value, error) {
-	if aa, ok := a.(Int); ok {
-		return -aa, nil
-	}
-	if aa, ok := a.ToFloat(); ok {
-		return Float(-aa), nil
-	}
-	return nil, fmt.Errorf("neg not allowed on -%s", TypeName(a))
+func Neg(fg *FunctionGenerator) *SimpleUnary {
+	u := NewUnaryOperationList(fg, "-")
+	u.Register(IntTypeId, func(a Value) (Value, error) {
+		return -a.(Int), nil
+	})
+	u.Register(FloatTypeId, func(a Value) (Value, error) {
+		return -a.(Float), nil
+	})
+	return u
 }
 
-func Not(a Value) (Value, error) {
-	if aa, ok := a.(Bool); ok {
-		return !aa, nil
-	}
-	return nil, fmt.Errorf("not not allowed on !%s", TypeName(a))
+func Not(fg *FunctionGenerator) *SimpleUnary {
+	u := NewUnaryOperationList(fg, "!")
+	u.Register(BoolTypeId, func(a Value) (Value, error) {
+		return !a.(Bool), nil
+	})
+	return u
 }
 
 func And(fg *FunctionGenerator) OperationMatrix {

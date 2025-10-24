@@ -13,5 +13,5 @@ var boolParser = funcGen.New[bool]().
 	AddSimpleOp("=", true, func(a, b bool) (bool, error) { return a == b, nil }).
 	AddSimpleOp("|", true, func(a, b bool) (bool, error) { return a || b, nil }).
 	AddSimpleOp("&", true, func(a, b bool) (bool, error) { return a && b, nil }).
-	AddUnary("!", func(a bool) (bool, error) { return !a, nil }).
+	AddUnaryFunc("!", func(a bool) (bool, error) { return !a, nil }).
 	SetToBool(func(c bool) (bool, bool) { return c, true })
