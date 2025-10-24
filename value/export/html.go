@@ -105,10 +105,6 @@ func (f Format) ToMap() (value.Map, bool) {
 	return f.Value.ToMap()
 }
 
-func (f Format) ToInt() (int, bool) {
-	return f.Value.ToInt()
-}
-
 func (f Format) ToFloat() (float64, bool) {
 	return f.Value.ToFloat()
 }
@@ -132,10 +128,6 @@ func (l Link) ToList() (*value.List, bool) {
 
 func (l Link) ToMap() (value.Map, bool) {
 	return l.Value.ToMap()
-}
-
-func (l Link) ToInt() (int, bool) {
-	return l.Value.ToInt()
 }
 
 func (l Link) ToFloat() (float64, bool) {
@@ -162,10 +154,6 @@ func (f File) ToList() (*value.List, bool) {
 
 func (f File) ToMap() (value.Map, bool) {
 	return value.Map{}, false
-}
-
-func (f File) ToInt() (int, bool) {
-	return 0, false
 }
 
 func (f File) ToFloat() (float64, bool) {

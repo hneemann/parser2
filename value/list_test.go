@@ -110,7 +110,7 @@ func TestList(t *testing.T) {
 		{exp: "[3].single()", res: Int(3)},
 		{exp: "list(1).single()", res: Int(0)},
 		{exp: "list(10).last()", res: Int(9)},
-		{exp: "list(1e9).present(n->n>100)", res: Bool(true)},
+		{exp: "list(100000000000).present(n->n>100)", res: Bool(true)},
 		{exp: "list(10).present(n->n>100)", res: Bool(false)},
 
 		{exp: "[1,5,3,2,4].minMax(n->n).string()", res: String("{min:1, max:5, minItem:1, maxItem:5, valid:true}")},

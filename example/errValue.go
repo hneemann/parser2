@@ -20,10 +20,6 @@ func (e ErrValue) ToMap() (value.Map, bool) {
 	return value.Map{}, false
 }
 
-func (e ErrValue) ToInt() (int, bool) {
-	return int(e.val), true
-}
-
 func (e ErrValue) ToFloat() (float64, bool) {
 	return e.val, true
 }

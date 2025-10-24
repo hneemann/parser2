@@ -11,8 +11,8 @@ import (
 func toLargeErrorFunc(n int) funcGen.Function[Value] {
 	return funcGen.Function[Value]{
 		Func: func(st funcGen.Stack[Value], cs []Value) (Value, error) {
-			if f, ok := st.Get(0).ToInt(); ok {
-				if f < n {
+			if f, ok := st.Get(0).(Int); ok {
+				if int(f) < n {
 					return st.Get(0), nil
 				} else {
 					return nil, errors.New("toLarge")
@@ -51,7 +51,7 @@ func TestErrors(t *testing.T) {
 		{"list(10).multiUse({a:l->l.reduce((a,b)->a+b)+l.reduce((a,b)->a*b)})", "copied iterator a can only be used once"},
 		{"list(10).map(e->e.e).multiUse({a:l->l.reduce((a,b)->a+b)})", "not a map"},
 		{"list(10).multiUse({a:l->l.mapReduce(0,(s,i)->s+i), b:l->l.notFound(i->i+1)})", "notFound"},
-		{"list(1e9).multiUse({a:l->l.mapReduce(0,(s,i)->s+error(i)), b:l->l.mapReduce((s,i)->s+i)})", "wrong number of arguments"},
+		{"list(1000000000).multiUse({a:l->l.mapReduce(0,(s,i)->s+error(i)), b:l->l.mapReduce((s,i)->s+i)})", "wrong number of arguments"},
 		{"list(10).multiUse({a:l->l.notFound(0,(s,i)->s+i), b:l->l.notFound(i->i+1)})", "notFound"},
 		{"{a:1,b:2}.put(\"b\", 3)", "key 'b' already present in map"},
 		{"{a:1,b:2}+{b:3,c:4}", "first map already contains key 'b'"},

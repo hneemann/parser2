@@ -122,10 +122,6 @@ func (v Map) ToList() (*List, bool) {
 	return nil, false
 }
 
-func (v Map) ToInt() (int, bool) {
-	return 0, false
-}
-
 func (v Map) ToFloat() (float64, bool) {
 	return 0, false
 }

@@ -20,10 +20,6 @@ func (s String) ToMap() (Map, bool) {
 	return EmptyMap, false
 }
 
-func (s String) ToInt() (int, bool) {
-	return 0, false
-}
-
 func (s String) ToFloat() (float64, bool) {
 	return 0, false
 }
@@ -61,10 +57,10 @@ func (s String) Split(st funcGen.Stack[Value]) (Value, error) {
 }
 
 func (s String) Cut(st funcGen.Stack[Value]) (Value, error) {
-	if p, ok := st.Get(1).ToInt(); ok {
-		if n, ok := st.Get(2).ToInt(); ok {
+	if p, ok := st.Get(1).(Int); ok {
+		if n, ok := st.Get(2).(Int); ok {
 			str := string(s)
-			for i := 0; i < p; i++ {
+			for i := 0; i < int(p); i++ {
 				_, l := utf8.DecodeRuneInString(str)
 				str = str[l:]
 				if len(str) == 0 {
@@ -75,7 +71,7 @@ func (s String) Cut(st funcGen.Stack[Value]) (Value, error) {
 			if n <= 0 {
 				n = math.MaxInt
 			}
-			for i := 0; i < n; i++ {
+			for i := 0; i < int(n); i++ {
 				r, l := utf8.DecodeRuneInString(str)
 				res.WriteRune(r)
 				str = str[l:]

@@ -37,7 +37,6 @@ var (
 type Value interface {
 	ToList() (*List, bool)
 	ToMap() (Map, bool)
-	ToInt() (int, bool)
 	ToFloat() (float64, bool)
 	ToString(st funcGen.Stack[Value]) (string, error)
 	GetType() Type
@@ -96,10 +95,6 @@ func (c Closure) ToMap() (Map, bool) {
 	return EmptyMap, false
 }
 
-func (c Closure) ToInt() (int, bool) {
-	return 0, false
-}
-
 func (c Closure) ToFloat() (float64, bool) {
 	return 0, false
 }
@@ -155,10 +150,6 @@ func (b Bool) ToMap() (Map, bool) {
 	return EmptyMap, false
 }
 
-func (b Bool) ToInt() (int, bool) {
-	return 0, false
-}
-
 func (b Bool) ToFloat() (float64, bool) {
 	return 0, false
 }
@@ -212,10 +203,6 @@ func (f Float) GetType() Type {
 	return FloatTypeId
 }
 
-func (f Float) ToInt() (int, bool) {
-	return int(f), true
-}
-
 func (f Float) ToFloat() (float64, bool) {
 	return float64(f), true
 }
@@ -246,10 +233,6 @@ func createIntMethods() MethodMap {
 
 func (i Int) GetType() Type {
 	return IntTypeId
-}
-
-func (i Int) ToInt() (int, bool) {
-	return int(i), true
 }
 
 func (i Int) ToFloat() (float64, bool) {
@@ -361,7 +344,7 @@ func (fg *FunctionGenerator) FromList(items []Value) Value {
 
 func (fg *FunctionGenerator) AccessList(list Value, index Value) (Value, error) {
 	if l, ok := list.ToList(); ok {
-		if i, ok := index.ToInt(); ok {
+		if i, ok := index.(Int); ok {
 			if i < 0 {
 				return nil, fmt.Errorf("negative list index")
 			} else {
@@ -369,7 +352,7 @@ func (fg *FunctionGenerator) AccessList(list Value, index Value) (Value, error) 
 				if err != nil {
 					return nil, err
 				}
-				if i >= size {
+				if int(i) >= size {
 					return nil, fmt.Errorf("index out of bounds %d>=size(%d)", i, size)
 				} else {
 					return l.items[i], nil
@@ -749,8 +732,10 @@ func New() *FunctionGenerator {
 		AddStaticFunction("int", funcGen.Function[Value]{
 			Func: func(st funcGen.Stack[Value], cs []Value) (Value, error) {
 				v := st.Get(0)
-				if i, ok := v.ToInt(); ok {
-					return Int(i), nil
+				if i, ok := v.(Int); ok {
+					return i, nil
+				} else if f, ok := v.ToFloat(); ok {
+					return Int(f), nil
 				}
 				return nil, fmt.Errorf("int not alowed on %s", TypeName(v))
 			},
@@ -815,8 +800,8 @@ func New() *FunctionGenerator {
 		AddStaticFunction("random", funcGen.Function[Value]{
 			Func: func(st funcGen.Stack[Value], cs []Value) (Value, error) {
 				v := st.Get(0)
-				if n, ok := v.ToInt(); ok {
-					return Int(rand.Intn(n)), nil
+				if n, ok := v.(Int); ok {
+					return Int(rand.Intn(int(n))), nil
 				}
 				return nil, errors.New("random only allowed on int")
 			},
@@ -839,8 +824,8 @@ func New() *FunctionGenerator {
 		}.SetDescription("value", "Returns the value rounded to the nearest integer.")).
 		AddStaticFunction("binAnd", funcGen.Function[Value]{
 			Func: func(st funcGen.Stack[Value], cs []Value) (Value, error) {
-				if a, ok := st.Get(0).ToInt(); ok {
-					if b, ok := st.Get(1).ToInt(); ok {
+				if a, ok := st.Get(0).(Int); ok {
+					if b, ok := st.Get(1).(Int); ok {
 						return Int(a & b), nil
 					}
 				}
@@ -851,8 +836,8 @@ func New() *FunctionGenerator {
 		}.SetDescription("a", "b", "Returns the binary and of a, b.")).
 		AddStaticFunction("binOr", funcGen.Function[Value]{
 			Func: func(st funcGen.Stack[Value], cs []Value) (Value, error) {
-				if a, ok := st.Get(0).ToInt(); ok {
-					if b, ok := st.Get(1).ToInt(); ok {
+				if a, ok := st.Get(0).(Int); ok {
+					if b, ok := st.Get(1).(Int); ok {
 						return Int(a | b), nil
 					}
 				}
@@ -874,8 +859,8 @@ func New() *FunctionGenerator {
 		AddStaticFunction("list", funcGen.Function[Value]{
 			Func: func(st funcGen.Stack[Value], cs []Value) (Value, error) {
 				v := st.Get(0)
-				if size, ok := v.ToInt(); ok {
-					return NewListFromSizedIterable(iterator.Generate[Value, funcGen.Stack[Value]](size, func(i int) (Value, error) { return Int(i), nil }), size), nil
+				if size, ok := v.(Int); ok {
+					return NewListFromSizedIterable(iterator.Generate[Value, funcGen.Stack[Value]](int(size), func(i int) (Value, error) { return Int(i), nil }), int(size)), nil
 				}
 				return nil, fmt.Errorf("list not alowed on %s", TypeName(v))
 			},
@@ -885,8 +870,8 @@ func New() *FunctionGenerator {
 		AddStaticFunction("goto", funcGen.Function[Value]{
 			Func: func(st funcGen.Stack[Value], cs []Value) (Value, error) {
 				v := st.Get(0)
-				if state, ok := v.ToInt(); ok {
-					return createState(state), nil
+				if state, ok := v.(Int); ok {
+					return createState(int(state)), nil
 				}
 				return nil, errors.New("goto requires an int")
 			},
@@ -1158,8 +1143,8 @@ func MustInt(v Value, err error) (int, error) {
 	if err != nil {
 		return 0, err
 	}
-	if i, ok := v.ToInt(); ok {
-		return i, nil
+	if i, ok := v.(Int); ok {
+		return int(i), nil
 	}
 	return 0, fmt.Errorf("not an int: %s", TypeName(v))
 }

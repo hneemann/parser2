@@ -77,10 +77,6 @@ func (l *List) ToMap() (Map, bool) {
 	return EmptyMap, false
 }
 
-func (l *List) ToInt() (int, bool) {
-	return 0, false
-}
-
 func (l *List) ToFloat() (float64, bool) {
 	return 0, false
 }
@@ -654,12 +650,12 @@ func (l *List) Combine3(sta funcGen.Stack[Value]) (*List, error) {
 }
 
 func (l *List) CombineN(sta funcGen.Stack[Value]) (*List, error) {
-	if n, ok := sta.Get(1).ToInt(); ok {
+	if n, ok := sta.Get(1).(Int); ok {
 		f, err := ToFunc("combineN", sta, 2, 1)
 		if err != nil {
 			return nil, err
 		}
-		return NewListFromIterable(iterator.CombineN[Value, Value](l.iterable, n, func(st funcGen.Stack[Value], i0 int, i []Value) (Value, error) {
+		return NewListFromIterable(iterator.CombineN[Value, Value](l.iterable, int(n), func(st funcGen.Stack[Value], i0 int, i []Value) (Value, error) {
 			st.Push(NewList(i...))
 			return f.Func(st.CreateFrame(1), nil)
 		})), nil
@@ -815,15 +811,15 @@ func (l *List) Present(st funcGen.Stack[Value]) (Value, error) {
 }
 
 func (l *List) Top(st funcGen.Stack[Value]) (*List, error) {
-	if i, ok := st.Get(1).ToInt(); ok {
-		return NewListFromIterable(iterator.FirstN[Value](l.iterable, i)), nil
+	if i, ok := st.Get(1).(Int); ok {
+		return NewListFromIterable(iterator.FirstN[Value](l.iterable, int(i))), nil
 	}
 	return nil, errors.New("error in top, no int given")
 }
 
 func (l *List) Skip(st funcGen.Stack[Value]) (*List, error) {
-	if i, ok := st.Get(1).ToInt(); ok {
-		return NewListFromIterable(iterator.Skip[Value](l.iterable, i)), nil
+	if i, ok := st.Get(1).(Int); ok {
+		return NewListFromIterable(iterator.Skip[Value](l.iterable, int(i))), nil
 	}
 	return nil, errors.New("error in skip, no int given")
 }
@@ -1114,8 +1110,8 @@ func (l *List) GroupByInt(st funcGen.Stack[Value]) (*List, error) {
 		if err != nil {
 			return nil, err
 		}
-		if i, ok := key.ToInt(); ok {
-			return Int(i), nil
+		if i, ok := key.(Int); ok {
+			return i, nil
 		} else {
 			return nil, errors.New("groupByInt requires an int as key")
 		}
@@ -1176,8 +1172,8 @@ func (l *List) UniqueInt(st funcGen.Stack[Value]) (*List, error) {
 		if err != nil {
 			return nil, err
 		}
-		if i, ok := key.ToInt(); ok {
-			return Int(i), nil
+		if i, ok := key.(Int); ok {
+			return i, nil
 		} else {
 			return nil, errors.New("uniqueInt requires an int as key")
 		}

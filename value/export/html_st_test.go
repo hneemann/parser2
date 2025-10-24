@@ -92,10 +92,10 @@ func TestMapStyle(t *testing.T) {
 			"table": value.NewMap(value.RealMap{
 				"all": value.Closure{
 					Func: func(st funcGen.Stack[value.Value], closureStore []value.Value) (value.Value, error) {
-						r, _ := st.Get(0).ToInt()
-						c, _ := st.Get(1).ToInt()
+						r, _ := st.Get(0).(value.Int)
+						c, _ := st.Get(1).(value.Int)
 						s, _ := st.Get(2).ToString(st)
-						return value.String(strconv.Itoa(r) + "_" + strconv.Itoa(c) + "_" + s), nil
+						return value.String(strconv.Itoa(int(r)) + "_" + strconv.Itoa(int(c)) + "_" + s), nil
 					},
 					Args:   3,
 					IsPure: true,
