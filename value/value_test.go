@@ -257,28 +257,21 @@ func TestOptimizer(t *testing.T) {
 // The power of closures and recursion.
 // Recursive implementation of the sqrt function using the Regula-Falsi algorithm.
 const regulaFalsi = `
-      func regulaFalsi(rf)
-          let xn = (rf.x0*rf.f1 - rf.x1*rf.f0) / (rf.f1 - rf.f0);
-          let fn = rf.f(xn);
+    func regulaFalsi(x0,y0,x1,y1,f)
+      let x=(x0*y1-x1*y0)/(y1-y0);
+      let y=f(x);
+      if abs(y)<1e-7 then x
+      else
+        if abs(y0)>abs(y1) then regulaFalsi(x,y,x1,y1,f)
+                           else regulaFalsi(x0,y0,x,y,f);
 
-          let next = if abs(rf.f0) > abs(rf.f1)
-                       then {x0:xn, f0:fn, x1:rf.x1, f1:rf.f1, f:rf.f}
-                       else {x0:rf.x0, f0:rf.f0, x1:xn, f1:fn, f:rf.f};
+    func solve(x0, x1, f)
+      regulaFalsi(x0,f(x0),x1,f(x1),f);
 
-          if abs(fn)<1e-7 
-            then next 
-            else regulaFalsi(next);
+    let mySqrt = a->solve(1, 2, x->x*x-a);
 
-      func solve(x0, x1, f)
-          let r = regulaFalsi({x0:x0, f0:f(x0), x1:x1, f1:f(x1), f:f});
-          if abs(r.f0)<abs(r.f1) 
-            then r.x0 
-            else r.x1;
-
-      let mySqrt = a->solve(1, 2, x->x*x-a);
-
-      mySqrt(a)
-    `
+    mySqrt(a)
+`
 
 // Recursive implementation of the sqrt function using the Newton-Raphson algorithm.
 // Since the first derivative is required, no solver for arbitrary functions can be implemented.
