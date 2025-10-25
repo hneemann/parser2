@@ -613,33 +613,6 @@ func (g *FunctionGenerator[V]) AddOpBehind(behindOperator, newOperator string, i
 	return g
 }
 
-/*
-func (g *FunctionGenerator[V]) ReplaceOp(operator string, isCommutative, isPure bool, opFactory func(OperatorImpl[V]) OperatorImpl[V]) *FunctionGenerator[V] {
-	replaceOpIndex := -1
-	for i, op := range g.operators {
-		if op.Operator == operator {
-			replaceOpIndex = i
-			break
-		}
-	}
-	if replaceOpIndex < 0 {
-		panic(fmt.Sprintf("operator %s not found", operator))
-	}
-
-	oldOp := g.operators[replaceOpIndex]
-
-	opItem := Operator[V]{
-		Operator:      operator,
-		Impl:          opFactory(oldOp.Impl),
-		IsPure:        isPure && oldOp.IsPure,
-		IsCommutative: isCommutative && oldOp.IsCommutative,
-	}
-
-	g.operators[replaceOpIndex] = opItem
-
-	return g
-}*/
-
 func (g *FunctionGenerator[V]) GetOpImpl(name string) OperatorImpl[V] {
 	for _, op := range g.operators {
 		if op.Operator == name {
