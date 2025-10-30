@@ -390,6 +390,8 @@ func (t *Tokenizer) peek(skipComment bool) rune {
 		t.last = '/'
 	case '–':
 		t.last = '-'
+	case 'ˆ':
+		t.last = '^'
 	}
 
 	t.isLast = true
