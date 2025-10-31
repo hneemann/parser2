@@ -30,7 +30,13 @@ func Equal(fg *FunctionGenerator) OperationMatrix {
 	})
 	deepEqual := &operationMatrixDeepEqual{equal: m, ef: func(st funcGen.Stack[Value], a, b Value) (bool, error) {
 		eq, err := m.Calc(st, a, b)
-		return bool(eq.(Bool)), err
+		if err != nil {
+			return false, err
+		}
+		if b, ok := eq.(Bool); ok {
+			return bool(b), err
+		}
+		return false, fmt.Errorf("%v is not a bool", eq)
 	}}
 
 	ef := func(st funcGen.Stack[Value], a, b Value) (bool, error) {
@@ -85,11 +91,16 @@ func Less(fg *FunctionGenerator) OperationMatrix {
 		return Bool(a.(Float) < Float(b.(Int))), nil
 	})
 
-	eq := func(st funcGen.Stack[Value], a, b Value) (bool, error) {
-		eq, err := m.Calc(st, a, b)
-		return bool(eq.(Bool)), err
+	fg.less = func(st funcGen.Stack[Value], a, b Value) (bool, error) {
+		le, err := m.Calc(st, a, b)
+		if err != nil {
+			return false, err
+		}
+		if b, ok := le.(Bool); ok {
+			return bool(b), err
+		}
+		return false, fmt.Errorf("%v is not a bool", le)
 	}
-	fg.less = eq
 	return m
 }
 
