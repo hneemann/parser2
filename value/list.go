@@ -331,33 +331,33 @@ func (l *List) Map(sta funcGen.Stack[Value]) (*List, error) {
 
 }
 
-func (l *List) Compact(fg *FunctionGenerator, sta funcGen.Stack[Value]) (*List, error) {
+func (l *List) Compact(sta funcGen.Stack[Value]) (*List, error) {
 	f, err := ToFunc("compact", sta, 1, 2)
 	if err != nil {
 		return nil, err
 	}
 
 	return NewListFromIterable(func(st funcGen.Stack[Value], yield iterator.Consumer[Value]) error {
-		var last Value
+		var lastPublished Value
 		err := l.iterable(st, func(v Value) error {
-			if last == nil {
-				last = v
-				return yield(v)
+			if lastPublished == nil {
+				lastPublished = v
+				return yield(lastPublished)
 			}
 
-			eq, err := f.EvalSt(st, last, v)
+			eq, err := f.EvalSt(st, lastPublished, v)
 			if err != nil {
 				return err
 			}
 			if b, ok := eq.(Bool); ok {
-				last = v
 				if !b {
-					return yield(v)
+					lastPublished = v
+					return yield(lastPublished)
 				} else {
 					return nil
 				}
 			} else {
-				return errors.New("function in compact does not return a bool")
+				return errors.New("function given to compact does not return a bool")
 			}
 		})
 		return err
@@ -1556,7 +1556,7 @@ func createListMethods(fg *FunctionGenerator) MethodMap {
 			SetMethodDescription("func(item) string", "Returns a list of unique strings returned by the given function."),
 		"uniqueInt": MethodAtType(1, func(list *List, stack funcGen.Stack[Value]) (Value, error) { return list.UniqueInt(stack) }).
 			SetMethodDescription("func(item) int", "Returns a list of unique integers returned by the given function."),
-		"compact": MethodAtType(1, func(list *List, stack funcGen.Stack[Value]) (Value, error) { return list.Compact(fg, stack) }).
+		"compact": MethodAtType(1, func(list *List, stack funcGen.Stack[Value]) (Value, error) { return list.Compact(stack) }).
 			SetMethodDescription("equal(a,b)", "Returns a new list with the items compacted. "+
 				"The given function is called for each successive pair of items in the list."+
 				"If the the function returns true, which means the items are equal, one is removed."),
