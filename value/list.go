@@ -331,25 +331,33 @@ func (l *List) Map(sta funcGen.Stack[Value]) (*List, error) {
 
 }
 
-func (l *List) Compact(fg *FunctionGenerator) (*List, error) {
+func (l *List) Compact(fg *FunctionGenerator, sta funcGen.Stack[Value]) (*List, error) {
+	f, err := ToFunc("compact", sta, 1, 2)
+	if err != nil {
+		return nil, err
+	}
+
 	return NewListFromIterable(func(st funcGen.Stack[Value], yield iterator.Consumer[Value]) error {
 		var last Value
-		fmt.Println("start")
 		err := l.iterable(st, func(v Value) error {
 			if last == nil {
 				last = v
 				return yield(v)
 			}
 
-			eq, err := fg.equal(st, last, v)
+			eq, err := f.EvalSt(st, last, v)
 			if err != nil {
 				return err
 			}
-			last = v
-			if !eq {
-				return yield(v)
+			if b, ok := eq.(Bool); ok {
+				last = v
+				if !b {
+					return yield(v)
+				} else {
+					return nil
+				}
 			} else {
-				return nil
+				return errors.New("function in compact does not return a bool")
 			}
 		})
 		return err
@@ -1548,10 +1556,10 @@ func createListMethods(fg *FunctionGenerator) MethodMap {
 			SetMethodDescription("func(item) string", "Returns a list of unique strings returned by the given function."),
 		"uniqueInt": MethodAtType(1, func(list *List, stack funcGen.Stack[Value]) (Value, error) { return list.UniqueInt(stack) }).
 			SetMethodDescription("func(item) int", "Returns a list of unique integers returned by the given function."),
-		"compact": MethodAtType(0, func(list *List, stack funcGen.Stack[Value]) (Value, error) { return list.Compact(fg) }).
-			SetMethodDescription("Returns a new list with the items compacted. " +
-				"The given function is called for each successive pair of items in the list." +
-				"If the items are equal, one is removed."),
+		"compact": MethodAtType(1, func(list *List, stack funcGen.Stack[Value]) (Value, error) { return list.Compact(fg, stack) }).
+			SetMethodDescription("equal(a,b)", "Returns a new list with the items compacted. "+
+				"The given function is called for each successive pair of items in the list."+
+				"If the the function returns true, which means the items are equal, one is removed."),
 		"cross": MethodAtType(2, func(list *List, stack funcGen.Stack[Value]) (Value, error) { return list.Cross(stack) }).
 			SetMethodDescription("other_list", "func(a,b) newItem",
 				"Returns a new list with the given function applied to each pair of items in the list and the given list. "+
