@@ -74,6 +74,9 @@ func TestParser(t *testing.T) {
 		{exp: "{a:1+1, b:2*2,}", ast: "{a:1+1, b:2*2}", opt: "{a:2, b:4}"},
 		{exp: "a.m(1+1,2+2)", ast: "a.m(1+1, 2+2)", opt: "a.m(2, 4)"},
 		{exp: "2*x³-4*x²+2*x+1", ast: "(((2*(x^3))-(4*(x^2)))+(2*x))+1", opt: "(((2*(x^3))-(4*(x^2)))+(2*x))+1"},
+		{exp: "x^3", ast: "x^3", opt: "x^3"},
+		{exp: "xˆ3", ast: "x^3", opt: "x^3"},
+		{exp: "xˆ3+xˆ2", ast: "(x^3)+(x^2)", opt: "(x^3)+(x^2)"},
 	}
 
 	for _, test := range tests {
