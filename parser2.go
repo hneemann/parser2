@@ -1296,7 +1296,7 @@ func (p *Parser[V]) parseArgs(tokenizer *Tokenizer, closeList TokenType, constan
 		return args, nil
 	}
 	for {
-		element, err := p.parseExpression(tokenizer, constants)
+		element, err := p.parseLet(tokenizer, constants)
 		if err != nil {
 			return nil, err
 		}
@@ -1328,7 +1328,7 @@ func (p *Parser[V]) parseMap(tokenizer *Tokenizer, constants Constants[V]) (*Map
 			if c := tokenizer.Next(); c.typ != tColon {
 				return nil, unexpected(":", c)
 			}
-			entryAst, err := p.parseExpression(tokenizer, constants)
+			entryAst, err := p.parseLet(tokenizer, constants)
 			if err != nil {
 				return nil, err
 			}
