@@ -657,6 +657,19 @@ func (g *FunctionGenerator[V]) AddStaticFunction(n string, f Function[V]) *Funct
 	return g
 }
 
+func (g *FunctionGenerator[V]) EnhanceStaticFunction(n string, f func(Function[V]) Function[V]) *FunctionGenerator[V] {
+	oldFunc := g.staticFunctions[n]
+	if oldFunc.Func == nil {
+		panic("static function '" + n + "'not found")
+	}
+	newFunc := f(oldFunc)
+	if newFunc.Description == nil {
+		newFunc.Description = oldFunc.Description
+	}
+	g.staticFunctions[n] = newFunc
+	return g
+}
+
 func (g *FunctionGenerator[V]) SetOptimizer(optimizer parser2.Optimizer) *FunctionGenerator[V] {
 	g.optimizer = optimizer
 	return g
