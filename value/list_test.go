@@ -48,40 +48,40 @@ func TestList(t *testing.T) {
 		// Prefix Sum
 		{exp: "[1,2,3,4,4].iir(i->i,(i,l)->i+l)", res: NewList(Int(1), Int(3), Int(6), Int(10), Int(14))},
 		// Fibonacci Sequence
-		{exp: "list(12).iir(i->[1,1],(i,l)->[l[1],l[0]+l[1]]).map(l->l[0])",
+		{exp: "numbers(12).iir(i->[1,1],(i,l)->[l[1],l[0]+l[1]]).map(l->l[0])",
 			res: NewList(Int(1), Int(1), Int(2), Int(3), Int(5), Int(8), Int(13), Int(21), Int(34), Int(55), Int(89), Int(144))},
 		// Low-pass Filter
-		{exp: "list(11).iir(i->0,(i,l)->(1024+l)>>1)",
+		{exp: "numbers(11).iir(i->0,(i,l)->(1024+l)>>1)",
 			res: NewList(Int(0), Int(512), Int(768), Int(896), Int(960), Int(992), Int(1008), Int(1016), Int(1020), Int(1022), Int(1023))},
 		// non-equidistant Low-pass Filter
 		{exp: realIir, res: Float(0.707192)},
 		{exp: realIirBuiltin, res: Float(0.707192)},
 		{exp: realIirApply, res: Float(0.707192)},
 		{exp: manualIirApply, res: Float(0.707192)},
-		{exp: "list(6).combine((a,b)->a+b)", res: NewList(Int(1), Int(3), Int(5), Int(7), Int(9))},
-		{exp: "list(6).combine3((a,b,c)->a+b+c)", res: NewList(Int(3), Int(6), Int(9), Int(12))},
-		{exp: "list(6).combineN(3,l->l[0]+l[1]+l[2])", res: NewList(Int(3), Int(6), Int(9), Int(12))},
+		{exp: "numbers(6).combine((a,b)->a+b)", res: NewList(Int(1), Int(3), Int(5), Int(7), Int(9))},
+		{exp: "numbers(6).combine3((a,b,c)->a+b+c)", res: NewList(Int(3), Int(6), Int(9), Int(12))},
+		{exp: "numbers(6).combineN(3,l->l[0]+l[1]+l[2])", res: NewList(Int(3), Int(6), Int(9), Int(12))},
 		{exp: "[1,2,3].size()", res: Int(3)},
 		{exp: "let a=[1,2].append(3);\"\"+[a.append(4), a.append(5)]", res: String("[[1, 2, 3, 4], [1, 2, 3, 5]]")},
 		{exp: "let a=[1,2].append(3);\"\"+[a.append(4), a.append(5)]", res: String("[[1, 2, 3, 4], [1, 2, 3, 5]]")},
 		{exp: "let a=[1,2].append(3);\"\"+[a.append(4), a.append(5)]", res: String("[[1, 2, 3, 4], [1, 2, 3, 5]]")},
-		{exp: "list(20).visit([],(vis,val)->vis.append(val)).string()", res: String("[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19]")},
+		{exp: "numbers(20).visit([],(vis,val)->vis.append(val)).string()", res: String("[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19]")},
 		{exp: fsm, res: String("[{start:15, end:20}, {start:35, end:40}, {start:55, end:60}, {start:75, end:80}]")},
 		{exp: fsmVisit, res: String("[{start:15, end:20}, {start:35, end:40}, {start:55, end:60}, {start:75, end:80}]")},
 		{exp: visitAndCollect, res: String("[9, 19, 29, 39, 49, 59, 69, 79, 89, 99]")},
 		{exp: accept, res: String("[9, 19, 29, 39, 49, 59, 69, 79, 89, 99]")},
-		{exp: "list(12).groupByString(i->\"n\"+round(i/4)).order(a->a.key).string()",
+		{exp: "numbers(12).groupByString(i->\"n\"+round(i/4)).order(a->a.key).string()",
 			res: String("[{key:n0, values:[0, 1]}, {key:n1, values:[2, 3, 4, 5]}, {key:n2, values:[6, 7, 8, 9]}, {key:n3, values:[10, 11]}]")},
-		{exp: "list(12).groupByInt(i->round(i/4)).order(a->a.key).string()",
+		{exp: "numbers(12).groupByInt(i->round(i/4)).order(a->a.key).string()",
 			res: String("[{key:0, values:[0, 1]}, {key:1, values:[2, 3, 4, 5]}, {key:2, values:[6, 7, 8, 9]}, {key:3, values:[10, 11]}]")},
-		{exp: "list(12).groupByEqual(i->round(i/4)).string()",
+		{exp: "numbers(12).groupByEqual(i->round(i/4)).string()",
 			res: String("[{key:0, values:[0, 1]}, {key:1, values:[2, 3, 4, 5]}, {key:2, values:[6, 7, 8, 9]}, {key:3, values:[10, 11]}]")},
-		{exp: "list(12).uniqueString(i->\"n\"+round(i/4)).order(a->a).string()", res: String("[n0, n1, n2, n3]")},
-		{exp: "list(12).uniqueInt(i->round(i/4)).order(a->a).string()", res: String("[0, 1, 2, 3]")},
-		{exp: "list(12).map(i->round(i/4)).compact((a,b)->a=b).string()", res: String("[0, 1, 2, 3]")},
-		{exp: "list(1).compact((a,b)->a=b).string()", res: String("[0]")},
+		{exp: "numbers(12).uniqueString(i->\"n\"+round(i/4)).order(a->a).string()", res: String("[n0, n1, n2, n3]")},
+		{exp: "numbers(12).uniqueInt(i->round(i/4)).order(a->a).string()", res: String("[0, 1, 2, 3]")},
+		{exp: "numbers(12).map(i->round(i/4)).compact((a,b)->a=b).string()", res: String("[0, 1, 2, 3]")},
+		{exp: "numbers(1).compact((a,b)->a=b).string()", res: String("[0]")},
 		{exp: "[].compact((a,b)->a=b).string()", res: String("[]")},
-		{exp: "string(list(3).map(i->(i+1)*10).number((n,e)->\"\"+n+\"->\"+e))", res: String("[0->10, 1->20, 2->30]")},
+		{exp: "string(numbers(3).map(i->(i+1)*10).number((n,e)->\"\"+n+\"->\"+e))", res: String("[0->10, 1->20, 2->30]")},
 		{exp: "[].reverse().string()", res: String("[]")},
 		{exp: "[1].reverse().string()", res: String("[1]")},
 		{exp: "[1,2].reverse().string()", res: String("[2, 1]")},
@@ -105,13 +105,13 @@ func TestList(t *testing.T) {
 		{exp: "[1,2,3].skip(4).string()", res: String("[]")},
 
 		{exp: "[1,2,3,4].first()", res: Int(1)},
-		{exp: "list(100).first()", res: Int(0)},
+		{exp: "numbers(100).first()", res: Int(0)},
 		{exp: "[1,2,3,4].last()", res: Int(4)},
 		{exp: "[3].single()", res: Int(3)},
-		{exp: "list(1).single()", res: Int(0)},
-		{exp: "list(10).last()", res: Int(9)},
-		{exp: "list(100000000000).present(n->n>100)", res: Bool(true)},
-		{exp: "list(10).present(n->n>100)", res: Bool(false)},
+		{exp: "numbers(1).single()", res: Int(0)},
+		{exp: "numbers(10).last()", res: Int(9)},
+		{exp: "numbers(100000000000).present(n->n>100)", res: Bool(true)},
+		{exp: "numbers(10).present(n->n>100)", res: Bool(false)},
 
 		{exp: "[1,5,3,2,4].minMax(n->n).string()", res: String("{min:1, max:5, minItem:1, maxItem:5, valid:true}")},
 		{exp: "[].minMax(n->n).string()", res: String("{min:0, max:0, minItem:0, maxItem:0, valid:false}")},
@@ -136,12 +136,12 @@ func TestList(t *testing.T) {
 
 		{exp: interpolate, res: String("[0, 0, 0.5, 1, 0.5, 0, 0]")},
 
-		{exp: `let r=list(10).linearReg(i->i,i->2*i+1); string([r.a,r.b])`, res: String("[2, 1]")},
+		{exp: `let r=numbers(10).linearReg(i->i,i->2*i+1); string([r.a,r.b])`, res: String("[2, 1]")},
 	})
 }
 
 const realIir = `
-let data=list(1000).map(i->
+let data=numbers(1000).map(i->
 	let t=i/50;
 	{t:t, s:sin(2*pi*t)});
 
@@ -158,7 +158,7 @@ let minMax=filtered.skip(100).minMax(p->p.f);
 `
 
 const realIirBuiltin = `
-let data=list(1000).map(i->
+let data=numbers(1000).map(i->
 	let t=i/50;
 	{t:t, s:sin(2*pi*t)});
 
@@ -171,7 +171,7 @@ let minMax=filtered.skip(100).minMax(p->p.f);
 `
 
 const realIirApply = `
-let data=list(1000).map(i->
+let data=numbers(1000).map(i->
 	let t=i/50;
 	{t:t, s:sin(2*pi*t)});
 
@@ -182,7 +182,7 @@ let minMax=filtered.skip(100).minMax(p->p.f);
 `
 
 const manualIirApply = `
-let data=list(1000).map(i->
+let data=numbers(1000).map(i->
 	let t=i/50;
 	{t:t, s:sin(2*pi*t)});
 
@@ -201,7 +201,7 @@ let minMax=filtered.skip(100).minMax(p->p.f);
 `
 
 const visitAndCollect = `
-  let data=list(100).map(i->if i%10=9 then i else 0);
+  let data=numbers(100).map(i->if i%10=9 then i else 0);
   
   let events=data
        .visit([],(vis,i)->if i!=0 
@@ -211,7 +211,7 @@ const visitAndCollect = `
 `
 
 const accept = `
-  let data=list(100).map(i->if i%10=9 then i else 0);
+  let data=numbers(100).map(i->if i%10=9 then i else 0);
   
   let events=data.accept(i->i!=0);
 
@@ -219,7 +219,7 @@ const accept = `
 `
 
 const fsmVisit = `
-	let data=list(100).map(i->{t:i,v:i%20});
+	let data=numbers(100).map(i->{t:i,v:i%20});
 
     const search=0;
     const inEvent=1;
@@ -238,7 +238,7 @@ const fsmVisit = `
 `
 
 const fsm = `
-	let data=list(100).map(i->{t:i,v:i%20});
+	let data=numbers(100).map(i->{t:i,v:i%20});
 
     const search=0;
     const inEvent=1;
@@ -263,7 +263,7 @@ const fsm = `
 `
 
 const movingWindow = `
-	let data=list(20).map(i->{t:i/10,v:i});
+	let data=numbers(20).map(i->{t:i/10,v:i});
 	
 	data.movingWindow(p->p.t).map(l->{t0:l[0].t,t1:l[l.size()-1].t,len:l.size()}).string()
 `
@@ -347,7 +347,7 @@ func TestListString(t *testing.T) {
 const parallel = `
     const n=5000;
     const exp=n*n*(n-1)/2;
-	let l=list(n).map(e->list(n));
+	let l=numbers(n).map(e->numbers(n));
 	
 	exp-l.map(e->e.reduce((a,b)->a+b))
      .reduce((a,b)->a+b)
@@ -364,9 +364,9 @@ func TestParallel(t *testing.T) {
 const parallelError = `
     const n=5000;
     const exp=n*n*(n-1)/2;
-	let l=list(n).map(e->if e=500
-                         then list(n).map(e->error(e))
-                         else list(n));
+	let l=numbers(n).map(e->if e=500
+                         then numbers(n).map(e->error(e))
+                         else numbers(n));
 	
 	exp-l.map(e->e.reduce((a,b)->a+b))
      .reduce((a,b)->a+b)
@@ -383,9 +383,9 @@ func TestParallelError(t *testing.T) {
 const parallelError2 = `
     const n=5000;
     const exp=n*n*(n-1)/2;
-	let l=list(n).map(e->if e>500
-                         then list(n).map(e->error(e))
-                         else list(n));
+	let l=numbers(n).map(e->if e>500
+                         then numbers(n).map(e->error(e))
+                         else numbers(n));
 	
 	exp-l.map(e->e.reduce((a,b)->a+b))
      .reduce((a,b)->a+b)

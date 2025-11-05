@@ -899,7 +899,7 @@ func New() *FunctionGenerator {
 			Args:   4,
 			IsPure: true,
 		}.SetDescription("name", "func(p) float", "func(p) float", "tau", "Returns a low pass filter creating signal [name].")).
-		AddStaticFunction("list", funcGen.Function[Value]{
+		AddStaticFunction("numbers", funcGen.Function[Value]{
 			Func: func(st funcGen.Stack[Value], cs []Value) (Value, error) {
 				v := st.Get(0)
 				if size, ok := v.(Int); ok {

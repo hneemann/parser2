@@ -6,7 +6,7 @@ import (
 )
 
 const bench1 = `
-let data=list(1000).map(i->
+let data=numbers(1000).map(i->
 	let t=i/50;
 	{t:t, s:sin(2*pi*t)});
 
@@ -14,7 +14,7 @@ data.iirApply(createLowPass("f",p->p.t,p->p.s,1/(2*pi)))
 `
 
 const bench2 = `
-let data=list(1000).map(i->
+let data=numbers(1000).map(i->
 	let t=i/50;
 	{t:t, s:sin(2*pi*t)});
 
