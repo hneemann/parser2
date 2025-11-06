@@ -4,9 +4,9 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
-	"github.com/hneemann/iterator"
 	"github.com/hneemann/parser2"
 	"github.com/hneemann/parser2/funcGen"
+	"github.com/hneemann/parser2/iterator"
 	"github.com/hneemann/parser2/listMap"
 	"sort"
 )

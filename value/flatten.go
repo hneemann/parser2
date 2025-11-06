@@ -1,8 +1,8 @@
 package value
 
 import (
-	"github.com/hneemann/iterator"
 	"github.com/hneemann/parser2/funcGen"
+	"github.com/hneemann/parser2/iterator"
 )
 
 // Flatten takes a Value and returns a function that yields all non-list, non-map Values contained within it.

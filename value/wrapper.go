@@ -5,7 +5,7 @@ import (
 )
 
 type ToMapInterface[S any] interface {
-	Create(S) Map
+	Create(S) (Map, error)
 }
 
 type funcMap[S any] map[string]func(S) Value
