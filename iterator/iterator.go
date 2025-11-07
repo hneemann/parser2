@@ -2,6 +2,8 @@ package iterator
 
 import (
 	"errors"
+	"runtime"
+	"sync"
 	"time"
 )
 
@@ -68,7 +70,7 @@ func ToChan[V any](it Producer[V]) (<-chan container[V], chan struct{}) {
 			case c <- container[V]{num: i, val: v, err: err}:
 				i++
 			case <-done:
-				return
+				break
 			}
 		}
 		close(c)
@@ -124,11 +126,41 @@ func Filter[V any](p Producer[V], accept func(v V) (bool, error)) Producer[V] {
 	}
 }
 func FilterParallel[V any](p Producer[V], acceptFac func() func(v V) (bool, error)) Producer[V] {
-	return Filter(p, acceptFac())
+	if runtime.NumCPU() == 1 {
+		return Filter(p, acceptFac())
+	}
+
+	type filterContainer[V any] struct {
+		val    V
+		accept bool
+	}
+
+	return func(yield Consumer[V]) {
+		m := MapParallel(p, func() func(i int, val V) (filterContainer[V], error) {
+			accept := acceptFac()
+			return func(i int, val V) (filterContainer[V], error) {
+				b, err := accept(val)
+				if err != nil {
+					return filterContainer[V]{}, err
+				}
+				return filterContainer[V]{val, b}, nil
+			}
+		})
+		for fc, err := range m {
+			if fc.accept || err != nil {
+				if !yield(fc.val, err) {
+					return
+				}
+			}
+		}
+	}
 }
 
 func FilterAuto[V any](p Producer[V], acceptFac func() func(v V) (bool, error)) Producer[V] {
-	return Filter(p, acceptFac())
+	if runtime.NumCPU() == 1 {
+		return Filter(p, acceptFac())
+	}
+	return FilterParallel(p, acceptFac)
 }
 
 const (
@@ -153,12 +185,87 @@ func Map[I, O any](p Producer[I], mapper func(i int, v I) (O, error)) Producer[O
 	}
 }
 
-func MapAuto[I, O any](p Producer[I], mapperFac func() func(i int, v I) (O, error)) Producer[O] {
-	return Map(p, mapperFac())
+func MapParallel[I, O any](p Producer[I], mapperFac func() func(i int, v I) (O, error)) Producer[O] {
+	if runtime.NumCPU() == 1 {
+		return Map(p, mapperFac())
+	}
+
+	return func(yield Consumer[O]) {
+		c, done := ToChan(p)
+		doneOpen := true
+		result := make(chan container[O])
+		wg := sync.WaitGroup{}
+		for range runtime.NumCPU() {
+			wg.Add(1)
+			mf := mapperFac()
+			go func() {
+				for item := range c {
+					var o O
+					var err error
+					if item.err != nil {
+						err = item.err
+					} else {
+						o, err = mf(item.num, item.val)
+					}
+					result <- container[O]{num: item.num, val: o, err: err}
+				}
+				wg.Done()
+			}()
+		}
+
+		go func() {
+			wg.Wait()
+			close(result)
+		}()
+
+		var err error
+		nextOut := 0
+		buffer := make(map[int]container[O])
+		for r := range result {
+			if r.err != nil && err == nil {
+				if doneOpen {
+					doneOpen = false
+					close(done)
+				}
+				err = r.err
+			}
+			if r.num == nextOut {
+				if !yield(r.val, err) {
+					if doneOpen {
+						doneOpen = false
+						close(done)
+					}
+					return
+				}
+				nextOut++
+				for {
+					if b, ok := buffer[nextOut]; ok {
+						if !yield(b.val, b.err) {
+							if doneOpen {
+								doneOpen = false
+								close(done)
+							}
+							return
+						}
+						delete(buffer, nextOut)
+						nextOut++
+					} else {
+						break
+					}
+				}
+			} else {
+				buffer[r.num] = r
+			}
+		}
+	}
 }
 
-func MapParallel[I, O any](p Producer[I], mapperFac func() func(i int, v I) (O, error)) Producer[O] {
-	return Map(p, mapperFac())
+func MapAuto[I, O any](p Producer[I], mapperFac func() func(i int, v I) (O, error)) Producer[O] {
+	if runtime.NumCPU() == 1 {
+		return Map(p, mapperFac())
+	}
+
+	return MapParallel(p, mapperFac)
 }
 
 func Cross[I1, I2, O any](i1 Producer[I1], i2 Producer[I2], crossFunc func(i1 I1, i2 I2) (O, error)) Producer[O] {
