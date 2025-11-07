@@ -20,6 +20,37 @@ func Single[V any](v V) Producer[V] {
 	}
 }
 
+// Slice create an Iterable from a slice
+func Slice[V any](items []V) Producer[V] {
+	return func(yield Consumer[V]) {
+		for _, i := range items {
+			if !yield(i, nil) {
+				return
+			}
+		}
+	}
+}
+
+func First[V any](it Producer[V]) (V, error) {
+	for v, err := range it {
+		return v, err
+	}
+	var v V
+	return v, errors.New("empty iterator")
+}
+
+// ToSlice reads all items from the Producer and stores them in a slice.
+func ToSlice[V any](it Producer[V]) ([]V, error) {
+	var sl []V
+	for v, err := range it {
+		if err != nil {
+			return sl, err
+		}
+		sl = append(sl, v)
+	}
+	return sl, nil
+}
+
 type container[V any] struct {
 	num int
 	val V
@@ -45,13 +76,44 @@ func ToChan[V any](it Producer[V]) (<-chan container[V], chan struct{}) {
 	return c, done
 }
 
-func FilterAuto[V any](p Producer[V], acceptFac func() func(v V) (bool, error)) Producer[V] {
+// Equals checks if the two Iterators are equal.
+func Equals[V any](i1, i2 Producer[V], equals func(V, V) (bool, error)) (bool, error) {
+	ch1, done1 := ToChan(i1)
+	ch2, done2 := ToChan(i2)
+	defer func() {
+		close(done1)
+		close(done2)
+	}()
+
+	for {
+		c1, ok1 := <-ch1
+		c2, ok2 := <-ch2
+		if ok1 && ok2 {
+			if c1.err != nil {
+				return false, c1.err
+			}
+			if c2.err != nil {
+				return false, c2.err
+			}
+			eq, err := equals(c1.val, c2.val)
+			if err != nil {
+				return false, err
+			}
+			if !eq {
+				return false, nil
+			}
+		} else {
+			return ok1 == ok2, nil
+		}
+	}
+}
+
+func Filter[V any](p Producer[V], accept func(v V) (bool, error)) Producer[V] {
 	return func(yield Consumer[V]) {
-		accFunc := acceptFac()
 		for i, err := range p {
 			acc := true
 			if err == nil {
-				acc, err = accFunc(i)
+				acc, err = accept(i)
 			}
 			if acc || err != nil {
 				if !yield(i, err) {
@@ -61,10 +123,22 @@ func FilterAuto[V any](p Producer[V], acceptFac func() func(v V) (bool, error)) 
 		}
 	}
 }
+func FilterParallel[V any](p Producer[V], acceptFac func() func(v V) (bool, error)) Producer[V] {
+	return Filter(p, acceptFac())
+}
 
-func MapAuto[I, O any](p Producer[I], mapperFac func() func(i int, v I) (O, error)) Producer[O] {
+func FilterAuto[V any](p Producer[V], acceptFac func() func(v V) (bool, error)) Producer[V] {
+	return Filter(p, acceptFac())
+}
+
+const (
+	itemProcessingTimeMicroSec = 200
+	itemsToMeasure             = 11
+)
+
+// Map maps the elements to new element created by the given mapFunc function
+func Map[I, O any](p Producer[I], mapper func(i int, v I) (O, error)) Producer[O] {
 	return func(yield Consumer[O]) {
-		mapper := mapperFac()
 		i := 0
 		for item, err := range p {
 			var o O
@@ -77,6 +151,14 @@ func MapAuto[I, O any](p Producer[I], mapperFac func() func(i int, v I) (O, erro
 			i++
 		}
 	}
+}
+
+func MapAuto[I, O any](p Producer[I], mapperFac func() func(i int, v I) (O, error)) Producer[O] {
+	return Map(p, mapperFac())
+}
+
+func MapParallel[I, O any](p Producer[I], mapperFac func() func(i int, v I) (O, error)) Producer[O] {
+	return Map(p, mapperFac())
 }
 
 func Cross[I1, I2, O any](i1 Producer[I1], i2 Producer[I2], crossFunc func(i1 I1, i2 I2) (O, error)) Producer[O] {
@@ -95,6 +177,124 @@ func Cross[I1, I2, O any](i1 Producer[I1], i2 Producer[I2], crossFunc func(i1 I1
 				if !yield(o, err) {
 					return
 				}
+			}
+		}
+	}
+}
+
+// Compact returns an iterable which contains no consecutive duplicates.
+func Compact[V, M any](items Producer[V], convert func(V) (M, error), equal func(M, M) (bool, error)) Producer[V] {
+	return func(yield Consumer[V]) {
+		isLast := false
+		var last M
+		for v, err := range items {
+			var val M
+			if err == nil {
+				val, err = convert(v)
+			}
+			if isLast && err == nil {
+				eq := false
+				eq, err = equal(last, val)
+				if !eq {
+					if !yield(v, err) {
+						return
+					}
+				}
+			} else {
+				isLast = true
+				if !yield(v, err) {
+					return
+				}
+			}
+			last = val
+		}
+	}
+}
+
+// Group returns an iterable which contains iterables of equal values
+func Group[V any](items Producer[V], equal func(V, V) (bool, error)) Producer[Producer[V]] {
+	return func(yield Consumer[Producer[V]]) {
+		var list []V
+		for v, err := range items {
+			if len(list) > 0 || err != nil {
+				eq := false
+				if err == nil {
+					eq, err = equal(list[len(list)-1], v)
+				}
+				if eq {
+					list = append(list, v)
+				} else {
+					if !yield(Slice[V](list), err) {
+						return
+					}
+					list = []V{v}
+				}
+			} else {
+				list = []V{v}
+			}
+		}
+		if len(list) > 0 {
+			yield(Slice[V](list), nil)
+		}
+	}
+}
+
+// Thinning returns an iterable which skips a certain amount of elements
+// from the parent iterable. If skip is set to 1, every second element is skipped.
+// The first and the last item are always returned.
+func Thinning[V any](items Producer[V], n int) Producer[V] {
+	return func(yield Consumer[V]) {
+		i := 0
+		var skipped V
+		for v, err := range items {
+			if i == 0 || err != nil {
+				i = n
+				if !yield(v, err) {
+					return
+				}
+			} else {
+				skipped = v
+				i--
+			}
+		}
+		if i < n {
+			yield(skipped, nil)
+		}
+	}
+}
+
+func MergeElements[I1, I2, O any](it1 Producer[I1], it2 Producer[I2], combine func(i1 I1, i2 I2) (O, error)) Producer[O] {
+	return func(yield Consumer[O]) {
+		aMain, aStop := ToChan(it1)
+		bMain, bStop := ToChan(it2)
+		defer func() {
+			close(aStop)
+			close(bStop)
+		}()
+		for {
+			a, aOk := <-aMain
+			b, bOk := <-bMain
+
+			if aOk && bOk {
+				var err error
+				if a.err != nil {
+					err = a.err
+				} else if b.err != nil {
+					err = b.err
+				}
+				var o O
+				if err == nil {
+					o, err = combine(a.val, b.val)
+				}
+				if !yield(o, err) {
+					return
+				}
+			} else if aOk || bOk {
+				var o O
+				yield(o, errors.New("iterables in mergeElements dont have the same size"))
+				return
+			} else {
+				return
 			}
 		}
 	}
@@ -167,7 +367,7 @@ func Merge[V any](ai, bi Producer[V], less func(V, V) (bool, error)) Producer[V]
 
 func copyValues[V any](main <-chan container[V], yield Consumer[V]) {
 	for c := range main {
-		if yield(c.val, c.err) {
+		if !yield(c.val, c.err) {
 			return
 		}
 	}
@@ -346,6 +546,11 @@ func Reduce[V any](it Producer[V], reduceFunc func(V, V) (V, error)) (V, error) 
 	return sum, nil
 }
 
+// ReduceParallel reduces the items of the iterable to a single value by calling the reduce function.
+func ReduceParallel[V any](it Producer[V], reduceFac func() func(V, V) (V, error)) (V, error) {
+	return Reduce(it, reduceFac())
+}
+
 // MapReduce combines a map and reduce step in one go.
 // Avoids generating intermediate map results.
 // Instead of map(n->n^2).reduce((a,b)->a+b) one
@@ -432,7 +637,7 @@ func CopyProducer[V any](num int) ([]Producer[V], func(in Producer[V]) error, fu
 	}
 	errorTerm := make(chan struct{})
 	errorTermOpen := true
-	ack := make(chan error)
+	ack := make(chan error, num)
 	run := func(in Producer[V]) error {
 	outer:
 		for v, err := range in {
