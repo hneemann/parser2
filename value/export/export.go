@@ -44,11 +44,14 @@ func Export[V any](st funcGen.Stack[value.Value], val value.Value, exporter Expo
 		if err != nil {
 			return err
 		}
-		err = v.Iterate(st, func(e value.Value) error {
-			return le.Add(e)
-		})
-		if err != nil {
-			return err
+		for e, err := range v.Iterate(st) {
+			if err != nil {
+				return err
+			}
+			err = le.Add(e)
+			if err != nil {
+				return err
+			}
 		}
 		return le.Close()
 	case value.Map:

@@ -53,16 +53,16 @@ var list2 = getList(bench2)
 
 func Benchmark_filter1(b *testing.B) {
 	for i := 0; i < b.N; i++ {
-		list1.Iterate(funcGen.NewEmptyStack[Value](), func(v Value) error {
-			return nil
+		list1.Iterate(funcGen.NewEmptyStack[Value]())(func(v Value, err error) bool {
+			return true
 		})
 	}
 }
 
 func Benchmark_filter2(b *testing.B) {
 	for i := 0; i < b.N; i++ {
-		list2.Iterate(funcGen.NewEmptyStack[Value](), func(v Value) error {
-			return nil
+		list2.Iterate(funcGen.NewEmptyStack[Value]())(func(v Value, err error) bool {
+			return true
 		})
 	}
 }

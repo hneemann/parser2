@@ -96,15 +96,15 @@ func (o optimizer[V]) Optimize(ast parser2.AST) (parser2.AST, error) {
 	if o.g.mapHandler != nil {
 		if m, ok := ast.(*parser2.MapLiteral); ok {
 			cm := listMap.New[V](len(m.Map))
-			if m.Map.Iter(func(key string, value parser2.AST) bool {
+			for key, value := range m.Map.Iter {
 				if v, ok := o.isConst(value); ok {
 					cm = cm.Append(key, v)
 				} else {
 					cm = nil
-					return false
+					break
 				}
-				return true
-			}) {
+			}
+			if cm != nil {
 				return &parser2.Const[V]{o.g.mapHandler.FromMap(cm), m.Line}, nil
 			}
 		}

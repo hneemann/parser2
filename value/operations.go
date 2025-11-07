@@ -139,7 +139,10 @@ func Add(fg *FunctionGenerator) OperationMatrix {
 		return a.(Float) + Float(b.(Int)), nil
 	})
 	m.Register(ListTypeId, ListTypeId, func(st funcGen.Stack[Value], a, b Value) (Value, error) {
-		return NewListFromIterable(iterator.Append(a.(*List).iterable, b.(*List).iterable)), nil
+		return NewListFromIterable(
+			func(st funcGen.Stack[Value]) iterator.Producer[Value] {
+				return iterator.Append(a.(*List).iterable(st), b.(*List).iterable(st))
+			}), nil
 	})
 	m.Register(MapTypeId, MapTypeId, func(st funcGen.Stack[Value], a, b Value) (Value, error) {
 		return a.(Map).Merge(b.(Map))

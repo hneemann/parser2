@@ -903,7 +903,10 @@ func New() *FunctionGenerator {
 			Func: func(st funcGen.Stack[Value], cs []Value) (Value, error) {
 				v := st.Get(0)
 				if size, ok := v.(Int); ok {
-					return NewListFromSizedIterable(iterator.Generate[Value, funcGen.Stack[Value]](int(size), func(i int) (Value, error) { return Int(i), nil }), int(size)), nil
+					return NewListFromSizedIterable(
+						func(st funcGen.Stack[Value]) iterator.Producer[Value] {
+							return iterator.Generate[Value](int(size), func(i int) (Value, error) { return Int(i), nil })
+						}, int(size)), nil
 				}
 				return nil, fmt.Errorf("list not alowed on %s", TypeName(v))
 			},

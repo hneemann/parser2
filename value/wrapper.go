@@ -23,8 +23,8 @@ func (wt *ToMap[S]) Attr(name string, val func(S) Value) *ToMap[S] {
 	return wt
 }
 
-func (wt *ToMap[S]) Create(container S) Map {
-	return Map{toMapWrapper[S]{container: container, attr: wt.attr}}
+func (wt *ToMap[S]) Create(container S) (Map, error) {
+	return Map{toMapWrapper[S]{container: container, attr: wt.attr}}, nil
 }
 
 type toMapWrapper[S any] struct {
@@ -40,13 +40,12 @@ func (w toMapWrapper[S]) Get(key string) (Value, bool) {
 	return nil, false
 }
 
-func (w toMapWrapper[S]) Iter(yield func(string, Value) bool) bool {
+func (w toMapWrapper[S]) Iter(yield func(string, Value) bool) {
 	for k, f := range w.attr {
 		if !yield(k, f(w.container)) {
-			return false
+			return
 		}
 	}
-	return true
 }
 
 func (w toMapWrapper[S]) Size() int {
@@ -57,8 +56,8 @@ type ToMapReflection[S any] struct {
 	ToMap[reflect.Value]
 }
 
-func (wt *ToMapReflection[S]) Create(s S) Map {
-	return Map{toMapWrapper[reflect.Value]{container: reflect.ValueOf(s), attr: wt.attr}}
+func (wt *ToMapReflection[S]) Create(s S) (Map, error) {
+	return Map{toMapWrapper[reflect.Value]{container: reflect.ValueOf(s), attr: wt.attr}}, nil
 }
 
 func NewToMapReflection[S any]() ToMapInterface[S] {

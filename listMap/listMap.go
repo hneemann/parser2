@@ -37,13 +37,12 @@ func (l ListMap[V]) Append(key string, v V) ListMap[V] {
 	return append(l, listMapEntry[V]{key: key, value: v})
 }
 
-func (l ListMap[V]) Iter(yield func(key string, v V) bool) bool {
+func (l ListMap[V]) Iter(yield func(key string, v V) bool) {
 	for _, e := range l {
 		if !yield(e.key, e.value) {
-			return false
+			return
 		}
 	}
-	return true
 }
 
 func (l ListMap[V]) Size() int {

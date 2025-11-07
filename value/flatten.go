@@ -2,7 +2,6 @@ package value
 
 import (
 	"github.com/hneemann/parser2/funcGen"
-	"github.com/hneemann/parser2/iterator"
 )
 
 // Flatten takes a Value and returns a function that yields all non-list, non-map Values contained within it.
@@ -12,7 +11,7 @@ import (
 // The yield function should return true to continue yielding values or false to stop.
 func Flatten(v Value) func(yield func(v Value, err error) bool) {
 	return func(yield func(v Value, err error) bool) {
-		flatten(v, yield)
+		flatten(v, nil, yield)
 	}
 }
 
@@ -22,34 +21,29 @@ func Flatten(v Value) func(yield func(v Value, err error) bool) {
 func FlattenStack(st funcGen.Stack[Value], start int) func(yield func(v Value, err error) bool) {
 	return func(yield func(v Value, err error) bool) {
 		for i := start; i < st.Size(); i++ {
-			if !flatten(st.Get(i), yield) {
+			if !flatten(st.Get(i), nil, yield) {
 				return
 			}
 		}
 	}
 }
 
-func flatten(v Value, yield func(v Value, err error) bool) bool {
-	if list, ok := v.ToList(); ok {
-		err := list.Iterate(funcGen.NewEmptyStack[Value](), func(v Value) error {
-			if !flatten(v, yield) {
-				return iterator.SBC
+func flatten(v Value, err error, yield func(v Value, err error) bool) bool {
+	if list, ok := v.ToList(); ok && err == nil {
+		for v, err := range list.Iterate(funcGen.NewEmptyStack[Value]()) {
+			if !flatten(v, err, yield) {
+				return false
 			}
-			return nil
-		})
-		if err == iterator.SBC {
-			return false
-		}
-		if err != nil {
-			yield(nil, err)
-			return false
 		}
 		return true
-	} else if m, ok := v.ToMap(); ok {
-		return m.Iter(func(key string, value Value) bool {
-			return flatten(value, yield)
-		})
+	} else if m, ok := v.ToMap(); ok && err == nil {
+		for _, value := range m.Iter {
+			if !flatten(value, nil, yield) {
+				return false
+			}
+		}
+		return true
 	} else {
-		return yield(v, nil)
+		return yield(v, err)
 	}
 }

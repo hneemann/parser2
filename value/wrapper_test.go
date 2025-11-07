@@ -29,7 +29,8 @@ func TestToMap(t *testing.T) {
 	}
 
 	// create a map from the struct
-	m := testStructToMap.Create(ts)
+	m, err := testStructToMap.Create(ts)
+	assert.NoError(t, err)
 
 	// test the map
 	assert.Equal(t, 3, m.Size())
@@ -68,7 +69,8 @@ func TestNewReflection(t *testing.T) {
 		MyFloat:  1.1,
 	}
 
-	v := m.Create(data)
+	v, err := m.Create(data)
+	assert.NoError(t, err)
 	assert.Equal(t, 4, v.Size())
 	{
 		val, ok := v.Get("MyInt8")
@@ -102,7 +104,7 @@ func Benchmark(b *testing.B) {
 	}
 
 	type creator interface {
-		Create(dataType) Map
+		Create(dataType) (Map, error)
 	}
 
 	benchmarks := []struct {
@@ -123,7 +125,8 @@ func Benchmark(b *testing.B) {
 	}
 	for _, bm := range benchmarks {
 		b.Run(bm.name, func(b *testing.B) {
-			m := bm.toMap.Create(data)
+			m, err := bm.toMap.Create(data)
+			assert.NoError(b, err)
 			for i := 0; i < b.N; i++ {
 				for i := 0; i < 100; i++ {
 					m.Get("MyInt")

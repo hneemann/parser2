@@ -138,20 +138,19 @@ func Binning(l *List, st funcGen.Stack[Value]) (Value, error) {
 	}
 
 	b := newBinning(start, size, int(count))
-	err = l.Iterate(st, func(v Value) error {
-		ind, err2 := MustFloat(indFunc.Eval(st, v))
-		if err2 != nil {
-			return err2
+	for v, err := range l.Iterate(st) {
+		if err != nil {
+			return nil, err
 		}
-		val, err2 := MustFloat(valFunc.Eval(st, v))
-		if err2 != nil {
-			return err2
+		ind, err := MustFloat(indFunc.Eval(st, v))
+		if err != nil {
+			return nil, err
+		}
+		val, err := MustFloat(valFunc.Eval(st, v))
+		if err != nil {
+			return nil, err
 		}
 		b.Add(ind, val)
-		return nil
-	})
-	if err != nil {
-		return nil, err
 	}
 	var vals []Value
 	var desc []Value
@@ -206,24 +205,23 @@ func Binning2d(l *List, st funcGen.Stack[Value]) (Value, error) {
 	}
 
 	b := New2d(xStart, xSize, int(xCount), yStart, ySize, int(yCount))
-	err = l.Iterate(st, func(v Value) error {
-		xInd, err2 := MustFloat(xIndFunc.Eval(st, v))
-		if err2 != nil {
-			return err2
+	for v, err := range l.Iterate(st) {
+		if err != nil {
+			return nil, err
 		}
-		yInd, err2 := MustFloat(yIndFunc.Eval(st, v))
-		if err2 != nil {
-			return err2
+		xInd, err := MustFloat(xIndFunc.Eval(st, v))
+		if err != nil {
+			return nil, err
 		}
-		toSum, err2 := MustFloat(toSumFunc.Eval(st, v))
-		if err2 != nil {
-			return err2
+		yInd, err := MustFloat(yIndFunc.Eval(st, v))
+		if err != nil {
+			return nil, err
+		}
+		toSum, err := MustFloat(toSumFunc.Eval(st, v))
+		if err != nil {
+			return nil, err
 		}
 		b.Add(xInd, yInd, toSum)
-		return nil
-	})
-	if err != nil {
-		return nil, err
 	}
 	var vals []Value
 	b.Result(func(xd bin, y func(func(float64) bool) bool) bool {
@@ -261,21 +259,20 @@ func (b bin) Get(key string) (Value, bool) {
 	}
 }
 
-func (b bin) Iter(yield func(string, Value) bool) bool {
+func (b bin) Iter(yield func(string, Value) bool) {
 	if !yield(binStr, String(b.String())) {
-		return false
+		return
 	}
 	if b.IsMin {
 		if !yield(binMin, Float(b.Min)) {
-			return false
+			return
 		}
 	}
 	if b.IsMax {
 		if !yield(binMax, Float(b.Max)) {
-			return false
+			return
 		}
 	}
-	return true
 }
 
 func (b bin) Size() int {
@@ -353,10 +350,10 @@ func (c *collectBinning1d) add(st funcGen.Stack[Value], m Map) error {
 				c.vals[i] += fl
 			}
 		} else {
-			errors.New("CollectBinning: item map does not contain values as list")
+			return errors.New("CollectBinning: item map does not contain values as list")
 		}
 	} else {
-		errors.New("CollectBinning: item map does not contain values")
+		return errors.New("CollectBinning: item map does not contain values")
 	}
 	return nil
 }
@@ -387,7 +384,7 @@ func (c *collectBinning2d) add(st funcGen.Stack[Value], m Map) error {
 				c.xd = make([]Value, len(entries))
 			} else {
 				if len(c.vals) != len(entries) {
-					errors.New("CollectBinning: not all value lists have the same size")
+					return errors.New("CollectBinning: not all value lists have the same size")
 				}
 			}
 			for i, e := range entries {
@@ -405,7 +402,7 @@ func (c *collectBinning2d) add(st funcGen.Stack[Value], m Map) error {
 								}
 							} else {
 								if len(c.vals[i]) != len(ro) {
-									errors.New("row len does not match")
+									return errors.New("row len does not match")
 								}
 							}
 							for j, e := range ro {
@@ -416,20 +413,20 @@ func (c *collectBinning2d) add(st funcGen.Stack[Value], m Map) error {
 								c.vals[i][j] += float
 							}
 						} else {
-							errors.New("row is not a list")
+							return errors.New("row is not a list")
 						}
 					} else {
-						errors.New("no row found")
+						return errors.New("no row found")
 					}
 				} else {
-					errors.New("entry is not a map")
+					return errors.New("entry is not a map")
 				}
 			}
 		} else {
-			errors.New("CollectBinning: item map does not contain values as list")
+			return errors.New("CollectBinning: item map does not contain values as list")
 		}
 	} else {
-		errors.New("CollectBinning: item map does not contain values")
+		return errors.New("CollectBinning: item map does not contain values")
 	}
 	return nil
 }
@@ -449,22 +446,24 @@ func (c *collectBinning2d) result() Value {
 
 func CollectBinning(l *List, st funcGen.Stack[Value]) (Value, error) {
 	var bc binningCollector
-	err := l.Iterate(st, func(v Value) error {
+	for v, err := range l.Iterate(st) {
+		if err != nil {
+			return nil, err
+		}
 		if m, ok := v.ToMap(); ok {
 			if bc == nil {
 				bc = detectBinning(m)
 				if bc == nil {
-					return errors.New("invalid binning type")
+					return nil, errors.New("invalid binning type")
 				}
 			}
-			bc.add(st, m)
+			err = bc.add(st, m)
+			if err != nil {
+				return nil, err
+			}
 		} else {
-			return errors.New("CollectBinning: item is not a map")
+			return nil, errors.New("CollectBinning: item is not a map")
 		}
-		return nil
-	})
-	if err != nil {
-		return nil, err
 	}
 	if bc == nil {
 		return nil, errors.New("collectBinning: no items")

@@ -1,7 +1,6 @@
 package export
 
 import (
-	"github.com/hneemann/iterator"
 	"github.com/hneemann/parser2/funcGen"
 	"github.com/hneemann/parser2/value"
 	"io"
@@ -54,16 +53,22 @@ func (e *textExporter) toText(st funcGen.Stack[value.Value], v value.Value) erro
 		e.newLine()
 		e.inc()
 		so := sepOut{e: e}
-		err := t.Iterate(st, func(v value.Value) error {
-			return so.out(v, st)
-		})
-		err = so.finish(st, err)
+		for v, err := range t.Iterate(st) {
+			if err != nil {
+				return err
+			}
+			err = so.out(v, st)
+			if err != nil {
+				return err
+			}
+		}
+		err := so.finish(st)
+		if err != nil {
+			return err
+		}
 		e.dec()
 		e.write("]")
-		if err == iterator.SBC {
-			return nil
-		}
-		return err
+		return nil
 	case value.Map:
 		var keys []string
 		t.Iter(func(k string, v value.Value) bool {
@@ -121,16 +126,13 @@ func (so *sepOut) out(v value.Value, st funcGen.Stack[value.Value]) error {
 	}
 }
 
-func (so *sepOut) finish(st funcGen.Stack[value.Value], err error) error {
-	if err != nil && err != iterator.SBC {
-		return err
-	}
+func (so *sepOut) finish(st funcGen.Stack[value.Value]) error {
 	if so.last != nil {
 		err := so.e.toText(st, so.last)
 		so.e.newLine()
 		return err
 	}
-	return err
+	return nil
 }
 
 func (e *textExporter) sepOut(v value.Value, last value.Value, st funcGen.Stack[value.Value]) error {

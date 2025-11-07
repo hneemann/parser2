@@ -6,7 +6,6 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
-	"github.com/hneemann/iterator"
 	"github.com/hneemann/parser2"
 	"github.com/hneemann/parser2/funcGen"
 	"github.com/hneemann/parser2/value"
@@ -175,21 +174,21 @@ func AddZipHelpers(f *value.FunctionGenerator) {
 				if list, ok := st.Get(1).ToList(); ok {
 					var buffer bytes.Buffer
 					zip := zip.NewWriter(&buffer)
-					err := list.Iterate(st, func(v value.Value) error {
+					for v, err := range list.Iterate(st) {
+						if err != nil {
+							return nil, err
+						}
 						if f, ok := v.(File); ok {
 							w, err := zip.Create(f.Name)
 							if err != nil {
-								return err
+								return nil, err
 							}
 							_, err = w.Write(f.Data)
-							return err
+						} else {
+							return nil, errors.New("zipFiles requires a list of files")
 						}
-						return errors.New("zipFiles requires a list of files")
-					})
-					if err != nil {
-						return nil, err
 					}
-					err = zip.Close()
+					err := zip.Close()
 					if err != nil {
 						return nil, err
 					}
@@ -318,29 +317,36 @@ func (ex *htmlExporter) toHtml(st funcGen.Stack[value.Value], v, style value.Val
 		ex.w.Close()
 	case *value.List:
 		if hasKey(style, "plainList") {
-			return t.Iterate(st, func(v value.Value) error {
-				return ex.toHtml(st, v, nil)
-			})
+			for v, err := range t.Iterate(st) {
+				if err != nil {
+					return err
+				}
+				err = ex.toHtml(st, v, nil)
+				if err != nil {
+					return err
+				}
+			}
 		} else {
 			var le listExporter
-			err := t.Iterate(st, func(v value.Value) error {
+			for v, err := range t.Iterate(st) {
+				if err != nil {
+					return err
+				}
 				if le == nil {
 					le = ex.createListExporter(st, v)
 					le.open(style)
 				}
 				ok, err := le.add(v)
-				if !ok && err == nil {
-					return iterator.SBC
+				if err != nil {
+					return err
 				}
-				return err
-			})
+				if !ok {
+					break
+				}
+			}
 			if le != nil {
 				le.close()
 			}
-			if err == iterator.SBC {
-				return nil
-			}
-			return err
 		}
 	case value.Map:
 		ex.openWithStyle("table", style)
@@ -664,24 +670,22 @@ func (t *tableExporter) add(val value.Value) (bool, error) {
 	t.ex.w.Open("tr")
 	if t.row <= t.ex.maxListSize {
 		col := 0
-		err := toList(val).Iterate(t.st, func(item value.Value) error {
+		for item, err := range toList(val).Iterate(t.st) {
+			if err != nil {
+				return false, err
+			}
 			col++
 			if col <= t.ex.maxListSize {
 				err := t.ex.toTD(t.st, t.format(t.row, col, item))
 				if err != nil {
-					return err
+					return false, err
 				}
 			} else {
 				t.ex.w.Open("td").Write("more...").Close()
 			}
-			if col <= t.ex.maxListSize {
-				return nil
-			} else {
-				return iterator.SBC
+			if col > t.ex.maxListSize {
+				break
 			}
-		})
-		if err != nil && err != iterator.SBC {
-			return false, err
 		}
 	} else {
 		t.ex.w.Open("td").Write("more...").Close()
@@ -757,5 +761,5 @@ func toList(r value.Value) *value.List {
 	if l, ok := r.(*value.List); ok {
 		return l
 	}
-	return value.NewListFromIterable(iterator.Single[value.Value, funcGen.Stack[value.Value]](r))
+	return value.NewList(r)
 }

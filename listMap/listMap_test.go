@@ -47,11 +47,9 @@ func TestIter(t *testing.T) {
 	assert.Equal(t, 3, m.Size())
 
 	var sum int
-	ret := m.Iter(func(key string, v int) bool {
+	for _, v := range m.Iter {
 		sum += v
-		return true
-	})
-	assert.True(t, ret)
+	}
 	assert.Equal(t, 6, sum)
 }
 
@@ -64,10 +62,9 @@ func TestIterBreak(t *testing.T) {
 	assert.Equal(t, 3, m.Size())
 
 	var sum int
-	ret := m.Iter(func(key string, v int) bool {
+	for _, v := range m.Iter {
 		sum += v
-		return false
-	})
-	assert.False(t, ret)
+		break
+	}
 	assert.Equal(t, 1, sum)
 }

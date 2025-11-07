@@ -277,23 +277,23 @@ const interpolate = `
 func TestNewListCreate(t *testing.T) {
 	type testCase[I any] struct {
 		name  string
-		conv  func(I) Value
+		conv  func(I) (Value, error)
 		items []I
 		want  []Value
 	}
 	tests := []testCase[int]{
 		{
 			name: "empty",
-			conv: func(i int) Value {
-				return Float(i)
+			conv: func(i int) (Value, error) {
+				return Float(i), nil
 			},
 			items: []int{},
 			want:  nil,
 		},
 		{
 			name: "some",
-			conv: func(i int) Value {
-				return Float(i)
+			conv: func(i int) (Value, error) {
+				return Float(i), nil
 			},
 			items: []int{1, 2, 3, 4},
 			want:  []Value{Float(1), Float(2), Float(3), Float(4)},
@@ -335,8 +335,8 @@ func TestListString(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := NewListConvert(func(i int) Value {
-				return Int(i)
+			got := NewListConvert(func(i int) (Value, error) {
+				return Int(i), nil
 			}, tt.items)
 			assert.Equal(t, tt.want, got.String())
 		})

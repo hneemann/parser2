@@ -16,7 +16,7 @@ type MapStorage interface {
 	//Get returns the value for the given key and true if the key is present
 	Get(key string) (Value, bool)
 	//Iter iterates over the map
-	Iter(yield func(key string, v Value) bool) bool
+	Iter(yield func(key string, v Value) bool)
 	//Size returns the number of entries in the map
 	Size() int
 }
@@ -45,17 +45,16 @@ func (f funcMapType[V]) Get(key string) (Value, bool) {
 	return f.mff.fMap(f.value, key)
 }
 
-func (f funcMapType[V]) Iter(yield func(key string, v Value) bool) bool {
+func (f funcMapType[V]) Iter(yield func(key string, v Value) bool) {
 	for _, k := range f.mff.keys {
 		v, ok := f.mff.fMap(f.value, k)
 		if !ok {
 			continue
 		}
 		if !yield(k, v) {
-			return false
+			return
 		}
 	}
-	return true
 }
 
 func (f funcMapType[V]) Size() int {
@@ -69,8 +68,7 @@ func (e emptyMapStorage) Get(string) (Value, bool) {
 	return Int(0), false
 }
 
-func (e emptyMapStorage) Iter(func(key string, v Value) bool) bool {
-	return true
+func (e emptyMapStorage) Iter(func(key string, v Value) bool) {
 }
 
 func (e emptyMapStorage) Size() int {
@@ -87,13 +85,12 @@ func (s RealMap) Get(key string) (Value, bool) {
 	return v, ok
 }
 
-func (s RealMap) Iter(yield func(key string, v Value) bool) bool {
+func (s RealMap) Iter(yield func(key string, v Value) bool) {
 	for k, v := range s {
 		if !yield(k, v) {
-			return false
+			return
 		}
 	}
-	return true
 }
 
 func (s RealMap) Size() int {
@@ -114,8 +111,8 @@ func (v Map) Storage() MapStorage {
 	return v.m
 }
 
-func (v Map) Iter(yield func(key string, v Value) bool) bool {
-	return v.m.Iter(yield)
+func (v Map) Iter(yield func(key string, v Value) bool) {
+	v.m.Iter(yield)
 }
 
 func (v Map) ToList() (*List, bool) {
@@ -259,22 +256,18 @@ func (v Map) ReplaceMap(st funcGen.Stack[Value]) (Value, error) {
 }
 
 func (v Map) List() *List {
-	return NewListFromIterable(func(st funcGen.Stack[Value], yield iterator.Consumer[Value]) error {
-		var err error
-		v.m.Iter(func(key string, v Value) bool {
-			err = yield(NewMap(listMap.New[Value](2).
-				Append("key", String(key)).
-				Append("value", v)))
-			if err != nil {
-				return false
+	return NewListFromIterable(
+		func(st funcGen.Stack[Value]) iterator.Producer[Value] {
+			return func(yield iterator.Consumer[Value]) {
+				for key, v := range v.m.Iter {
+					if !yield(NewMap(listMap.New[Value](2).
+						Append("key", String(key)).
+						Append("value", v)), nil) {
+						return
+					}
+				}
 			}
-			return true
 		})
-		if err != nil && err != iterator.SBC {
-			return err
-		}
-		return nil
-	})
 }
 
 func (v Map) Get(key string) (Value, bool) {
@@ -329,11 +322,11 @@ func (a AppendMap) Get(key string) (Value, bool) {
 	}
 }
 
-func (a AppendMap) Iter(yield func(key string, v Value) bool) bool {
+func (a AppendMap) Iter(yield func(key string, v Value) bool) {
 	if !yield(a.key, a.value) {
-		return false
+		return
 	} else {
-		return a.parent.Iter(yield)
+		a.parent.Iter(yield)
 	}
 }
 
@@ -367,11 +360,17 @@ func (m MergeMap) Get(key string) (Value, bool) {
 	return m.b.Get(key)
 }
 
-func (m MergeMap) Iter(yield func(key string, v Value) bool) bool {
-	if m.a.Iter(yield) {
-		return m.b.Iter(yield)
+func (m MergeMap) Iter(yield func(key string, v Value) bool) {
+	for key, value := range m.a.Iter {
+		if !yield(key, value) {
+			return
+		}
 	}
-	return true
+	for key, value := range m.b.Iter {
+		if !yield(key, value) {
+			return
+		}
+	}
 }
 
 func (m MergeMap) Size() int {
@@ -390,14 +389,13 @@ func (m ReplaceMap) Get(key string) (Value, bool) {
 	return m.orig.Get(key)
 }
 
-func (m ReplaceMap) Iter(yield func(key string, v Value) bool) bool {
+func (m ReplaceMap) Iter(yield func(key string, v Value) bool) {
 	m.orig.Iter(func(key string, v Value) bool {
 		if rep, ok := m.rep.Get(key); ok {
 			return yield(key, rep)
 		}
 		return yield(key, v)
 	})
-	return true
 }
 
 func (m ReplaceMap) Size() int {

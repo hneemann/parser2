@@ -21,40 +21,33 @@ import (
 func (l *List) MultiUse(st funcGen.Stack[Value]) (Map, error) {
 	if m, ok := st.Get(1).ToMap(); ok {
 		var muList multiUseList
-		var innerErr error
-		m.Iter(func(key string, value Value) bool {
+		for key, value := range m.Iter {
 			if f, ok := value.(Closure); ok {
 				if f.Args == 1 {
 					muList = append(muList, &multiUseEntry{name: key, fu: f.Func})
 				} else {
-					innerErr = errors.New("map in multiUse needs to contain functions with one argument")
-					return false
+					return Map{}, errors.New("map in multiUse needs to contain functions with one argument")
 				}
 			} else {
-				innerErr = errors.New("map in multiUse need to contain functions")
-				return false
+				return Map{}, errors.New("map in multiUse need to contain functions")
 			}
-			return true
-		})
-		if innerErr != nil {
-			return EmptyMap, innerErr
+		}
+		if len(muList) < 1 {
+			return Map{}, errors.New("map in multiUse needs to contain at leat two functions")
 		}
 
-		prList, run, done := iterator.CopyProducer(l.iterable, len(muList))
+		prList, run, done := iterator.CopyProducer[Value](len(muList))
 		for i, mu := range muList {
 			pr := prList[i]
-			mu := mu
-			go func() {
-				done(mu.runConsumer(pr))
-			}()
+			go mu.runConsumer(pr, done)
 		}
-		err := run(st)
+		err := run(l.iterable(st))
 
 		if err != nil {
 			return EmptyMap, err
 		}
 
-		return muList.createResult(), nil
+		return muList.createResult()
 	} else {
 		return EmptyMap, errors.New("first argument in multiUse needs to be a map")
 	}
@@ -72,34 +65,47 @@ type multiUseList []*multiUseEntry
 // the closure panics, the panic is recovered and also sent to the result
 // channel. if the closure returns a list, the list is evaluated before it is
 // sent to the result channel.
-func (mu *multiUseEntry) runConsumer(itera iterator.Producer[Value, funcGen.Stack[Value]]) error {
+func (mu *multiUseEntry) runConsumer(itera iterator.Producer[Value], done func(error)) {
 	st := funcGen.NewEmptyStack[Value]()
-	st.Push(NewListFromIterable(itera))
+	used := false
+	var innerErr error
+	st.Push(NewListFromIterable(func(st funcGen.Stack[Value]) iterator.Producer[Value] {
+		if used {
+			innerErr = errors.New("copied iterator a can only be used once")
+			return iterator.Empty[Value]()
+		}
+		used = true
+		return itera
+	}))
 	value, err := mu.fu(st, nil)
+	if innerErr != nil {
+		done(innerErr)
+		return
+	}
 	if err != nil {
-		return err
+		done(err)
+		return
 	}
 
 	// Force evaluation of lists. Lazy evaluation is not possible here because it is
 	// not possible to iterate over a list at any time. Iteration is only possible
 	// synchronously with all iterators at the same time.
 	err = deepEvalLists(st, value)
-	if err != nil {
-		return err
-	}
-
 	mu.result = value
-	return nil
+	done(err)
 }
 
 // createResult creates the result map. If the source iterator panics, the panic
 // is rethrown. If one of the closures panics, the panic is recovered and also
 // rethrown. This method needs to be called in the main thread. It is the only
 // part that does not run in its own goroutine.
-func (ml multiUseList) createResult() Map {
+func (ml multiUseList) createResult() (Map, error) {
 	resultMap := listMap.New[Value](len(ml))
 	for _, mu := range ml {
+		if mu.result == nil {
+			return Map{}, errors.New("internal multiuse error: nil result")
+		}
 		resultMap = resultMap.Append(mu.name, mu.result)
 	}
-	return NewMap(resultMap)
+	return NewMap(resultMap), nil
 }
