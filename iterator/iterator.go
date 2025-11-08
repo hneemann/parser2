@@ -125,14 +125,15 @@ func Filter[V any](p Producer[V], accept func(v V) (bool, error)) Producer[V] {
 		}
 	}
 }
+
+type filterContainer[V any] struct {
+	val    V
+	accept bool
+}
+
 func FilterParallel[V any](p Producer[V], acceptFac func() func(v V) (bool, error)) Producer[V] {
 	if runtime.NumCPU() == 1 {
 		return Filter(p, acceptFac())
-	}
-
-	type filterContainer[V any] struct {
-		val    V
-		accept bool
 	}
 
 	return func(yield Consumer[V]) {
@@ -160,7 +161,26 @@ func FilterAuto[V any](p Producer[V], acceptFac func() func(v V) (bool, error)) 
 	if runtime.NumCPU() == 1 {
 		return Filter(p, acceptFac())
 	}
-	return FilterParallel(p, acceptFac)
+
+	return func(yield Consumer[V]) {
+		m := MapAuto(p, func() func(i int, val V) (filterContainer[V], error) {
+			accept := acceptFac()
+			return func(i int, val V) (filterContainer[V], error) {
+				b, err := accept(val)
+				if err != nil {
+					return filterContainer[V]{}, err
+				}
+				return filterContainer[V]{val, b}, nil
+			}
+		})
+		for fc, err := range m {
+			if fc.accept || err != nil {
+				if !yield(fc.val, err) {
+					return
+				}
+			}
+		}
+	}
 }
 
 const (
@@ -201,10 +221,8 @@ func MapParallel[I, O any](p Producer[I], mapperFac func() func(i int, v I) (O, 
 			go func() {
 				for item := range c {
 					var o O
-					var err error
-					if item.err != nil {
-						err = item.err
-					} else {
+					err := item.err
+					if err == nil {
 						o, err = mf(item.num, item.val)
 					}
 					result <- container[O]{num: item.num, val: o, err: err}
@@ -265,7 +283,124 @@ func MapAuto[I, O any](p Producer[I], mapperFac func() func(i int, v I) (O, erro
 		return Map(p, mapperFac())
 	}
 
-	return MapParallel(p, mapperFac)
+	mapper := mapperFac()
+	return func(yield Consumer[O]) {
+		var start time.Time
+		var para chan struct{}
+		var source chan container[I]
+		var done chan struct{}
+		i := 0
+	outer:
+		for item, err := range p {
+			var o O
+			if i == 1 {
+				start = time.Now()
+			} else if i == itemsToMeasure+1 {
+				durationPerMap := time.Now().Sub(start) / itemsToMeasure
+				if durationPerMap.Microseconds() > itemProcessingTimeMicroSec {
+					source = make(chan container[I])
+					done = make(chan struct{})
+					para = initParallel[I, O](i, yield, source, mapperFac, done)
+				}
+			}
+			if para != nil {
+				select {
+				case source <- container[I]{
+					num: i,
+					val: item,
+					err: err,
+				}:
+				case <-done:
+					break outer
+				}
+			} else {
+				if err == nil {
+					o, err = mapper(i, item)
+				}
+				if !yield(o, err) {
+					return
+				}
+			}
+			i++
+		}
+		if para != nil {
+			close(source)
+			<-para
+		}
+	}
+}
+
+func initParallel[I, O any](i int, yield Consumer[O], source chan container[I], mapperFac func() func(i int, v I) (O, error), done chan struct{}) chan struct{} {
+	result := make(chan container[O])
+	wg := sync.WaitGroup{}
+	num := runtime.NumCPU()
+	for range num {
+		wg.Add(1)
+		mapper := mapperFac()
+		go func() {
+			for item := range source {
+				var o O
+				err := item.err
+				if err == nil {
+					o, err = mapper(item.num, item.val)
+				}
+				result <- container[O]{num: item.num, val: o, err: err}
+			}
+			wg.Done()
+		}()
+	}
+
+	go func() {
+		wg.Wait()
+		close(result)
+	}()
+
+	ready := make(chan struct{})
+	go func() {
+		defer close(ready)
+		var err error
+		nextOut := i
+		doneOpen := true
+		buffer := make(map[int]container[O])
+		for r := range result {
+			if r.err != nil && err == nil {
+				if doneOpen {
+					doneOpen = false
+					close(done)
+				}
+				err = r.err
+			}
+			if r.num == nextOut {
+				if !yield(r.val, err) {
+					if doneOpen {
+						doneOpen = false
+						close(done)
+					}
+					return
+				}
+				nextOut++
+				for {
+					if b, ok := buffer[nextOut]; ok {
+						if !yield(b.val, b.err) {
+							if doneOpen {
+								doneOpen = false
+								close(done)
+							}
+							return
+						}
+						delete(buffer, nextOut)
+						nextOut++
+					} else {
+						break
+					}
+				}
+			} else {
+				buffer[r.num] = r
+			}
+		}
+	}()
+
+	return ready
 }
 
 func Cross[I1, I2, O any](i1 Producer[I1], i2 Producer[I2], crossFunc func(i1 I1, i2 I2) (O, error)) Producer[O] {

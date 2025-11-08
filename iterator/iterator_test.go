@@ -489,7 +489,34 @@ func TestParallelMapPanic2(t *testing.T) {
 	assert.Equal(t, "test", err.Error())
 }
 
-func TestAutoMap(t *testing.T) {
+func TestAutoMapFast(t *testing.T) {
+	all := Generate[int](100000, func(n int) (int, error) { return n + 1, nil })
+
+	start := time.Now()
+	r1, _ := Reduce[int](MapAuto[int, int](all, func() func(n, v int) (int, error) {
+		return func(n, v int) (int, error) {
+			return v, nil
+		}
+	}), func(a int, b int) (int, error) {
+		return a + b, nil
+	})
+	t1 := time.Now().Sub(start)
+
+	start = time.Now()
+	r2, _ := Reduce[int](Map[int, int](all, func(n, v int) (int, error) {
+		return v, nil
+	}), func(a int, b int) (int, error) {
+		return a + b, nil
+	})
+	t2 := time.Now().Sub(start)
+
+	assert.EqualValues(t, r1, r2)
+	fmt.Println("time auto map", t1)
+	fmt.Println("time simple map", t2)
+	assert.True(t, t1 < t2*2, "auto map to slow with no load")
+}
+
+func TestAutoMapSlow(t *testing.T) {
 	const count = itemsToMeasure * 50
 	const delay = time.Millisecond * 10
 	all := Generate[int](count, func(n int) (int, error) { return n + 1, nil })
@@ -517,7 +544,7 @@ func TestAutoMap(t *testing.T) {
 	fmt.Println("single core:", worstTime)
 	fmt.Println("expected", expectedTime)
 	fmt.Println("measured:", measuredTime)
-	assert.True(t, measuredTime < (expectedTime+worstTime)/2, "to slow")
+	assert.True(t, measuredTime < (expectedTime+worstTime)/2, "auto map to slow with heavy load")
 
 	ints = MapAuto[int, mapResult](all, func() func(n, v int) (mapResult, error) {
 		return func(n, v int) (mapResult, error) {
