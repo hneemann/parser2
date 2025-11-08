@@ -7,22 +7,29 @@ import (
 	"time"
 )
 
+// Consumer consumes a value and an error that might
+// occur creating the value.
 type Consumer[V any] func(V, error) bool
 
+// Producer produces elements of type V
+// The Producer calls the Consumer for each item produced.
+// If the production fails, an error is passed to the consumer.
 type Producer[V any] func(Consumer[V])
 
+// Empty produces no elements
 func Empty[V any]() Producer[V] {
 	return func(yield Consumer[V]) {
 	}
 }
 
+// Single creates an Iterable that contains a single value
 func Single[V any](v V) Producer[V] {
 	return func(yield Consumer[V]) {
 		yield(v, nil)
 	}
 }
 
-// Slice create an Iterable from a slice
+// Slice creates an Iterable from a slice
 func Slice[V any](items []V) Producer[V] {
 	return func(yield Consumer[V]) {
 		for _, i := range items {
@@ -33,6 +40,8 @@ func Slice[V any](items []V) Producer[V] {
 	}
 }
 
+// First returns the first item from the Producer.
+// If the Producer contains no items, an error is returned.
 func First[V any](it Producer[V]) (V, error) {
 	for v, err := range it {
 		return v, err
@@ -41,7 +50,7 @@ func First[V any](it Producer[V]) (V, error) {
 	return v, errors.New("empty iterator")
 }
 
-// ToSlice reads all items from the Producer and stores them in a slice.
+// ToSlice returns all elements from the Producer as a slice.
 func ToSlice[V any](it Producer[V]) ([]V, error) {
 	var sl []V
 	for v, err := range it {
@@ -60,6 +69,7 @@ type container[V any] struct {
 }
 
 // ToChan writes elements to a channel
+// The returned done channel can be closed to stop the creation of new elements.
 func ToChan[V any](it Producer[V]) (<-chan container[V], chan struct{}) {
 	c := make(chan container[V])
 	done := make(chan struct{})
@@ -78,7 +88,9 @@ func ToChan[V any](it Producer[V]) (<-chan container[V], chan struct{}) {
 	return c, done
 }
 
-// Equals checks if the two Iterators are equal.
+// Equals compares two Producers for equality.
+// The equals function is used to compare two values of type V.
+// If the Producers have different lengths, false is returned.
 func Equals[V any](i1, i2 Producer[V], equals func(V, V) (bool, error)) (bool, error) {
 	ch1, done1 := ToChan(i1)
 	ch2, done2 := ToChan(i2)
@@ -110,6 +122,8 @@ func Equals[V any](i1, i2 Producer[V], equals func(V, V) (bool, error)) (bool, e
 	}
 }
 
+// Filter filters the elements of the given Producer
+// The accept function is called for each element.
 func Filter[V any](p Producer[V], accept func(v V) (bool, error)) Producer[V] {
 	return func(yield Consumer[V]) {
 		for i, err := range p {
@@ -131,6 +145,8 @@ type filterContainer[V any] struct {
 	accept bool
 }
 
+// FilterParallel filters the elements of the given Producer in parallel
+// The acceptFac function is called to create an accept function for each parallel worker.
 func FilterParallel[V any](p Producer[V], acceptFac func() func(v V) (bool, error)) Producer[V] {
 	if runtime.NumCPU() == 1 {
 		return Filter(p, acceptFac())
@@ -157,6 +173,11 @@ func FilterParallel[V any](p Producer[V], acceptFac func() func(v V) (bool, erro
 	}
 }
 
+// FilterAuto filters the elements of the given Producer in parallel.
+// The acceptFac function is called to create an accept function for each parallel worker.
+// The function decides automatically whether to use parallel processing or not by
+// measuring the processing time of the first elements. If the processing time per
+// item is above a certain threshold, parallel processing is used.
 func FilterAuto[V any](p Producer[V], acceptFac func() func(v V) (bool, error)) Producer[V] {
 	if runtime.NumCPU() == 1 {
 		return Filter(p, acceptFac())
@@ -205,6 +226,8 @@ func Map[I, O any](p Producer[I], mapper func(i int, v I) (O, error)) Producer[O
 	}
 }
 
+// MapParallel maps the elements to new element created by q function in parallel.
+// The mapperFac function is used to create a new mapper function for each parallel worker.
 func MapParallel[I, O any](p Producer[I], mapperFac func() func(i int, v I) (O, error)) Producer[O] {
 	if runtime.NumCPU() == 1 {
 		return Map(p, mapperFac())
@@ -278,6 +301,11 @@ func MapParallel[I, O any](p Producer[I], mapperFac func() func(i int, v I) (O, 
 	}
 }
 
+// MapAuto maps the elements to new element created by q function in parallel.
+// The mapperFac function is used to create a new mapper function for each parallel worker.
+// The function decides automatically whether to use parallel processing or not by
+// measuring the processing time of the first elements. If the processing time per
+// item is above a certain threshold, parallel processing is used.
 func MapAuto[I, O any](p Producer[I], mapperFac func() func(i int, v I) (O, error)) Producer[O] {
 	if runtime.NumCPU() == 1 {
 		return Map(p, mapperFac())
@@ -403,6 +431,9 @@ func initParallel[I, O any](i int, yield Consumer[O], source chan container[I], 
 	return ready
 }
 
+// Cross creates the cross product of two iterables.
+// The crossFunc is used to create a new element from
+// each combination of elements from the two input iterables.
 func Cross[I1, I2, O any](i1 Producer[I1], i2 Producer[I2], crossFunc func(i1 I1, i2 I2) (O, error)) Producer[O] {
 	return func(yield Consumer[O]) {
 		var o O
@@ -425,26 +456,22 @@ func Cross[I1, I2, O any](i1 Producer[I1], i2 Producer[I2], crossFunc func(i1 I1
 }
 
 // Compact returns an iterable which contains no consecutive duplicates.
-func Compact[V, M any](items Producer[V], convert func(V) (M, error), equal func(M, M) (bool, error)) Producer[V] {
+func Compact[V any](items Producer[V], equal func(V, V) (bool, error)) Producer[V] {
 	return func(yield Consumer[V]) {
 		isLast := false
-		var last M
-		for v, err := range items {
-			var val M
-			if err == nil {
-				val, err = convert(v)
-			}
+		var last V
+		for val, err := range items {
 			if isLast && err == nil {
 				eq := false
 				eq, err = equal(last, val)
 				if !eq {
-					if !yield(v, err) {
+					if !yield(val, err) {
 						return
 					}
 				}
 			} else {
 				isLast = true
-				if !yield(v, err) {
+				if !yield(val, err) {
 					return
 				}
 			}
@@ -505,6 +532,11 @@ func Thinning[V any](items Producer[V], n int) Producer[V] {
 	}
 }
 
+// MergeElements merges two iterables element by element.
+// The combine function is used to create a new element from
+// each pair of elements from the two input iterables.
+// If the iterables have different lengths, an error is sent to
+// the consumer.
 func MergeElements[I1, I2, O any](it1 Producer[I1], it2 Producer[I2], combine func(i1 I1, i2 I2) (O, error)) Producer[O] {
 	return func(yield Consumer[O]) {
 		aMain, aStop := ToChan(it1)
@@ -615,6 +647,8 @@ func copyValues[V any](main <-chan container[V], yield Consumer[V]) {
 	}
 }
 
+// Combine maps two consecutive elements to a new element.
+// The generated iterable has one element less than the original iterable.
 func Combine[I, O any](p Producer[I], combine func(I, I) (O, error)) Producer[O] {
 	return func(yield Consumer[O]) {
 		isValue := false
@@ -641,6 +675,8 @@ func Combine[I, O any](p Producer[I], combine func(I, I) (O, error)) Producer[O]
 	}
 }
 
+// Combine3 maps three consecutive elements to a new element.
+// The generated iterable has two elements less than the original iterable.
 func Combine3[I, O any](p Producer[I], combine func(I, I, I) (O, error)) Producer[O] {
 	return func(yield Consumer[O]) {
 		valuesPresent := 0
@@ -838,7 +874,13 @@ func Generate[V any](n int, gen func(i int) (V, error)) Producer[V] {
 }
 
 // CopyProducer copies the initial producer into num identical producers.
-// The returned producers can be used in parallel to process the input in.
+// The returned producers can be used in parallel to process the input.
+// This is useful if it is expensive for the producer to create the elements
+// and there are a lot of elements to process, so that storing all elements in memory
+// is not an option.
+// The returned run function needs to be called with the original producer to start
+// the process. The returned done function needs to be called with the error
+// status of each copied producer when it is done processing.
 //
 // The return values are:
 //
