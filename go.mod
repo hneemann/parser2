@@ -1,8 +1,9 @@
 module github.com/hneemann/parser2
 
-go 1.25
+go 1.25.0
 
 require (
+	github.com/hneemann/iterator v0.0.0-20251109063853-cd388faef942
 	github.com/stretchr/testify v1.8.4
 )
 

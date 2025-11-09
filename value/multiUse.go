@@ -2,8 +2,8 @@ package value
 
 import (
 	"errors"
+	"github.com/hneemann/iterator"
 	"github.com/hneemann/parser2/funcGen"
-	"github.com/hneemann/parser2/iterator"
 	"github.com/hneemann/parser2/listMap"
 )
 
