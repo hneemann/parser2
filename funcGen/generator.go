@@ -1461,7 +1461,7 @@ func (g *FunctionGenerator[V]) GetStaticDocumentation() TypeDocumentation {
 		return l[i].Name < l[j].Name
 	})
 	return TypeDocumentation{
-		Name:        "static",
+		Name:        "global",
 		Description: "Functions",
 		Functions:   l,
 	}
