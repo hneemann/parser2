@@ -221,8 +221,8 @@ const accept = `
 const fsmVisit = `
 	let data=numbers(100).map(i->{t:i,v:i%20});
 
-    const search=0;
-    const inEvent=1;
+    let search=0;
+    let inEvent=1;
 	func fsm(vis, p)
 		if vis.state=search
         then
@@ -240,9 +240,9 @@ const fsmVisit = `
 const fsm = `
 	let data=numbers(100).map(i->{t:i,v:i%20});
 
-    const search=0;
-    const inEvent=1;
-    const found=2;
+    let search=0;
+    let inEvent=1;
+    let found=2;
 	func fsm(s, p)
    		switch s.state
 		case search:
@@ -345,8 +345,8 @@ func TestListString(t *testing.T) {
 }
 
 const parallel = `
-    const n=5000;
-    const expected=n*n*(n-1)/2;
+    let n=5000;
+    let expected=n*n*(n-1)/2;
 	let l=numbers(n).map(e->numbers(n));
 	
 	expected-l.map(e->e.reduce((a,b)->a+b))
@@ -362,8 +362,8 @@ func TestParallel(t *testing.T) {
 }
 
 const parallelError = `
-    const n=5000;
-    const expected=n*n*(n-1)/2;
+    let n=5000;
+    let expected=n*n*(n-1)/2;
 	let l=numbers(n).map(e->if e=500
                          then numbers(n).map(e->error(e))
                          else numbers(n));
@@ -381,8 +381,8 @@ func TestParallelError(t *testing.T) {
 }
 
 const parallelError2 = `
-    const n=5000;
-    const expected=n*n*(n-1)/2;
+    let n=5000;
+    let expected=n*n*(n-1)/2;
 	let l=numbers(n).map(e->if e>500
                          then numbers(n).map(e->error(e))
                          else numbers(n));

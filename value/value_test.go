@@ -109,7 +109,7 @@ func TestBasic(t *testing.T) {
 		{exp: "if 1>2 then 1 else 2", res: Int(2)},
 		{exp: "let a=2; if 1<a then 1 else 2", res: Int(1)},
 		{exp: "let a=2; if 1>a then 1 else 2", res: Int(2)},
-		{exp: "const a=2;const b=3; a*b", res: Int(6)},
+		{exp: "let a=2;let b=3; a*b", res: Int(6)},
 		{exp: "func g(a) switch a case 0:\"Test\" case 1:\"Hello\" default \"World\"; [g(0),g(1),g(100)]", res: NewList(String("Test"), String("Hello"), String("World"))},
 		{exp: "func g(a) switch true case a=0:\"Test\" case a=1:\"Hello\" default \"World\"; [g(0),g(1),g(100)]", res: NewList(String("Test"), String("Hello"), String("World"))},
 		{exp: "binOr(1,2)", res: Int(3)},
@@ -221,7 +221,7 @@ func TestOptimizer(t *testing.T) {
 		{exp: "2^3", res: Float(8)},
 		{exp: "(1<2) & (2<3)", res: Bool(true)},
 		{exp: "-2/(-1)", res: Float(2)},
-		{exp: "const a=sqrt(2);const b=a*a; b", res: Float(2)},
+		{exp: "let a=sqrt(2);let b=a*a; b", res: Float(2)},
 	}
 
 	valueParser := New()

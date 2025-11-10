@@ -935,41 +935,7 @@ func (c Identifiers[V]) Contains(name string) bool {
 func (p *Parser[V]) parseLet(tokenizer *Tokenizer, idents Identifiers[V]) (AST, error) {
 	t := tokenizer.Peek()
 	if t.typ == tKeyWord {
-		if t.image == "const" {
-			tokenizer.Next()
-			t = tokenizer.Next()
-			if t.typ != tIdent {
-				return nil, t.Errorf("no identifier followed by const")
-			}
-			name := t.image
-
-			if idents.Contains(name) {
-				return nil, t.Line.Errorf("const redeclares '%s'", name)
-			}
-
-			if t := tokenizer.Next(); t.typ != tOperate || t.image != "=" {
-				return nil, unexpected("=", t)
-			}
-			exp, err := p.parseExpression(tokenizer, idents)
-			if err != nil {
-				return nil, err
-			}
-			if t := tokenizer.Next(); t.typ != tSemicolon || t.image != ";" {
-				return nil, unexpected(";", t)
-			}
-			if p.optimizer != nil {
-				exp, err = Optimize(exp, p.optimizer)
-				if err != nil {
-					return nil, t.EnhanceErrorf(err, "error optimizing a constant")
-				}
-			}
-			if c, ok := exp.(*Const[V]); ok {
-				idents = idents.AddConst(name, c.Value)
-			} else {
-				return nil, t.Errorf("not a constant")
-			}
-			return p.parseLet(tokenizer, idents)
-		} else if t.image == "let" {
+		if t.image == "let" {
 			tokenizer.Next()
 			t = tokenizer.Next()
 			if t.typ != tIdent {
@@ -992,6 +958,18 @@ func (p *Parser[V]) parseLet(tokenizer *Tokenizer, idents Identifiers[V]) (AST, 
 			if t := tokenizer.Next(); t.typ != tSemicolon || t.image != ";" {
 				return nil, unexpected(";", t)
 			}
+
+			if p.optimizer != nil {
+				exp, err = Optimize(exp, p.optimizer)
+				if err != nil {
+					return nil, t.EnhanceErrorf(err, "error optimizing a constant")
+				}
+			}
+
+			if c, ok := exp.(*Const[V]); ok {
+				return p.parseLet(tokenizer, idents.AddConst(name, c.Value))
+			}
+
 			inner, err := p.parseLet(tokenizer, idents.Add(name))
 			if err != nil {
 				return nil, err

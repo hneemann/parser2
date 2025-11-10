@@ -169,7 +169,7 @@ func TestFunctionGenerator_Generate(t *testing.T) {
 		{
 			args:     []string{"a"},
 			argsVals: []Value{Float(3)},
-			exp:      "const c=3; a*(-c)",
+			exp:      "let c=3; a*(-c)",
 			result:   -9,
 		},
 		{

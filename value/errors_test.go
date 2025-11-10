@@ -32,7 +32,6 @@ func TestErrors(t *testing.T) {
 		err string
 	}{
 		{"let a=2;let a=3;a", "let redeclares 'a'"},
-		{"const a=2;const a=3;a", "const redeclares 'a'"},
 		{"func f(a) let a=2;a;f(1)", "let redeclares 'a'"},
 		{"notFound(a)", "identifier 'notFound' not found"},
 		{"let a=1;notFound(a)", "identifier 'notFound' not found"},
