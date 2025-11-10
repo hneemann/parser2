@@ -827,13 +827,6 @@ func (g *FunctionGenerator[V]) CreateAst(exp string, idents parser2.Identifiers[
 	if err != nil {
 		return nil, fmt.Errorf("error parsing expression: %w", err)
 	}
-
-	if g.optimizer != nil {
-		ast, err = parser2.Optimize(ast, g.optimizer)
-		if err != nil {
-			return nil, err
-		}
-	}
 	return ast, nil
 }
 

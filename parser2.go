@@ -111,7 +111,7 @@ func AnyToError(e any) error {
 
 // Optimize uses the given optimizer to optimize the given AST.
 // If no optimization is possible, the given AST is returned unchanged.
-func Optimize(ast AST, optimizer Optimizer) (astRet AST, errRet error) {
+func optimize(ast AST, optimizer Optimizer) (astRet AST, errRet error) {
 	defer func() {
 		if rec := recover(); rec != nil {
 			log.Print("panic in optimizer: ", rec)
@@ -225,10 +225,12 @@ func opt(a *AST, optimizer Optimizer) error {
 }
 
 func (l *Let) Optimize(optimizer Optimizer) error {
-	err := opt(&l.Value, optimizer)
-	if err != nil {
-		return err
-	}
+	// Value is already optimized!
+	// Not needed to optimize again.
+	//err := opt(&l.Value, optimizer)
+	//if err != nil {
+	//	return err
+	//}
 	return opt(&l.Inner, optimizer)
 }
 
@@ -836,6 +838,13 @@ func (p *Parser[V]) Parse(str string, idents Identifiers[V]) (ast AST, err error
 		return nil, unexpected("EOF", t)
 	}
 
+	if p.optimizer != nil {
+		ast, err = optimize(ast, p.optimizer)
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	return ast, nil
 }
 
@@ -945,7 +954,7 @@ func (p *Parser[V]) parseLet(tokenizer *Tokenizer, idents Identifiers[V]) (AST, 
 			line := t.GetLine()
 
 			if idents.Contains(name) {
-				return nil, line.Errorf("let redeclares '%s'", name)
+				return nil, t.Errorf("let redeclares '%s'", name)
 			}
 
 			if t := tokenizer.Next(); t.typ != tOperate || t.image != "=" {
@@ -960,9 +969,9 @@ func (p *Parser[V]) parseLet(tokenizer *Tokenizer, idents Identifiers[V]) (AST, 
 			}
 
 			if p.optimizer != nil {
-				exp, err = Optimize(exp, p.optimizer)
+				exp, err = optimize(exp, p.optimizer)
 				if err != nil {
-					return nil, t.EnhanceErrorf(err, "error optimizing a constant")
+					return nil, err
 				}
 			}
 
@@ -1178,7 +1187,7 @@ func (p *Parser[V]) parseLiteral(tokenizer *Tokenizer, idents Identifiers[V]) (A
 					}
 				}
 			}
-			return nil, t.Line.Errorf("identifier '%s' not found", name)
+			return nil, t.Errorf("identifier '%s' not found", name)
 		}
 	case tKeyWord:
 		name := t.image
