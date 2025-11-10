@@ -1,6 +1,7 @@
 package example
 
 import (
+	"github.com/hneemann/parser2"
 	"github.com/hneemann/parser2/funcGen"
 	"github.com/stretchr/testify/assert"
 	"testing"
@@ -67,7 +68,9 @@ func TestMinimal(t *testing.T) {
 
 			// check optimizer
 			// not required in production usage
-			ast, err := minimal.CreateAst(test.exp)
+			var idents parser2.Identifiers[float64]
+			idents = idents.Add("a")
+			ast, err := minimal.CreateAst(test.exp, idents)
 			assert.NoError(t, err, test.exp)
 			assert.EqualValues(t, test.optimized, ast.String(), test.exp)
 		})

@@ -31,8 +31,11 @@ func TestErrors(t *testing.T) {
 		exp string
 		err string
 	}{
-		{"notFound(a)", "not found: notFound"},
-		{"let a=1;notFound(a)", "not found: notFound"},
+		{"let a=2;let a=3;a", "let redeclares 'a'"},
+		{"const a=2;const a=3;a", "const redeclares 'a'"},
+		{"func f(a) let a=2;a;f(1)", "let redeclares 'a'"},
+		{"notFound(a)", "identifier 'notFound' not found"},
+		{"let a=1;notFound(a)", "identifier 'notFound' not found"},
 		{"[].notFound()", "method 'notFound' not found"},
 		{exp: "sin(1,2)", err: ", required 1, found 2"},
 		{"{a:sin(1,2)}", ", required 1, found 2"},
@@ -64,7 +67,7 @@ func TestErrors(t *testing.T) {
 		{"[1,2,3,4].set(-1,0)", "index -1 out of range"},
 		{"[1,2,3,4].set(4,0)", "index 4 out of range"},
 		{"true-2", "operation '-' not defined on bool, int"},
-		{"func f(x) x+b; f(2)", "outer value 'b' not found"},
+		{"func f(x) x+b; f(2)", "identifier 'b' not found"},
 		{exp: "throw(\"error: zzzz\")", err: "error: zzzz"},
 		{exp: "func mul(a,b) a*b; mul.invoke([2,3,4])", err: "wrong number of arguments in invoke: 3 instead of 2"},
 		{exp: "func mul(a,b) a*b; mul(2)", err: "wrong number of arguments at call of \"mul\", required 2, found 1 in line 1"},

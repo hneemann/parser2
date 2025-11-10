@@ -47,11 +47,9 @@ func getList(bench string) *List {
 	return list
 }
 
-var list1 = getList(bench1)
-
-var list2 = getList(bench2)
-
 func Benchmark_filter1(b *testing.B) {
+	var list1 = getList(bench1)
+	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		list1.Iterate(funcGen.NewEmptyStack[Value]())(func(v Value, err error) bool {
 			return true
@@ -60,6 +58,8 @@ func Benchmark_filter1(b *testing.B) {
 }
 
 func Benchmark_filter2(b *testing.B) {
+	var list2 = getList(bench2)
+	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		list2.Iterate(funcGen.NewEmptyStack[Value]())(func(v Value, err error) bool {
 			return true

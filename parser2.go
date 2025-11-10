@@ -708,7 +708,7 @@ type Parser[V any] struct {
 	stringHandler  StringConverter[V]
 	optimizer      Optimizer
 	number         Matcher
-	constants      Constants[V]
+	identifiers    Identifiers[V]
 	identifier     Matcher
 	allowComments  bool
 	operatorDetect OperatorDetector
@@ -721,10 +721,6 @@ func NewParser[V any]() *Parser[V] {
 		unary:      map[string]struct{}{},
 		number:     simpleNumber,
 		identifier: simpleIdentifier,
-		constants: ConstantsFunc[V](func(name string) (V, bool) {
-			var zero V
-			return zero, false
-		}),
 	}
 }
 
@@ -792,8 +788,8 @@ func (p *Parser[V]) TextOperator(textOperators map[string]string) *Parser[V] {
 }
 
 // SetConstants sets the constants for the parser
-func (p *Parser[V]) SetConstants(constants Constants[V]) *Parser[V] {
-	p.constants = constants
+func (p *Parser[V]) SetConstants(ident Identifiers[V]) *Parser[V] {
+	p.identifiers = ident
 	return p
 }
 
@@ -810,7 +806,7 @@ func (p *Parser[V]) AllowComments() *Parser[V] {
 }
 
 // Parse parses the given string and returns an ast
-func (p *Parser[V]) Parse(str string) (ast AST, err error) {
+func (p *Parser[V]) Parse(str string, idents Identifiers[V]) (ast AST, err error) {
 	if p.operatorDetect == nil {
 		var op []string
 		op = append(op, p.operators...)
@@ -821,6 +817,8 @@ func (p *Parser[V]) Parse(str string) (ast AST, err error) {
 		p.operatorDetect = NewOperatorDetector(op)
 	}
 
+	idents = p.identifiers.addAll(idents)
+
 	tokenizer :=
 		NewTokenizer(str, p.number, p.identifier, p.operatorDetect).
 			SetTextOperators(p.textOperators).
@@ -829,7 +827,7 @@ func (p *Parser[V]) Parse(str string) (ast AST, err error) {
 			SetComfort(p.comfort).
 			Start()
 
-	ast, err = p.parseLet(tokenizer, p.constants)
+	ast, err = p.parseLet(tokenizer, idents)
 	if err != nil {
 		return nil, err
 	}
@@ -841,36 +839,100 @@ func (p *Parser[V]) Parse(str string) (ast AST, err error) {
 	return ast, nil
 }
 
-type parserFunc[V any] func(tokenizer *Tokenizer, constants Constants[V]) (AST, error)
+type parserFunc[V any] func(tokenizer *Tokenizer, constants Identifiers[V]) (AST, error)
 
-type Constants[V any] interface {
-	GetConst(name string) (V, bool)
+type Identifier[V any] struct {
+	Name    string
+	IsConst bool
+	Const   V
 }
 
-type ConstantsFunc[V any] func(name string) (V, bool)
+type Identifiers[V any] func(string) (Identifier[V], bool)
 
-func (cf ConstantsFunc[V]) GetConst(name string) (V, bool) {
-	return cf(name)
-}
-
-type constant[V any] struct {
-	name  string
-	value V
-	other Constants[V]
-}
-
-func (c *constant[V]) GetConst(name string) (V, bool) {
-	if c.name == name {
-		return c.value, true
-	}
+func (c Identifiers[V]) GetConst(name string) (V, bool) {
 	if c == nil {
 		var zero V
 		return zero, false
 	}
-	return c.other.GetConst(name)
+	ident, ok := c(name)
+	if !ok {
+		var zero V
+		return zero, false
+	}
+	if !ident.IsConst {
+		var zero V
+		return zero, false
+	}
+	return ident.Const, true
 }
 
-func (p *Parser[V]) parseLet(tokenizer *Tokenizer, constants Constants[V]) (AST, error) {
+func (c Identifiers[V]) AddConst(name string, value V) Identifiers[V] {
+	return c.add(Identifier[V]{
+		Name:    name,
+		IsConst: true,
+		Const:   value,
+	})
+}
+
+func (c Identifiers[V]) Add(n string) Identifiers[V] {
+	return c.add(Identifier[V]{
+		Name: n,
+	})
+}
+
+func (c Identifiers[V]) add(i Identifier[V]) Identifiers[V] {
+	return func(name string) (Identifier[V], bool) {
+		if name == i.Name {
+			return i, true
+		}
+		if c == nil {
+			return Identifier[V]{}, false
+		}
+		return c(name)
+	}
+}
+
+func (c Identifiers[V]) addAll(idents Identifiers[V]) Identifiers[V] {
+	if idents == nil {
+		return c
+	}
+	return func(name string) (Identifier[V], bool) {
+		if i, ok := idents(name); ok {
+			return i, true
+		}
+		if c == nil {
+			return Identifier[V]{}, false
+		}
+		return c(name)
+	}
+}
+
+func (c Identifiers[V]) AddAll(names []string) Identifiers[V] {
+	if len(names) == 0 {
+		return c
+	}
+	return func(name string) (Identifier[V], bool) {
+		for _, n := range names {
+			if n == name {
+				return Identifier[V]{Name: name}, true
+			}
+		}
+		if c == nil {
+			return Identifier[V]{}, false
+		}
+		return c(name)
+	}
+}
+
+func (c Identifiers[V]) Contains(name string) bool {
+	if c == nil {
+		return false
+	}
+	_, ok := c(name)
+	return ok
+}
+
+func (p *Parser[V]) parseLet(tokenizer *Tokenizer, idents Identifiers[V]) (AST, error) {
 	t := tokenizer.Peek()
 	if t.typ == tKeyWord {
 		if t.image == "const" {
@@ -880,13 +942,15 @@ func (p *Parser[V]) parseLet(tokenizer *Tokenizer, constants Constants[V]) (AST,
 				return nil, t.Errorf("no identifier followed by const")
 			}
 			name := t.image
-			if _, ok := constants.GetConst(name); ok {
-				return nil, t.Errorf("there is already a constant named '%s'", name)
+
+			if idents.Contains(name) {
+				return nil, t.Line.Errorf("const redeclares '%s'", name)
 			}
+
 			if t := tokenizer.Next(); t.typ != tOperate || t.image != "=" {
 				return nil, unexpected("=", t)
 			}
-			exp, err := p.parseExpression(tokenizer, constants)
+			exp, err := p.parseExpression(tokenizer, idents)
 			if err != nil {
 				return nil, err
 			}
@@ -900,15 +964,11 @@ func (p *Parser[V]) parseLet(tokenizer *Tokenizer, constants Constants[V]) (AST,
 				}
 			}
 			if c, ok := exp.(*Const[V]); ok {
-				constants = &constant[V]{
-					name:  name,
-					value: c.Value,
-					other: constants,
-				}
+				idents = idents.AddConst(name, c.Value)
 			} else {
 				return nil, t.Errorf("not a constant")
 			}
-			return p.parseLet(tokenizer, constants)
+			return p.parseLet(tokenizer, idents)
 		} else if t.image == "let" {
 			tokenizer.Next()
 			t = tokenizer.Next()
@@ -916,21 +976,23 @@ func (p *Parser[V]) parseLet(tokenizer *Tokenizer, constants Constants[V]) (AST,
 				return nil, t.Errorf("no identifier followed by let")
 			}
 			name := t.image
-			if _, ok := constants.GetConst(name); ok {
-				return nil, t.Errorf("there is already a constant named '%s'", name)
-			}
 			line := t.GetLine()
+
+			if idents.Contains(name) {
+				return nil, line.Errorf("let redeclares '%s'", name)
+			}
+
 			if t := tokenizer.Next(); t.typ != tOperate || t.image != "=" {
 				return nil, unexpected("=", t)
 			}
-			exp, err := p.parseExpression(tokenizer, constants)
+			exp, err := p.parseExpression(tokenizer, idents)
 			if err != nil {
 				return nil, err
 			}
 			if t := tokenizer.Next(); t.typ != tSemicolon || t.image != ";" {
 				return nil, unexpected(";", t)
 			}
-			inner, err := p.parseLet(tokenizer, constants)
+			inner, err := p.parseLet(tokenizer, idents.Add(name))
 			if err != nil {
 				return nil, err
 			}
@@ -947,25 +1009,22 @@ func (p *Parser[V]) parseLet(tokenizer *Tokenizer, constants Constants[V]) (AST,
 				return nil, t.Errorf("no identifier followed by func")
 			}
 			name := t.image
-			if _, ok := constants.GetConst(name); ok {
-				return nil, t.Errorf("there is already a constant named '%s'", name)
-			}
 			line := t.GetLine()
 			if t := tokenizer.Next(); t.typ != tOpen {
 				return nil, unexpected("(", t)
 			}
-			names, err := p.parseIdentList(tokenizer, constants)
+			names, err := p.parseIdentList(tokenizer, idents)
 			if err != nil {
 				return nil, err
 			}
-			exp, err := p.parseLet(tokenizer, constants)
+			exp, err := p.parseLet(tokenizer, idents.Add(name).AddAll(names))
 			if err != nil {
 				return nil, err
 			}
 			if t := tokenizer.Next(); t.typ != tSemicolon || t.image != ";" {
 				return nil, unexpected(";", t)
 			}
-			inner, err := p.parseLet(tokenizer, constants)
+			inner, err := p.parseLet(tokenizer, idents.Add(name))
 			if err != nil {
 				return nil, err
 			}
@@ -981,14 +1040,14 @@ func (p *Parser[V]) parseLet(tokenizer *Tokenizer, constants Constants[V]) (AST,
 			}, nil
 		}
 	}
-	return p.parseExpression(tokenizer, constants)
+	return p.parseExpression(tokenizer, idents)
 }
 
-func (p *Parser[V]) parseExpression(tokenizer *Tokenizer, constants Constants[V]) (AST, error) {
+func (p *Parser[V]) parseExpression(tokenizer *Tokenizer, constants Identifiers[V]) (AST, error) {
 	return p.parseOp(tokenizer, 0, constants)
 }
 
-func (p *Parser[V]) parseOp(tokenizer *Tokenizer, op int, constants Constants[V]) (AST, error) {
+func (p *Parser[V]) parseOp(tokenizer *Tokenizer, op int, constants Identifiers[V]) (AST, error) {
 	next := p.nextParserCall(op)
 	operator := p.operators[op]
 	a, err := next(tokenizer, constants)
@@ -1018,7 +1077,7 @@ func (p *Parser[V]) parseOp(tokenizer *Tokenizer, op int, constants Constants[V]
 
 func (p *Parser[V]) nextParserCall(op int) parserFunc[V] {
 	if op+1 < len(p.operators) {
-		return func(tokenizer *Tokenizer, constants Constants[V]) (AST, error) {
+		return func(tokenizer *Tokenizer, constants Identifiers[V]) (AST, error) {
 			return p.parseOp(tokenizer, op+1, constants)
 		}
 	} else {
@@ -1026,7 +1085,7 @@ func (p *Parser[V]) nextParserCall(op int) parserFunc[V] {
 	}
 }
 
-func (p *Parser[V]) parseUnary(tokenizer *Tokenizer, constants Constants[V]) (AST, error) {
+func (p *Parser[V]) parseUnary(tokenizer *Tokenizer, constants Identifiers[V]) (AST, error) {
 	if t := tokenizer.Peek(); t.typ == tOperate {
 		if _, ok := p.unary[t.image]; ok {
 			t = tokenizer.Next()
@@ -1044,7 +1103,7 @@ func (p *Parser[V]) parseUnary(tokenizer *Tokenizer, constants Constants[V]) (AS
 	return p.parseNonOperator(tokenizer, constants)
 }
 
-func (p *Parser[V]) parseNonOperator(tokenizer *Tokenizer, constants Constants[V]) (AST, error) {
+func (p *Parser[V]) parseNonOperator(tokenizer *Tokenizer, constants Identifiers[V]) (AST, error) {
 	expression, err := p.parseLiteral(tokenizer, constants)
 	if err != nil {
 		return nil, err
@@ -1111,18 +1170,15 @@ func (p *Parser[V]) parseNonOperator(tokenizer *Tokenizer, constants Constants[V
 	}
 }
 
-func (p *Parser[V]) parseLiteral(tokenizer *Tokenizer, constants Constants[V]) (AST, error) {
+func (p *Parser[V]) parseLiteral(tokenizer *Tokenizer, idents Identifiers[V]) (AST, error) {
 	t := tokenizer.Next()
 	switch t.typ {
 	case tIdent:
 		name := t.image
 		if cl := tokenizer.Peek(); cl.typ == tOperate && cl.image == "->" {
 			// closure, short definition x->[exp]
-			if _, ok := constants.GetConst(name); ok {
-				return nil, t.Errorf("there is already a constant named '%s'", name)
-			}
 			tokenizer.Next()
-			e, err := p.parseLet(tokenizer, constants)
+			e, err := p.parseLet(tokenizer, idents.Add(name))
 			if err != nil {
 				return nil, err
 			}
@@ -1132,19 +1188,24 @@ func (p *Parser[V]) parseLiteral(tokenizer *Tokenizer, constants Constants[V]) (
 				Line:  t.Line,
 			}, nil
 		} else {
-			if v, ok := constants.GetConst(name); ok {
-				return &Const[V]{
-					Value: v,
-					Line:  t.Line,
-				}, nil
-			} else {
-				return &Ident{Name: name, Line: t.Line}, nil
+			if idents != nil {
+				if i, ok := idents(name); ok {
+					if i.IsConst {
+						return &Const[V]{
+							Value: i.Const,
+							Line:  t.Line,
+						}, nil
+					} else {
+						return &Ident{Name: name, Line: t.Line}, nil
+					}
+				}
 			}
+			return nil, t.Line.Errorf("identifier '%s' not found", name)
 		}
 	case tKeyWord:
 		name := t.image
 		if name == "try" {
-			tryExp, err := p.parseLet(tokenizer, constants)
+			tryExp, err := p.parseLet(tokenizer, idents)
 			if err != nil {
 				return nil, err
 			}
@@ -1152,7 +1213,7 @@ func (p *Parser[V]) parseLiteral(tokenizer *Tokenizer, constants Constants[V]) (
 			if !(t.typ == tKeyWord && t.image == "catch") {
 				return nil, unexpected("catch", t)
 			}
-			catchExp, err := p.parseLet(tokenizer, constants)
+			catchExp, err := p.parseLet(tokenizer, idents)
 			if err != nil {
 				return nil, err
 			}
@@ -1162,7 +1223,7 @@ func (p *Parser[V]) parseLiteral(tokenizer *Tokenizer, constants Constants[V]) (
 				Line:  t.Line,
 			}, nil
 		} else if name == "if" {
-			cond, err := p.parseExpression(tokenizer, constants)
+			cond, err := p.parseExpression(tokenizer, idents)
 			if err != nil {
 				return nil, err
 			}
@@ -1170,7 +1231,7 @@ func (p *Parser[V]) parseLiteral(tokenizer *Tokenizer, constants Constants[V]) (
 			if !(t.typ == tKeyWord && t.image == "then") {
 				return nil, unexpected("then", t)
 			}
-			thenExp, err := p.parseLet(tokenizer, constants)
+			thenExp, err := p.parseLet(tokenizer, idents)
 			if err != nil {
 				return nil, err
 			}
@@ -1178,7 +1239,7 @@ func (p *Parser[V]) parseLiteral(tokenizer *Tokenizer, constants Constants[V]) (
 			if !(t.typ == tKeyWord && t.image == "else") {
 				return nil, unexpected("else", t)
 			}
-			elseExp, err := p.parseLet(tokenizer, constants)
+			elseExp, err := p.parseLet(tokenizer, idents)
 			if err != nil {
 				return nil, err
 			}
@@ -1189,7 +1250,7 @@ func (p *Parser[V]) parseLiteral(tokenizer *Tokenizer, constants Constants[V]) (
 				Line: t.Line,
 			}, nil
 		} else if name == "switch" {
-			switchValue, err := p.parseExpression(tokenizer, constants)
+			switchValue, err := p.parseExpression(tokenizer, idents)
 			if err != nil {
 				return nil, err
 			}
@@ -1198,7 +1259,7 @@ func (p *Parser[V]) parseLiteral(tokenizer *Tokenizer, constants Constants[V]) (
 				t := tokenizer.Next()
 				if t.typ == tKeyWord {
 					if t.image == "case" {
-						constFunc, err := p.parseExpression(tokenizer, constants)
+						constFunc, err := p.parseExpression(tokenizer, idents)
 						if err != nil {
 							return nil, err
 						}
@@ -1206,7 +1267,7 @@ func (p *Parser[V]) parseLiteral(tokenizer *Tokenizer, constants Constants[V]) (
 						if !(t.typ == tColon) {
 							return nil, unexpected(":", t)
 						}
-						resultExp, err := p.parseLet(tokenizer, constants)
+						resultExp, err := p.parseLet(tokenizer, idents)
 						if err != nil {
 							return nil, err
 						}
@@ -1215,7 +1276,7 @@ func (p *Parser[V]) parseLiteral(tokenizer *Tokenizer, constants Constants[V]) (
 							Value:     resultExp,
 						})
 					} else if t.image == "default" {
-						resultExp, err := p.parseLet(tokenizer, constants)
+						resultExp, err := p.parseLet(tokenizer, idents)
 						if err != nil {
 							return nil, err
 						}
@@ -1236,9 +1297,9 @@ func (p *Parser[V]) parseLiteral(tokenizer *Tokenizer, constants Constants[V]) (
 			return nil, t.Errorf("expected keyword, found %v", t)
 		}
 	case tOpenCurly:
-		return p.parseMap(tokenizer, constants)
+		return p.parseMap(tokenizer, idents)
 	case tOpenBracket:
-		args, err := p.parseArgs(tokenizer, tCloseBracket, constants)
+		args, err := p.parseArgs(tokenizer, tCloseBracket, idents)
 		if err != nil {
 			return nil, err
 		}
@@ -1257,7 +1318,7 @@ func (p *Parser[V]) parseLiteral(tokenizer *Tokenizer, constants Constants[V]) (
 		}
 	case tOpen:
 		if tokenizer.Peek().typ == tIdent && tokenizer.PeekPeek().typ == tComma {
-			names, err := p.parseIdentList(tokenizer, constants)
+			names, err := p.parseIdentList(tokenizer, idents)
 			if err != nil {
 				return nil, err
 			}
@@ -1265,7 +1326,7 @@ func (p *Parser[V]) parseLiteral(tokenizer *Tokenizer, constants Constants[V]) (
 			if !(t.typ == tOperate && t.image == "->") {
 				return nil, unexpected("->", t)
 			}
-			e, err := p.parseLet(tokenizer, constants)
+			e, err := p.parseLet(tokenizer, idents.AddAll(names))
 			if err != nil {
 				return nil, err
 			}
@@ -1275,7 +1336,7 @@ func (p *Parser[V]) parseLiteral(tokenizer *Tokenizer, constants Constants[V]) (
 				Line:  t.Line,
 			}, nil
 		} else {
-			e, err := p.parseExpression(tokenizer, constants)
+			e, err := p.parseExpression(tokenizer, idents)
 			if err != nil {
 				return nil, err
 			}
@@ -1289,7 +1350,7 @@ func (p *Parser[V]) parseLiteral(tokenizer *Tokenizer, constants Constants[V]) (
 	return nil, t.Errorf("unexpected token type: %v", t.image)
 }
 
-func (p *Parser[V]) parseArgs(tokenizer *Tokenizer, closeList TokenType, constants Constants[V]) ([]AST, error) {
+func (p *Parser[V]) parseArgs(tokenizer *Tokenizer, closeList TokenType, constants Identifiers[V]) ([]AST, error) {
 	var args []AST
 	if tokenizer.Peek().typ == closeList {
 		tokenizer.Next()
@@ -1315,7 +1376,7 @@ func (p *Parser[V]) parseArgs(tokenizer *Tokenizer, closeList TokenType, constan
 	}
 }
 
-func (p *Parser[V]) parseMap(tokenizer *Tokenizer, constants Constants[V]) (*MapLiteral, error) {
+func (p *Parser[V]) parseMap(tokenizer *Tokenizer, constants Identifiers[V]) (*MapLiteral, error) {
 	m := listMap.New[AST](1)
 	for {
 		switch t := tokenizer.Next(); t.typ {
@@ -1347,14 +1408,11 @@ func (p *Parser[V]) parseMap(tokenizer *Tokenizer, constants Constants[V]) (*Map
 	}
 }
 
-func (p *Parser[V]) parseIdentList(tokenizer *Tokenizer, constants Constants[V]) ([]string, error) {
+func (p *Parser[V]) parseIdentList(tokenizer *Tokenizer, constants Identifiers[V]) ([]string, error) {
 	var names []string
 	for {
 		t := tokenizer.Next()
 		if t.typ == tIdent {
-			if _, ok := constants.GetConst(t.image); ok {
-				return nil, t.Errorf("there is already a constant named '%s'", t.image)
-			}
 			names = append(names, t.image)
 			t = tokenizer.Next()
 			switch t.typ {

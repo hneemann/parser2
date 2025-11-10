@@ -418,13 +418,6 @@ type ToBool[V any] func(c V) (bool, bool)
 
 type BoolFunc[V any] func(st Stack[V], a, b V) (bool, error)
 
-type constMap[V any] map[string]V
-
-func (c constMap[V]) GetConst(name string) (V, bool) {
-	v, ok := c[name]
-	return v, ok
-}
-
 type FunctionGenerator[V any] struct {
 	parser          *parser2.Parser[V]
 	operators       []Operator[V]
@@ -437,7 +430,7 @@ type FunctionGenerator[V any] struct {
 	closureHandler  ClosureHandler[V]
 	methodHandler   MethodHandler[V]
 	optimizer       parser2.Optimizer
-	constants       constMap[V]
+	identifier      parser2.Identifiers[V]
 	toBool          ToBool[V]
 	isEqual         BoolFunc[V]
 	staticFunctions map[string]Function[V]
@@ -450,7 +443,6 @@ type FunctionGenerator[V any] struct {
 // New creates a new FunctionGenerator
 func New[V any]() *FunctionGenerator[V] {
 	g := &FunctionGenerator[V]{
-		constants:       constMap[V]{},
 		staticFunctions: make(map[string]Function[V]),
 		methodHandler:   MethodHandlerFunc[V](methodByReflection[V]),
 	}
@@ -632,7 +624,7 @@ func (g *FunctionGenerator[V]) GetUnaryOpImpl(name string) UnaryOperatorImpl[V] 
 }
 
 func (g *FunctionGenerator[V]) AddConstant(n string, c V) *FunctionGenerator[V] {
-	g.constants[n] = c
+	g.identifier = g.identifier.AddConst(n, c)
 	return g
 }
 
@@ -653,6 +645,7 @@ func (g *FunctionGenerator[V]) AddGoFunction(name string, args int, f func(a ...
 }
 
 func (g *FunctionGenerator[V]) AddStaticFunction(n string, f Function[V]) *FunctionGenerator[V] {
+	g.identifier = g.identifier.Add(n)
 	g.staticFunctions[n] = f
 	return g
 }
@@ -691,7 +684,7 @@ func (g *FunctionGenerator[V]) GetParser() *parser2.Parser[V] {
 			SetNumberParser(g.numberParser).
 			SetKeyWords(g.keyWords...).
 			SetStringConverter(g.stringHandler).
-			SetConstants(g.constants).
+			SetConstants(g.identifier).
 			SetOptimizer(g.optimizer).
 			Comfort(g.comfort)
 
@@ -769,7 +762,7 @@ func (g *FunctionGenerator[V]) GenerateWithMap(exp string, mapName string) (Func
 // GenerateFromString creates a function from a string.
 // The generated function can be used to register a static function to a parser.
 func (g *FunctionGenerator[V]) GenerateFromString(exp string, args ...string) (ParserFunc[V], error) {
-	ast, err := g.CreateAst(exp)
+	ast, err := g.CreateAst(exp, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -788,19 +781,22 @@ func (g *FunctionGenerator[V]) GenerateFromString(exp string, args ...string) (P
 }
 
 func (g *FunctionGenerator[V]) generateIntern(args []string, exp string, ThisName string) (Func[V], error) {
-	ast, err := g.CreateAst(exp)
-	if err != nil {
-		return nil, err
-	}
 
+	var idents parser2.Identifiers[V]
 	am := argsMap{}
 	if args != nil {
 		for _, a := range args {
-			err = am.add(a)
+			err := am.add(a)
 			if err != nil {
 				return nil, err
 			}
+			idents = idents.Add(a)
 		}
+	}
+
+	ast, err := g.CreateAst(exp, idents)
+	if err != nil {
+		return nil, err
 	}
 
 	gc := GeneratorContext{am: am, cm: nil, ThisName: ThisName}
@@ -826,8 +822,8 @@ func (g *FunctionGenerator[V]) generateIntern(args []string, exp string, ThisNam
 // CreateAst uses the parser to create the abstract syntax tree.
 // This method is public manly to inspect the AST in tests that live outside
 // this package.
-func (g *FunctionGenerator[V]) CreateAst(exp string) (parser2.AST, error) {
-	ast, err := g.GetParser().Parse(exp)
+func (g *FunctionGenerator[V]) CreateAst(exp string, idents parser2.Identifiers[V]) (parser2.AST, error) {
+	ast, err := g.GetParser().Parse(exp, idents)
 	if err != nil {
 		return nil, fmt.Errorf("error parsing expression: %w", err)
 	}

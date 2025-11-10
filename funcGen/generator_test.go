@@ -173,12 +173,6 @@ func TestFunctionGenerator_Generate(t *testing.T) {
 			result:   -9,
 		},
 		{
-			args:     []string{},
-			argsVals: []Value{},
-			exp:      "const c=3; if c then 0 else a",
-			result:   0,
-		},
-		{
 			args:     []string{"a"},
 			argsVals: []Value{Float(2)},
 			exp:      "a.sqrt()",
