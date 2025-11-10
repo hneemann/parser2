@@ -98,7 +98,7 @@ func TestBasic(t *testing.T) {
 		{exp: "let a=1;max(a,2)", res: Int(2)},
 		{exp: "let a=1;max(a,2,3)", res: Int(3)},
 		{exp: "let a=1;max(3,2,a)", res: Int(3)},
-		{exp: "let sqr=x->x*x;sqr(2)", res: Int(4)},
+		{exp: "let s=x->x*x;s(2)", res: Int(4)},
 		{exp: "let x=2;sqr(2)", res: Int(4)},
 		{exp: "let x=pi;sin(x)", res: Float(0.0)},
 		{exp: "let x=pi;cos(x/2)", res: Float(0.0)},

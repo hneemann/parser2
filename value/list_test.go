@@ -346,10 +346,10 @@ func TestListString(t *testing.T) {
 
 const parallel = `
     const n=5000;
-    const exp=n*n*(n-1)/2;
+    const expected=n*n*(n-1)/2;
 	let l=numbers(n).map(e->numbers(n));
 	
-	exp-l.map(e->e.reduce((a,b)->a+b))
+	expected-l.map(e->e.reduce((a,b)->a+b))
      .reduce((a,b)->a+b)
 `
 
@@ -363,12 +363,12 @@ func TestParallel(t *testing.T) {
 
 const parallelError = `
     const n=5000;
-    const exp=n*n*(n-1)/2;
+    const expected=n*n*(n-1)/2;
 	let l=numbers(n).map(e->if e=500
                          then numbers(n).map(e->error(e))
                          else numbers(n));
 	
-	exp-l.map(e->e.reduce((a,b)->a+b))
+	expected-l.map(e->e.reduce((a,b)->a+b))
      .reduce((a,b)->a+b)
 `
 
@@ -382,12 +382,12 @@ func TestParallelError(t *testing.T) {
 
 const parallelError2 = `
     const n=5000;
-    const exp=n*n*(n-1)/2;
+    const expected=n*n*(n-1)/2;
 	let l=numbers(n).map(e->if e>500
                          then numbers(n).map(e->error(e))
                          else numbers(n));
 	
-	exp-l.map(e->e.reduce((a,b)->a+b))
+	expected-l.map(e->e.reduce((a,b)->a+b))
      .reduce((a,b)->a+b)
 `
 
