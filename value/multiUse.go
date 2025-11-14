@@ -7,9 +7,9 @@ import (
 	"github.com/hneemann/parser2/listMap"
 )
 
-// MultiUse takes a map of closures and the list is passed to the closures. The
-// return values of the closures are returned in a map. The keys in the result
-// map are the same keys used to pass the closures. MultiUse is useful if you
+// MultiUse takes a map of functions, and the list is passed to the functions. The
+// return values of the functions are returned in a map. The keys in the result
+// map are the same keys used to pass the functions. MultiUse is useful if you
 // have to use the same list multiple times and the list is both expensive to
 // create and expensive to store. This is because MultiUse allows you to use the
 // list multiple times without having to store the list elements for later reuse.

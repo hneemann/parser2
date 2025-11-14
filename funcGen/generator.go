@@ -645,6 +645,9 @@ func (g *FunctionGenerator[V]) AddGoFunction(name string, args int, f func(a ...
 }
 
 func (g *FunctionGenerator[V]) AddStaticFunction(n string, f Function[V]) *FunctionGenerator[V] {
+	if g.parser != nil {
+		panic("parser already created")
+	}
 	g.identifier = g.identifier.Add(n)
 	g.staticFunctions[n] = f
 	return g
@@ -684,7 +687,7 @@ func (g *FunctionGenerator[V]) GetParser() *parser2.Parser[V] {
 			SetNumberParser(g.numberParser).
 			SetKeyWords(g.keyWords...).
 			SetStringConverter(g.stringHandler).
-			SetConstants(g.identifier).
+			SetIdentifiers(g.identifier).
 			SetOptimizer(g.optimizer).
 			Comfort(g.comfort)
 

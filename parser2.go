@@ -789,8 +789,8 @@ func (p *Parser[V]) TextOperator(textOperators map[string]string) *Parser[V] {
 	return p
 }
 
-// SetConstants sets the constants for the parser
-func (p *Parser[V]) SetConstants(ident Identifiers[V]) *Parser[V] {
+// SetIdentifiers sets the identifiers for the parser
+func (p *Parser[V]) SetIdentifiers(ident Identifiers[V]) *Parser[V] {
 	p.identifiers = ident
 	return p
 }
