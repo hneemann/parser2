@@ -111,7 +111,7 @@ func AnyToError(e any) error {
 
 // Optimize uses the given optimizer to optimize the given AST.
 // If no optimization is possible, the given AST is returned unchanged.
-func optimize(ast AST, optimizer Optimizer) (astRet AST, errRet error) {
+func Optimize(ast AST, optimizer Optimizer) (astRet AST, errRet error) {
 	defer func() {
 		if rec := recover(); rec != nil {
 			log.Print("panic in optimizer: ", rec)
@@ -839,7 +839,7 @@ func (p *Parser[V]) Parse(str string, idents Identifiers[V]) (ast AST, err error
 	}
 
 	if p.optimizer != nil {
-		ast, err = optimize(ast, p.optimizer)
+		ast, err = Optimize(ast, p.optimizer)
 		if err != nil {
 			return nil, err
 		}
@@ -953,10 +953,6 @@ func (p *Parser[V]) parseLet(tokenizer *Tokenizer, idents Identifiers[V]) (AST, 
 			name := t.image
 			line := t.GetLine()
 
-			if idents.Contains(name) {
-				return nil, t.Errorf("let redeclares '%s'", name)
-			}
-
 			if t := tokenizer.Next(); t.typ != tOperate || t.image != "=" {
 				return nil, unexpected("=", t)
 			}
@@ -969,7 +965,7 @@ func (p *Parser[V]) parseLet(tokenizer *Tokenizer, idents Identifiers[V]) (AST, 
 			}
 
 			if p.optimizer != nil {
-				exp, err = optimize(exp, p.optimizer)
+				exp, err = Optimize(exp, p.optimizer)
 				if err != nil {
 					return nil, err
 				}

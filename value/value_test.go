@@ -223,6 +223,7 @@ func TestOptimizer(t *testing.T) {
 		{exp: "(1<2) & (2<3)", res: Bool(true)},
 		{exp: "-2/(-1)", res: Float(2)},
 		{exp: "let a=sqrt(2);let b=a*a; b", res: Float(2)},
+		{exp: "let a=2; let a=a*3; a+1", res: Float(7)},
 	}
 
 	valueParser := New()
