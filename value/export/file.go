@@ -91,6 +91,29 @@ func AddFileHelpers(f *value.FunctionGenerator) {
 			}
 			return nil, errors.New("add requires a name, a unit and a function")
 		}).SetMethodDescription("name", "unit", "func", "Creates a column in the data file."),
+		"addIf": value.MethodAtType(4, func(data *Data, st funcGen.Stack[value.Value]) (value.Value, error) {
+			if cond, ok := st.Get(1).(value.Bool); ok {
+				if !cond {
+					return data, nil
+				}
+				if name, ok := st.Get(2).(value.String); ok {
+					if unit, ok := st.Get(3).(value.String); ok {
+						if fu, ok := st.Get(4).(value.Closure); ok {
+							if fu.Args != 1 {
+								return nil, errors.New("data column function must have exactly one argument")
+							}
+							d := DataContent{
+								Name:   string(name),
+								Unit:   string(unit),
+								Values: fu,
+							}
+							return data.Add(d), nil
+						}
+					}
+				}
+			}
+			return nil, errors.New("addIf requires a bool, a name, a unit and a function")
+		}).SetMethodDescription("cond", "name", "unit", "func", "Creates a column in the data file if the condition is true."),
 		"timeIsDate": value.MethodAtType(0, func(data *Data, st funcGen.Stack[value.Value]) (value.Value, error) {
 			data.TimeIsDate = true
 			return data, nil
@@ -240,6 +263,12 @@ func (d *Data) writeFile(f format, st funcGen.Stack[value.Value], rows *value.Li
 
 	f.writeHeader(&b, d)
 
+	type errorHolder struct {
+		err             error
+		someRowsWritten bool
+	}
+
+	columns := make([]errorHolder, len(d.DataContent))
 	for row, err := range rows.Iterate(st) {
 		if err != nil {
 			return nil, err
@@ -251,20 +280,41 @@ func (d *Data) writeFile(f format, st funcGen.Stack[value.Value], rows *value.Li
 		if t, ok := tVal.ToFloat(); ok {
 			f.writeTime(&b, t)
 
-			for _, content := range d.DataContent {
+			for i, content := range d.DataContent {
 				vVal, err := content.Values.Eval(st, row)
-				if err != nil {
-					return nil, err
-				}
-				if v, ok := vVal.ToFloat(); ok {
-					f.writeValue(&b, v)
+				if err == nil {
+					if v, ok := vVal.ToFloat(); ok {
+						f.writeValue(&b, v)
+						columns[i].someRowsWritten = true
+					} else {
+						f.skipValue(&b)
+					}
 				} else {
 					f.skipValue(&b)
+					if columns[i].err == nil {
+						columns[i].err = err
+					}
 				}
 			}
 		} else {
 			return nil, fmt.Errorf("time value is not a float")
 		}
+	}
+
+	var buf bytes.Buffer
+	for i, column := range columns {
+		if !column.someRowsWritten {
+			if buf.Len() > 0 {
+				buf.WriteString(", ")
+			}
+			buf.WriteString(d.DataContent[i].Name)
+			if column.err != nil {
+				buf.WriteString(": " + column.err.Error())
+			}
+		}
+	}
+	if buf.Len() > 0 {
+		return nil, errors.New("no entry created in data column(s): " + buf.String())
 	}
 
 	return b.Bytes(), nil
