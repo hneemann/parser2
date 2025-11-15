@@ -1,11 +1,8 @@
 package export
 
 import (
-	"archive/zip"
-	"bytes"
 	"encoding/base64"
 	"errors"
-	"fmt"
 	"github.com/hneemann/parser2"
 	"github.com/hneemann/parser2/funcGen"
 	"github.com/hneemann/parser2/value"
@@ -139,72 +136,6 @@ func (l Link) ToString(st funcGen.Stack[value.Value]) (string, error) {
 
 func (l Link) GetType() value.Type {
 	return value.LinkTypeId
-}
-
-type File struct {
-	Name     string
-	MimeType string
-	Data     []byte
-}
-
-func (f File) ToList() (*value.List, bool) {
-	return nil, false
-}
-
-func (f File) ToMap() (value.Map, bool) {
-	return value.Map{}, false
-}
-
-func (f File) ToFloat() (float64, bool) {
-	return 0, false
-}
-
-func (f File) ToString(st funcGen.Stack[value.Value]) (string, error) {
-	return fmt.Sprintf("file %s (%d bytes)", f.Name, len(f.Data)), nil
-}
-
-func (f File) GetType() value.Type {
-	return value.FileTypeId
-}
-
-func AddZipHelpers(f *value.FunctionGenerator) {
-	f.AddStaticFunction("zipFiles", funcGen.Function[value.Value]{
-		Func: func(st funcGen.Stack[value.Value], cs []value.Value) (value.Value, error) {
-			if name, ok := st.Get(0).(value.String); ok {
-				if list, ok := st.Get(1).ToList(); ok {
-					var buffer bytes.Buffer
-					zip := zip.NewWriter(&buffer)
-					for v, err := range list.Iterate(st) {
-						if err != nil {
-							return nil, err
-						}
-						if f, ok := v.(File); ok {
-							w, err := zip.Create(f.Name)
-							if err != nil {
-								return nil, err
-							}
-							_, err = w.Write(f.Data)
-						} else {
-							return nil, errors.New("zipFiles requires a list of files")
-						}
-					}
-					err := zip.Close()
-					if err != nil {
-						return nil, err
-					}
-
-					return File{
-						Name:     string(name) + ".zip",
-						MimeType: "application/zip",
-						Data:     buffer.Bytes(),
-					}, nil
-				}
-			}
-			return nil, errors.New("zipFiles requires a string and a list of files")
-		},
-		Args:   2,
-		IsPure: true,
-	}.SetDescription("name", "list of files", "Used to create a zip file."))
 }
 
 type CustomHTML func(value.Value) (template.HTML, bool, error)
