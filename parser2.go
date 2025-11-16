@@ -808,7 +808,7 @@ func (p *Parser[V]) AllowComments() *Parser[V] {
 }
 
 // Parse parses the given string and returns an ast
-func (p *Parser[V]) Parse(str string, idents Identifiers[V]) (ast AST, err error) {
+func (p *Parser[V]) Parse(str string, idents Identifiers[V], allowAnyIdent bool) (ast AST, err error) {
 	if p.operatorDetect == nil {
 		var op []string
 		op = append(op, p.operators...)
@@ -819,7 +819,15 @@ func (p *Parser[V]) Parse(str string, idents Identifiers[V]) (ast AST, err error
 		p.operatorDetect = NewOperatorDetector(op)
 	}
 
-	idents = p.identifiers.addAll(idents)
+	baseIdents := p.identifiers
+	if allowAnyIdent {
+		baseIdents = func(s string) (Identifier[V], bool) {
+			return Identifier[V]{Name: s}, true
+		}
+		baseIdents = baseIdents.addAll(p.identifiers)
+	}
+
+	idents = baseIdents.addAll(idents)
 
 	tokenizer :=
 		NewTokenizer(str, p.number, p.identifier, p.operatorDetect).

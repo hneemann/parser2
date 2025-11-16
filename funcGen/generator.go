@@ -765,7 +765,7 @@ func (g *FunctionGenerator[V]) GenerateWithMap(exp string, mapName string) (Func
 // GenerateFromString creates a function from a string.
 // The generated function can be used to register a static function to a parser.
 func (g *FunctionGenerator[V]) GenerateFromString(exp string, args ...string) (ParserFunc[V], error) {
-	ast, err := g.CreateAst(exp, nil)
+	ast, err := g.CreateAst(exp, nil, false)
 	if err != nil {
 		return nil, err
 	}
@@ -786,16 +786,6 @@ func (g *FunctionGenerator[V]) GenerateFromString(exp string, args ...string) (P
 func (g *FunctionGenerator[V]) generateIntern(args []string, exp string, ThisName string) (Func[V], error) {
 
 	var idents parser2.Identifiers[V]
-	if ThisName != "" {
-		// If a map name is given, we need to create identifiers that
-		// support accessing the map keys as identifiers.
-		// Because the map keys are not known at parse time, we create
-		// a special identifier handler that accepts any identifier.
-		idents = func(s string) (parser2.Identifier[V], bool) {
-			return parser2.Identifier[V]{Name: s}, true
-		}
-	}
-
 	am := argsMap{}
 	if args != nil {
 		for _, a := range args {
@@ -807,7 +797,7 @@ func (g *FunctionGenerator[V]) generateIntern(args []string, exp string, ThisNam
 		}
 	}
 
-	ast, err := g.CreateAst(exp, idents)
+	ast, err := g.CreateAst(exp, idents, ThisName != "")
 	if err != nil {
 		return nil, err
 	}
@@ -835,8 +825,8 @@ func (g *FunctionGenerator[V]) generateIntern(args []string, exp string, ThisNam
 // CreateAst uses the parser to create the abstract syntax tree.
 // This method is public manly to inspect the AST in tests that live outside
 // this package.
-func (g *FunctionGenerator[V]) CreateAst(exp string, idents parser2.Identifiers[V]) (parser2.AST, error) {
-	ast, err := g.GetParser().Parse(exp, idents)
+func (g *FunctionGenerator[V]) CreateAst(exp string, idents parser2.Identifiers[V], allowAnyIdent bool) (parser2.AST, error) {
+	ast, err := g.GetParser().Parse(exp, idents, allowAnyIdent)
 	if err != nil {
 		return nil, fmt.Errorf("error parsing expression: %w", err)
 	}

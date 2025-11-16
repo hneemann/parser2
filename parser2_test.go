@@ -88,7 +88,7 @@ func TestParser(t *testing.T) {
 			for _, arg := range test.args {
 				idents = idents.Add(arg)
 			}
-			ast, err := parser.Parse(test.exp, idents)
+			ast, err := parser.Parse(test.exp, idents, false)
 			assert.NoError(t, err, test.exp)
 			if ast != nil {
 				assert.EqualValues(t, test.opt, ast.String())
@@ -131,7 +131,7 @@ func TestParserComfort(t *testing.T) {
 			for _, arg := range test.args {
 				idents = idents.Add(arg)
 			}
-			ast, err := parserComfort.Parse(test.exp, idents)
+			ast, err := parserComfort.Parse(test.exp, idents, false)
 			assert.NoError(t, err, test.exp)
 			if ast != nil {
 				assert.EqualValues(t, test.opt, ast.String())
@@ -233,7 +233,7 @@ func TestCodeGen(t *testing.T) {
 			for n := range v {
 				idents = idents.Add(n)
 			}
-			ast, err := parser.Parse(test.exp, idents)
+			ast, err := parser.Parse(test.exp, idents, false)
 			assert.NoError(t, err, test.exp)
 			fu, err := codeGen(ast)
 			assert.NoError(t, err)

@@ -70,7 +70,7 @@ func TestMinimal(t *testing.T) {
 			// not required in production usage
 			var idents parser2.Identifiers[float64]
 			idents = idents.Add("a")
-			ast, err := minimal.CreateAst(test.exp, idents)
+			ast, err := minimal.CreateAst(test.exp, idents, false)
 			assert.NoError(t, err, test.exp)
 			assert.EqualValues(t, test.optimized, ast.String(), test.exp)
 		})

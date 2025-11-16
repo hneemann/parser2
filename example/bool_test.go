@@ -38,7 +38,7 @@ func TestBool(t *testing.T) {
 			// not required in production usage
 			var idents parser2.Identifiers[bool]
 			idents = idents.Add("a").Add("b")
-			ast, err := boolParser.CreateAst(test.exp, idents)
+			ast, err := boolParser.CreateAst(test.exp, idents, false)
 			assert.NoError(t, err)
 			assert.EqualValues(t, test.optimizes, ast.String())
 		})

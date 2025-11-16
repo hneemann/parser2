@@ -130,6 +130,8 @@ func TestBasic(t *testing.T) {
 		{exp: "let a=1;sprintf(\"%v->%v\",a,2)", res: String("1->2")},
 		{exp: "let a=\"zz\";sprintf(\"%v->%v\",a,2)", res: String("zz->2")},
 		{exp: "let a=1;sprintf(\"%v->\",a)", res: String("1->")},
+		{exp: "let a=numbers(5).sum();let b=a+1;b", res: Int(11)},
+		{exp: "let a=numbers(5).sum();let b=a+pi;b", res: Float(math.Pi + 10)},
 
 		{exp: "let a=2; func cl(b) x->x*a*b; cl(4)(3)", res: Int(24)},
 		{exp: "let a=2; func cl(b) let f=a*b;x->x*f; cl(4)(3)", res: Int(24)},
@@ -230,7 +232,7 @@ func TestOptimizer(t *testing.T) {
 	for _, test := range tests {
 		test := test
 		t.Run(test.exp, func(t *testing.T) {
-			ast, err := valueParser.CreateAst(test.exp, nil)
+			ast, err := valueParser.CreateAst(test.exp, nil, false)
 			assert.NoError(t, err, test.exp)
 			if c, ok := ast.(*parser2.Const[Value]); ok {
 				if f, ok := test.res.(Float); ok {
