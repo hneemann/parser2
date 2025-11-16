@@ -786,6 +786,16 @@ func (g *FunctionGenerator[V]) GenerateFromString(exp string, args ...string) (P
 func (g *FunctionGenerator[V]) generateIntern(args []string, exp string, ThisName string) (Func[V], error) {
 
 	var idents parser2.Identifiers[V]
+	if ThisName != "" {
+		// If a map name is given, we need to create identifiers that
+		// support accessing the map keys as identifiers.
+		// Because the map keys are not known at parse time, we create
+		// a special identifier handler that accepts any identifier.
+		idents = func(s string) (parser2.Identifier[V], bool) {
+			return parser2.Identifier[V]{Name: s}, true
+		}
+	}
+
 	am := argsMap{}
 	if args != nil {
 		for _, a := range args {
