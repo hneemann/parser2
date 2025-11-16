@@ -21,7 +21,6 @@ type Type int
 const maxTypeId = 30
 
 var (
-	nilTypeId     Type
 	IntTypeId     Type
 	FloatTypeId   Type
 	StringTypeId  Type
@@ -625,7 +624,6 @@ func (fg *FunctionGenerator) GetDocumentation() []funcGen.TypeDocumentation {
 
 func New() *FunctionGenerator {
 	f := &FunctionGenerator{}
-	nilTypeId = f.RegisterType("nil")
 	IntTypeId = f.RegisterType("int")
 	FloatTypeId = f.RegisterType("float")
 	StringTypeId = f.RegisterType("string")
