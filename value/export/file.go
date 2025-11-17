@@ -186,7 +186,7 @@ func AddFileHelpers(f *value.FunctionGenerator) {
 		},
 		Args:   3,
 		IsPure: true,
-	})
+	}.SetDescription("name", "unit", "func", "Creates a data file. the function is used to create the time value."))
 }
 
 type DataContent struct {
