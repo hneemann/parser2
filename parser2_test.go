@@ -88,7 +88,36 @@ func TestParser(t *testing.T) {
 			for _, arg := range test.args {
 				idents = idents.Add(arg)
 			}
-			ast, err := parser.Parse(test.exp, idents, false)
+			ast, err := parser.Parse(test.exp, idents)
+			assert.NoError(t, err, test.exp)
+			if ast != nil {
+				assert.EqualValues(t, test.opt, ast.String())
+			}
+		})
+	}
+}
+
+func TestParserMap(t *testing.T) {
+	tests := []struct {
+		exp  string
+		args []string
+		opt  string
+	}{
+		{exp: "let a=1;x+a", opt: "this.x+1"},
+		{exp: "let a=1;sin(x)+a", opt: "sin(this.x)+1"},
+		{exp: "sin(x)+pi", opt: "sin(this.x)+3"},
+	}
+
+	for _, test := range tests {
+		test := test
+		t.Run(test.exp, func(t *testing.T) {
+			var idents Identifiers[int]
+			idents = idents.AddFunc("sin").AddConst("pi", 3)
+			idents = idents.AddMap("this")
+			for _, arg := range test.args {
+				idents = idents.Add(arg)
+			}
+			ast, err := parser.Parse(test.exp, idents)
 			assert.NoError(t, err, test.exp)
 			if ast != nil {
 				assert.EqualValues(t, test.opt, ast.String())
@@ -131,7 +160,7 @@ func TestParserComfort(t *testing.T) {
 			for _, arg := range test.args {
 				idents = idents.Add(arg)
 			}
-			ast, err := parserComfort.Parse(test.exp, idents, false)
+			ast, err := parserComfort.Parse(test.exp, idents)
 			assert.NoError(t, err, test.exp)
 			if ast != nil {
 				assert.EqualValues(t, test.opt, ast.String())
@@ -233,7 +262,7 @@ func TestCodeGen(t *testing.T) {
 			for n := range v {
 				idents = idents.Add(n)
 			}
-			ast, err := parser.Parse(test.exp, idents, false)
+			ast, err := parser.Parse(test.exp, idents)
 			assert.NoError(t, err, test.exp)
 			fu, err := codeGen(ast)
 			assert.NoError(t, err)

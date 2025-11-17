@@ -534,6 +534,10 @@ func (g *FunctionGenerator[V]) AddUnary(operator string, impl UnaryOperatorImpl[
 	return g
 }
 
+func (g *FunctionGenerator[V]) Identifier() parser2.Identifiers[V] {
+	return g.identifier
+}
+
 // AddSimpleOp adds an operation to the generator.
 // The Operation needs to be pure.
 // The operation with the lowest priority needs to be added first.
@@ -648,7 +652,7 @@ func (g *FunctionGenerator[V]) AddStaticFunction(n string, f Function[V]) *Funct
 	if g.parser != nil {
 		panic("parser already created")
 	}
-	g.identifier = g.identifier.Add(n)
+	g.identifier = g.identifier.AddFunc(n)
 	g.staticFunctions[n] = f
 	return g
 }
@@ -687,7 +691,6 @@ func (g *FunctionGenerator[V]) GetParser() *parser2.Parser[V] {
 			SetNumberParser(g.numberParser).
 			SetKeyWords(g.keyWords...).
 			SetStringConverter(g.stringHandler).
-			SetIdentifiers(g.identifier).
 			SetOptimizer(g.optimizer).
 			Comfort(g.comfort)
 
@@ -735,9 +738,8 @@ func (am argsMap) copyAndAdd(name string) (argsMap, error) {
 }
 
 type GeneratorContext struct {
-	am       argsMap
-	cm       argsMap
-	ThisName string
+	am argsMap
+	cm argsMap
 }
 
 func (c GeneratorContext) addLocalVar(name string) (GeneratorContext, error) {
@@ -745,7 +747,7 @@ func (c GeneratorContext) addLocalVar(name string) (GeneratorContext, error) {
 	if err != nil {
 		return GeneratorContext{}, err
 	}
-	return GeneratorContext{am: newAm, cm: c.cm, ThisName: c.ThisName}, nil
+	return GeneratorContext{am: newAm, cm: c.cm}, nil
 }
 
 type Func[V any] func(Stack[V]) (V, error)
@@ -755,17 +757,18 @@ func (f Func[V]) Eval(args ...V) (V, error) {
 }
 
 func (g *FunctionGenerator[V]) Generate(exp string, args ...string) (Func[V], error) {
-	return g.generateIntern(args, exp, "")
+	return g.generateIntern(args, exp, g.identifier)
 }
 
 func (g *FunctionGenerator[V]) GenerateWithMap(exp string, mapName string) (Func[V], error) {
-	return g.generateIntern([]string{mapName}, exp, mapName)
+	idents := g.identifier.AddMap(mapName)
+	return g.generateIntern([]string{mapName}, exp, idents)
 }
 
 // GenerateFromString creates a function from a string.
 // The generated function can be used to register a static function to a parser.
 func (g *FunctionGenerator[V]) GenerateFromString(exp string, args ...string) (ParserFunc[V], error) {
-	ast, err := g.CreateAst(exp, nil, false)
+	ast, err := g.CreateAst(exp, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -783,9 +786,7 @@ func (g *FunctionGenerator[V]) GenerateFromString(exp string, args ...string) (P
 	return g.GenerateFunc(ast, GeneratorContext{am: am})
 }
 
-func (g *FunctionGenerator[V]) generateIntern(args []string, exp string, ThisName string) (Func[V], error) {
-
-	var idents parser2.Identifiers[V]
+func (g *FunctionGenerator[V]) generateIntern(args []string, exp string, idents parser2.Identifiers[V]) (Func[V], error) {
 	am := argsMap{}
 	if args != nil {
 		for _, a := range args {
@@ -797,12 +798,12 @@ func (g *FunctionGenerator[V]) generateIntern(args []string, exp string, ThisNam
 		}
 	}
 
-	ast, err := g.CreateAst(exp, idents, ThisName != "")
+	ast, err := g.CreateAst(exp, idents)
 	if err != nil {
 		return nil, err
 	}
 
-	gc := GeneratorContext{am: am, cm: nil, ThisName: ThisName}
+	gc := GeneratorContext{am: am, cm: nil}
 
 	f, err := g.GenerateFunc(ast, gc)
 	if err != nil {
@@ -825,8 +826,8 @@ func (g *FunctionGenerator[V]) generateIntern(args []string, exp string, ThisNam
 // CreateAst uses the parser to create the abstract syntax tree.
 // This method is public manly to inspect the AST in tests that live outside
 // this package.
-func (g *FunctionGenerator[V]) CreateAst(exp string, idents parser2.Identifiers[V], allowAnyIdent bool) (parser2.AST, error) {
-	ast, err := g.GetParser().Parse(exp, idents, allowAnyIdent)
+func (g *FunctionGenerator[V]) CreateAst(exp string, idents parser2.Identifiers[V]) (parser2.AST, error) {
+	ast, err := g.GetParser().Parse(exp, idents)
 	if err != nil {
 		return nil, fmt.Errorf("error parsing expression: %w", err)
 	}
@@ -860,19 +861,6 @@ func (g *FunctionGenerator[V]) GenerateFunc(ast parser2.AST, gc GeneratorContext
 					return cs[index], nil
 				}, nil
 			} else {
-				if gc.ThisName != "" && g.mapHandler != nil {
-					if index, ok := gc.am[gc.ThisName]; ok {
-						return func(st Stack[V], cs []V) (V, error) {
-							this := st.Get(index)
-							if v, err := g.mapHandler.AccessMap(this, a.Name); err == nil {
-								return v, nil
-							} else {
-								var zero V
-								return zero, a.EnhanceErrorf(err, "Map error")
-							}
-						}, nil
-					}
-				}
 				avail := []string{}
 				for n := range gc.am {
 					avail = append(avail, n)

@@ -232,7 +232,7 @@ func TestOptimizer(t *testing.T) {
 	for _, test := range tests {
 		test := test
 		t.Run(test.exp, func(t *testing.T) {
-			ast, err := valueParser.CreateAst(test.exp, nil, false)
+			ast, err := valueParser.CreateAst(test.exp, valueParser.Identifier())
 			assert.NoError(t, err, test.exp)
 			if c, ok := ast.(*parser2.Const[Value]); ok {
 				if f, ok := test.res.(Float); ok {

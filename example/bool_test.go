@@ -1,7 +1,6 @@
 package example
 
 import (
-	"github.com/hneemann/parser2"
 	"github.com/hneemann/parser2/funcGen"
 	"github.com/stretchr/testify/assert"
 	"testing"
@@ -36,9 +35,9 @@ func TestBool(t *testing.T) {
 
 			// check optimizer
 			// not required in production usage
-			var idents parser2.Identifiers[bool]
+			idents := boolParser.Identifier()
 			idents = idents.Add("a").Add("b")
-			ast, err := boolParser.CreateAst(test.exp, idents, false)
+			ast, err := boolParser.CreateAst(test.exp, idents)
 			assert.NoError(t, err)
 			assert.EqualValues(t, test.optimizes, ast.String())
 		})
