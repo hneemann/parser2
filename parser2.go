@@ -849,24 +849,7 @@ type Identifier[V any] struct {
 	Const    V
 }
 
-type Identifiers[V any] func(string, bool) (Identifier[V], bool)
-
-func (c Identifiers[V]) GetConst(name string, isFuncCall bool) (V, bool) {
-	if c == nil {
-		var zero V
-		return zero, false
-	}
-	ident, ok := c(name, isFuncCall)
-	if !ok {
-		var zero V
-		return zero, false
-	}
-	if !ident.IsConst {
-		var zero V
-		return zero, false
-	}
-	return ident.Const, true
-}
+type Identifiers[V any] func(string) (Identifier[V], bool)
 
 func (c Identifiers[V]) AddConst(name string, value V) Identifiers[V] {
 	return c.add(Identifier[V]{
@@ -884,44 +867,37 @@ func (c Identifiers[V]) Add(n string) Identifiers[V] {
 
 func (c Identifiers[V]) AddFunc(n string) Identifiers[V] {
 	return c.add(Identifier[V]{
-		Name:   n,
-		IsFunc: true,
+		Name:    n,
+		IsConst: true,
+		IsFunc:  true,
 	})
 }
 
 func (c Identifiers[V]) AddMap(this string) Identifiers[V] {
-	return func(name string, isFuncCall bool) (Identifier[V], bool) {
-		if isFuncCall {
-			if c == nil {
-				return Identifier[V]{}, false
-			} else {
-				return c(name, isFuncCall)
-			}
+	return func(name string) (Identifier[V], bool) {
+		if c == nil {
+			return Identifier[V]{Name: name, ThisName: this}, true
 		} else {
-			if c == nil {
-				return Identifier[V]{Name: name, ThisName: this}, true
-			} else {
-				if i, ok := c(name, isFuncCall); ok {
-					if i.IsConst {
-						return i, true
-					}
+			if i, ok := c(name); ok {
+				if i.IsConst {
+					return i, true
 				}
-				return Identifier[V]{Name: name, ThisName: this}, true
 			}
-
+			return Identifier[V]{Name: name, ThisName: this}, true
 		}
+
 	}
 }
 
 func (c Identifiers[V]) add(i Identifier[V]) Identifiers[V] {
-	return func(name string, isFuncCall bool) (Identifier[V], bool) {
+	return func(name string) (Identifier[V], bool) {
 		if name == i.Name {
 			return i, true
 		}
 		if c == nil {
 			return Identifier[V]{}, false
 		}
-		return c(name, isFuncCall)
+		return c(name)
 	}
 }
 
@@ -929,14 +905,14 @@ func (c Identifiers[V]) addAll(idents Identifiers[V]) Identifiers[V] {
 	if idents == nil {
 		return c
 	}
-	return func(name string, isFuncCall bool) (Identifier[V], bool) {
-		if i, ok := idents(name, isFuncCall); ok {
+	return func(name string) (Identifier[V], bool) {
+		if i, ok := idents(name); ok {
 			return i, true
 		}
 		if c == nil {
 			return Identifier[V]{}, false
 		}
-		return c(name, isFuncCall)
+		return c(name)
 	}
 }
 
@@ -944,7 +920,7 @@ func (c Identifiers[V]) AddAll(names []string) Identifiers[V] {
 	if len(names) == 0 {
 		return c
 	}
-	return func(name string, isFuncCall bool) (Identifier[V], bool) {
+	return func(name string) (Identifier[V], bool) {
 		for _, n := range names {
 			if n == name {
 				return Identifier[V]{Name: name}, true
@@ -953,7 +929,7 @@ func (c Identifiers[V]) AddAll(names []string) Identifiers[V] {
 		if c == nil {
 			return Identifier[V]{}, false
 		}
-		return c(name, isFuncCall)
+		return c(name)
 	}
 }
 
@@ -1188,13 +1164,13 @@ func (p *Parser[V]) parseLiteral(tokenizer *Tokenizer, idents Identifiers[V]) (A
 			}, nil
 		} else {
 			if idents != nil {
-				isFuncCall := tokenizer.Peek().typ == tOpen
-				if i, ok := idents(name, isFuncCall); ok {
+				if i, ok := idents(name); ok {
 					if i.IsConst {
-						return &Const[V]{
-							Value: i.Const,
-							Line:  t.Line,
-						}, nil
+						if i.IsFunc {
+							return &Ident{Name: name, Line: t.Line}, nil
+						} else {
+							return &Const[V]{Value: i.Const, Line: t.Line}, nil
+						}
 					} else if i.ThisName != "" {
 						return &MapAccess{
 							Key:      name,
