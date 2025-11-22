@@ -156,8 +156,21 @@ func TestBasic(t *testing.T) {
 		{exp: "func mul(a) b->a*b; [mul(2)(3),mul(4)(5),mul(4.5)(5.5)].string()", res: String("[6, 20, 24.75]")},
 		{exp: `func f(n) let i=n+1;x->x^i; [f(1)(1),f(1)(2),f(2)(1),f(2)(2)].string()`, res: String("[1, 4, 1, 8]")},
 
+		// U Combinator
 		//https://stackoverflow.com/questions/3883780/javascript-recursive-anonymous-function
 		{exp: "(((f->f(f))(h->f->f(x->(f->f(f))(h)(f)(x))))(f->a->b->x->if x=0 then a else f(b)(a+b)(x-1))(0)(1))(12)", res: Int(144)},
+
+		// Func in Func
+		{exp: `func f(x)
+                 func a(y)
+                   y*2+1;
+                 a(2*x);
+               f(2)`, res: Int(9)},
+		{exp: `func f(x)
+                 func a(y)
+                   if y>0 then y+a(y-1) else y;
+                 a(2*x);
+               f(2)`, res: Int(4 + 3 + 2 + 1)},
 	})
 }
 

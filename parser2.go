@@ -498,6 +498,9 @@ type ClosureLiteral struct {
 	Names []string
 	Func  AST
 	Line
+	OuterIdents []string
+	Recursive   bool
+	ThisName    string
 }
 
 func (c *ClosureLiteral) Traverse(visitor Visitor) {
@@ -901,6 +904,19 @@ func (c Identifiers[V]) add(i Identifier[V]) Identifiers[V] {
 	}
 }
 
+func (c Identifiers[V]) AddThis(n string, used *bool) Identifiers[V] {
+	return func(name string) (Identifier[V], bool) {
+		if name == n {
+			*used = true
+			return Identifier[V]{Name: name}, true
+		}
+		if c == nil {
+			return Identifier[V]{}, false
+		}
+		return c(name)
+	}
+}
+
 func (c Identifiers[V]) addAll(idents Identifiers[V]) Identifiers[V] {
 	if idents == nil {
 		return c
@@ -916,7 +932,7 @@ func (c Identifiers[V]) addAll(idents Identifiers[V]) Identifiers[V] {
 	}
 }
 
-func (c Identifiers[V]) AddAll(names []string) Identifiers[V] {
+func (c Identifiers[V]) AddArgs(names []string, outersUsed *[]string) Identifiers[V] {
 	if len(names) == 0 {
 		return c
 	}
@@ -929,7 +945,20 @@ func (c Identifiers[V]) AddAll(names []string) Identifiers[V] {
 		if c == nil {
 			return Identifier[V]{}, false
 		}
-		return c(name)
+		ident, ok := c(name)
+		if ok && !ident.IsConst {
+			found := false
+			for _, n := range *outersUsed {
+				if n == name {
+					found = true
+					break
+				}
+			}
+			if !found {
+				*outersUsed = append(*outersUsed, name)
+			}
+		}
+		return ident, ok
 	}
 }
 
@@ -992,7 +1021,9 @@ func (p *Parser[V]) parseLet(tokenizer *Tokenizer, idents Identifiers[V]) (AST, 
 			if err != nil {
 				return nil, err
 			}
-			exp, err := p.parseLet(tokenizer, idents.Add(name).AddAll(names))
+			recursive := false
+			var outersUsed []string
+			exp, err := p.parseLet(tokenizer, idents.AddArgs(names, &outersUsed).AddThis(name, &recursive))
 			if err != nil {
 				return nil, err
 			}
@@ -1006,9 +1037,12 @@ func (p *Parser[V]) parseLet(tokenizer *Tokenizer, idents Identifiers[V]) (AST, 
 			return &Let{
 				Name: name,
 				Value: &ClosureLiteral{
-					Names: names,
-					Func:  exp,
-					Line:  line,
+					Names:       names,
+					Func:        exp,
+					Line:        line,
+					OuterIdents: outersUsed,
+					Recursive:   recursive,
+					ThisName:    name,
 				},
 				Inner: inner,
 				Line:  line,
@@ -1153,14 +1187,16 @@ func (p *Parser[V]) parseLiteral(tokenizer *Tokenizer, idents Identifiers[V]) (A
 		if cl := tokenizer.Peek(); cl.typ == tOperate && cl.image == "->" {
 			// closure, short definition x->[exp]
 			tokenizer.Next()
-			e, err := p.parseLet(tokenizer, idents.Add(name))
+			var outersUsed []string
+			e, err := p.parseLet(tokenizer, idents.AddArgs([]string{name}, &outersUsed))
 			if err != nil {
 				return nil, err
 			}
 			return &ClosureLiteral{
-				Names: []string{name},
-				Func:  e,
-				Line:  t.Line,
+				Names:       []string{name},
+				Func:        e,
+				Line:        t.Line,
+				OuterIdents: outersUsed,
 			}, nil
 		} else {
 			if idents != nil {
@@ -1308,14 +1344,16 @@ func (p *Parser[V]) parseLiteral(tokenizer *Tokenizer, idents Identifiers[V]) (A
 			if !(t.typ == tOperate && t.image == "->") {
 				return nil, unexpected("->", t)
 			}
-			e, err := p.parseLet(tokenizer, idents.AddAll(names))
+			var outersUsed []string
+			e, err := p.parseLet(tokenizer, idents.AddArgs(names, &outersUsed))
 			if err != nil {
 				return nil, err
 			}
 			return &ClosureLiteral{
-				Names: names,
-				Func:  e,
-				Line:  t.Line,
+				Names:       names,
+				Func:        e,
+				Line:        t.Line,
+				OuterIdents: outersUsed,
 			}, nil
 		} else {
 			e, err := p.parseExpression(tokenizer, idents)
