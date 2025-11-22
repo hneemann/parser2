@@ -712,35 +712,45 @@ func (g *FunctionGenerator[V]) GetParser() *parser2.Parser[V] {
 	return g.parser
 }
 
-type argsMap map[string]int
+type argsList []string
 
-func (am argsMap) add(name string) error {
-	if name == "" {
-		return fmt.Errorf("empty names are not allowed")
+func (am argsList) get(name string) (int, bool) {
+	for i, n := range am {
+		if n == name {
+			return i, true
+		}
 	}
-	if _, ok := am[name]; ok {
-		return fmt.Errorf("let redeclares '%s'", name)
-	}
-	am[name] = len(am)
-	return nil
+	return -1, false
 }
 
-func (am argsMap) addAll(names []string) (argsMap, error) {
+func (am argsList) add(name string) (argsList, error) {
+	if name == "" {
+		return nil, fmt.Errorf("empty names are not allowed")
+	}
+	for _, n := range am {
+		if n == name {
+			return nil, fmt.Errorf("redeclaration of '%s'", name)
+		}
+	}
+	return append(am, name), nil
+}
+
+func (am argsList) addAll(names []string) (argsList, error) {
+	n := am
 	for _, name := range names {
-		err := am.add(name)
+		var err error
+		n, err = n.add(name)
 		if err != nil {
 			return nil, err
 		}
 	}
-	return am, nil
+	return n, nil
 }
 
-func (am argsMap) copyAndAdd(name string) (argsMap, error) {
-	n := argsMap{}
-	for k, v := range am {
-		n[k] = v
-	}
-	err := n.add(name)
+func (am argsList) copyAndAdd(name string) (argsList, error) {
+	n := make(argsList, len(am), len(am)+1)
+	copy(n, am)
+	n, err := n.add(name)
 	if err != nil {
 		return nil, err
 	}
@@ -748,8 +758,8 @@ func (am argsMap) copyAndAdd(name string) (argsMap, error) {
 }
 
 type GeneratorContext struct {
-	am argsMap
-	cm argsMap
+	am argsList
+	cm argsList
 }
 
 func (c GeneratorContext) addLocalVar(name string) (GeneratorContext, error) {
@@ -782,38 +792,17 @@ func (g *FunctionGenerator[V]) GenerateFromString(exp string, args ...string) (P
 	if err != nil {
 		return nil, err
 	}
-
-	am := argsMap{}
-	if args != nil {
-		for _, a := range args {
-			err = am.add(a)
-			if err != nil {
-				return nil, err
-			}
-		}
-	}
-
-	return g.GenerateFunc(ast, GeneratorContext{am: am})
+	return g.GenerateFunc(ast, GeneratorContext{am: args})
 }
 
 func (g *FunctionGenerator[V]) generateIntern(args []string, exp string, idents parser2.Identifiers[V]) (Func[V], error) {
-	am := argsMap{}
-	if args != nil {
-		for _, a := range args {
-			err := am.add(a)
-			if err != nil {
-				return nil, err
-			}
-			idents = idents.Add(a)
-		}
-	}
-
+	idents = idents.AddArgs(args, nil)
 	ast, err := g.CreateAst(exp, idents)
 	if err != nil {
 		return nil, err
 	}
 
-	gc := GeneratorContext{am: am, cm: nil}
+	gc := GeneratorContext{am: args, cm: nil}
 
 	f, err := g.GenerateFunc(ast, gc)
 	if err != nil {
@@ -861,23 +850,17 @@ func (g *FunctionGenerator[V]) GenerateFunc(ast parser2.AST, gc GeneratorContext
 			return a.Value, nil
 		}, nil
 	case *parser2.Ident:
-		if index, ok := gc.am[a.Name]; ok {
+		if index, ok := gc.am.get(a.Name); ok {
 			return func(st Stack[V], cs []V) (V, error) {
 				return st.Get(index), nil
 			}, nil
 		} else {
-			if index, ok := gc.cm[a.Name]; ok {
+			if index, ok := gc.cm.get(a.Name); ok {
 				return func(st Stack[V], cs []V) (V, error) {
 					return cs[index], nil
 				}, nil
 			} else {
-				avail := []string{}
-				for n := range gc.am {
-					avail = append(avail, n)
-				}
-				for n := range gc.cm {
-					avail = append(avail, n)
-				}
+				avail := append(gc.am, gc.cm...)
 				return nil, parser2.NewNotFoundError(a.Name, a.Errorf("not found: %s", a.Name)).SetAvail(avail...)
 			}
 		}
@@ -1038,13 +1021,9 @@ func (g *FunctionGenerator[V]) GenerateFunc(ast parser2.AST, gc GeneratorContext
 			return op.Calc(st, aVal, bVal)
 		}, nil
 	case *parser2.ClosureLiteral:
-		funcArgs, err := argsMap{}.addAll(a.Names)
-		if err != nil {
-			return nil, err
-		}
 		if len(a.OuterIdents) == 0 && !a.Recursive {
 			// not a closure, not recursive, just a pure function
-			closureFunc, err := g.GenerateFunc(a.Func, GeneratorContext{am: funcArgs})
+			closureFunc, err := g.GenerateFunc(a.Func, GeneratorContext{am: a.Names})
 			if err != nil {
 				return nil, err
 			}
@@ -1056,7 +1035,7 @@ func (g *FunctionGenerator[V]) GenerateFunc(ast parser2.AST, gc GeneratorContext
 			}, nil
 		} else {
 			// is a real closure
-			return g.createClosureLiteralFunc(a, funcArgs, gc)
+			return g.createClosureLiteralFunc(a, gc)
 		}
 	case *parser2.ListLiteral:
 		if g.listHandler != nil {
@@ -1253,19 +1232,17 @@ func (g *FunctionGenerator[V]) GenerateFunc(ast parser2.AST, gc GeneratorContext
 	return nil, ast.GetLine().Errorf("not supported: %v", ast)
 }
 
-func (g *FunctionGenerator[V]) createClosureLiteralFunc(a *parser2.ClosureLiteral, args argsMap, gc GeneratorContext) (ParserFunc[V], error) {
-	usedVars, err := argsMap{}.addAll(a.OuterIdents)
-	if err != nil {
-		return nil, err
-	}
+func (g *FunctionGenerator[V]) createClosureLiteralFunc(a *parser2.ClosureLiteral, gc GeneratorContext) (ParserFunc[V], error) {
+	usedVars := argsList(a.OuterIdents)
 	if a.Recursive {
-		err = usedVars.add(a.ThisName)
+		var err error
+		usedVars, err = usedVars.add(a.ThisName)
 		if err != nil {
 			return nil, err
 		}
 	}
 	closureFunc, err := g.GenerateFunc(a.Func, GeneratorContext{
-		am: args,
+		am: a.Names,
 		cm: usedVars,
 	})
 	if err != nil {
@@ -1274,11 +1251,11 @@ func (g *FunctionGenerator[V]) createClosureLiteralFunc(a *parser2.ClosureLitera
 
 	type accessContextOperation func(st Stack[V], cs []V, this V) V
 	accessContextOperations := make([]accessContextOperation, len(usedVars))
-	for n, ci := range usedVars {
-		if i, ok := gc.am[n]; ok {
+	for ci, n := range usedVars {
+		if i, ok := gc.am.get(n); ok {
 			accessContextOperations[ci] = func(st Stack[V], cs []V, this V) V { return st.Get(i) }
 		} else {
-			if i, ok := gc.cm[n]; ok {
+			if i, ok := gc.cm.get(n); ok {
 				accessContextOperations[ci] = func(st Stack[V], cs []V, this V) V { return cs[i] }
 			} else {
 				if a.Recursive && n == a.ThisName {

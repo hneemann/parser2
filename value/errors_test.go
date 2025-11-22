@@ -65,6 +65,8 @@ func TestErrors(t *testing.T) {
 		{"[1,2,3,4].set(4,0)", "index 4 out of range"},
 		{"true-2", "operation '-' not defined on bool, int"},
 		{"func f(x) x+b; f(2)", "identifier 'b' not found"},
+		{"func f(x,x) x+x; f(2,2)", "'x' used twice"},
+		{"let f=(x,x)-> x+x; f(2,2)", "'x' used twice"},
 		{exp: "throw(\"error: zzzz\")", err: "error: zzzz"},
 		{exp: "func mul(a,b) a*b; mul.invoke([2,3,4])", err: "wrong number of arguments in invoke: 3 instead of 2"},
 		{exp: "func mul(a,b) a*b; mul(2)", err: "wrong number of arguments at call of \"mul\", required 2, found 1 in line 1"},

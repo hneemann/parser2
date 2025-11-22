@@ -946,16 +946,18 @@ func (c Identifiers[V]) AddArgs(names []string, outersUsed *[]string) Identifier
 			return Identifier[V]{}, false
 		}
 		ident, ok := c(name)
-		if ok && !ident.IsConst {
-			found := false
-			for _, n := range *outersUsed {
-				if n == name {
-					found = true
-					break
+		if outersUsed != nil {
+			if ok && !ident.IsConst {
+				found := false
+				for _, n := range *outersUsed {
+					if n == name {
+						found = true
+						break
+					}
 				}
-			}
-			if !found {
-				*outersUsed = append(*outersUsed, name)
+				if !found {
+					*outersUsed = append(*outersUsed, name)
+				}
 			}
 		}
 		return ident, ok
@@ -1017,7 +1019,7 @@ func (p *Parser[V]) parseLet(tokenizer *Tokenizer, idents Identifiers[V]) (AST, 
 			if t := tokenizer.Next(); t.typ != tOpen {
 				return nil, unexpected("(", t)
 			}
-			names, err := p.parseIdentList(tokenizer, idents)
+			names, err := p.parseIdentList(tokenizer)
 			if err != nil {
 				return nil, err
 			}
@@ -1336,7 +1338,7 @@ func (p *Parser[V]) parseLiteral(tokenizer *Tokenizer, idents Identifiers[V]) (A
 		}
 	case tOpen:
 		if tokenizer.Peek().typ == tIdent && tokenizer.PeekPeek().typ == tComma {
-			names, err := p.parseIdentList(tokenizer, idents)
+			names, err := p.parseIdentList(tokenizer)
 			if err != nil {
 				return nil, err
 			}
@@ -1428,11 +1430,16 @@ func (p *Parser[V]) parseMap(tokenizer *Tokenizer, constants Identifiers[V]) (*M
 	}
 }
 
-func (p *Parser[V]) parseIdentList(tokenizer *Tokenizer, constants Identifiers[V]) ([]string, error) {
+func (p *Parser[V]) parseIdentList(tokenizer *Tokenizer) ([]string, error) {
 	var names []string
 	for {
 		t := tokenizer.Next()
 		if t.typ == tIdent {
+			for _, n := range names {
+				if n == t.image {
+					return nil, t.Errorf("'%s' used twice in functions argument list", t.image)
+				}
+			}
 			names = append(names, t.image)
 			t = tokenizer.Next()
 			switch t.typ {
