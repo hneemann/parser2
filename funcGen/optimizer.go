@@ -37,6 +37,7 @@ func (o optimizer[V]) Optimize(ast parser2.AST) (parser2.AST, error) {
 							}
 							return &parser2.Operate{
 								Operator: oper.Operator,
+								Priority: oper.Priority,
 								A:        &parser2.Const[V]{co, oper.Line},
 								B:        aOp.B,
 							}, nil
@@ -48,6 +49,7 @@ func (o optimizer[V]) Optimize(ast parser2.AST) (parser2.AST, error) {
 							}
 							return &parser2.Operate{
 								Operator: oper.Operator,
+								Priority: oper.Priority,
 								A:        aOp.A,
 								B:        &parser2.Const[V]{co, oper.Line},
 							}, nil

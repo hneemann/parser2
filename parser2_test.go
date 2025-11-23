@@ -37,10 +37,10 @@ func (np numberParser) ParseNumber(n string) (int, error) {
 }
 
 var parser = NewParser[int]().
-	SetKeyWords("let", "switch", "case", "default", "func").
+	SetKeyWords("let", "switch", "case", "default", "func", "if", "then", "else", "try", "catch").
 	SetNumberParser(numberParser{}).
 	SetOptimizer(&simpleOptimizer{}).
-	Op("+", "-", "*", "/", "^").
+	Op("+", "-", "*", "/", "^", "<", ">", "=").
 	Unary("-")
 
 var parserComfort = NewParser[int]().

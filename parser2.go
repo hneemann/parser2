@@ -344,6 +344,7 @@ func (s *Switch[V]) String() string {
 type Operate struct {
 	Operator string
 	A, B     AST
+	Priority int
 	Line
 }
 
@@ -839,6 +840,8 @@ func (p *Parser[V]) Parse(str string, idents Identifiers[V]) (ast AST, err error
 		}
 	}
 
+	//fmt.Println(PrettyPrint[V](ast))
+
 	return ast, nil
 }
 
@@ -1076,6 +1079,7 @@ func (p *Parser[V]) parseOp(tokenizer *Tokenizer, op int, constants Identifiers[
 			}
 			a = &Operate{
 				Operator: operator,
+				Priority: op,
 				A:        aa,
 				B:        bb,
 				Line:     t.Line,
