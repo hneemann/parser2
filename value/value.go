@@ -909,7 +909,7 @@ func New() *FunctionGenerator {
 				return nil, fmt.Errorf("list not alowed on %s", TypeName(v))
 			},
 			Args:   1,
-			IsPure: false, // made it not pure to avoid constant evaluation
+			IsPure: true,
 		}.SetDescription("n", "Returns a list with n integer values, starting with 0.")).
 		AddStaticFunction("goto", funcGen.Function[Value]{
 			Func: func(st funcGen.Stack[Value], cs []Value) (Value, error) {
