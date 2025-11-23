@@ -110,7 +110,7 @@ func prettyPrintAST[V any](buf *bytes.Buffer, ast AST, indent string) {
 	case *Let:
 		if cl, ok := e.Value.(*ClosureLiteral); ok {
 			if cl.ThisName != "" {
-				buf.WriteString(indent + "func " + cl.ThisName + "(")
+				buf.WriteString("func " + cl.ThisName + "(")
 				for i, n := range cl.Names {
 					if i > 0 {
 						buf.WriteString(", ")
