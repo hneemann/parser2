@@ -1241,31 +1241,28 @@ func (g *FunctionGenerator[V]) createClosureLiteralFunc(a *parser2.ClosureLitera
 			return nil, err
 		}
 	}
-	closureFunc, err := g.GenerateFunc(a.Func, GeneratorContext{
-		am: a.Names,
-		cm: usedVars,
-	})
+	closureFunc, err := g.GenerateFunc(a.Func, GeneratorContext{am: a.Names, cm: usedVars})
 	if err != nil {
 		return nil, err
 	}
 
 	type accessContextOperation func(st Stack[V], cs []V, this V) V
-	accessContextOperations := make([]accessContextOperation, len(usedVars))
-	for ci, n := range usedVars {
-		if i, ok := gc.am.get(n); ok {
+	accessContextOperations := make([]accessContextOperation, len(a.OuterIdents), len(usedVars))
+	for ci, name := range a.OuterIdents {
+		if i, ok := gc.am.get(name); ok {
 			accessContextOperations[ci] = func(st Stack[V], cs []V, this V) V { return st.Get(i) }
 		} else {
-			if i, ok := gc.cm.get(n); ok {
+			if i, ok := gc.cm.get(name); ok {
 				accessContextOperations[ci] = func(st Stack[V], cs []V, this V) V { return cs[i] }
 			} else {
-				if a.Recursive && n == a.ThisName {
-					accessContextOperations[ci] = func(st Stack[V], cs []V, this V) V { return this }
-				} else {
-					return nil, parser2.NewNotFoundError(n, a.Errorf("outer value '%s' not found", n))
-				}
+				return nil, parser2.NewNotFoundError(name, a.Errorf("outer value '%s' not found", name))
 			}
 		}
 	}
+	if a.Recursive {
+		accessContextOperations = append(accessContextOperations, func(st Stack[V], cs []V, this V) V { return this })
+	}
+
 	return func(st Stack[V], cs []V) (V, error) {
 		closureContext := make([]V, len(accessContextOperations))
 		closure := g.closureHandler.FromClosure(Function[V]{
