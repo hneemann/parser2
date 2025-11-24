@@ -1,6 +1,7 @@
 package parser2
 
 import (
+	"fmt"
 	"github.com/stretchr/testify/assert"
 	"testing"
 )
@@ -19,12 +20,12 @@ func TestPrettyPrintAST(t *testing.T) {
 		{"fuOpt", "func f(n) 2*2*n; f(5)", "func f(n)\n  4*n;\n\nf(5)"},
 		{"fu2", "a(2)", "a(2)"},
 		{"fu3", "a(2,3,4)", "a(2, 3, 4)"},
-		{"fu4", "a(2,a.abs(),4)", "a(2, a\n     .abs(), 4)"},
-		{"fu5", "a(a.abs().sqrt(),a.abs().sqrt(),a.abs().sqrt())", "a(a\n  .abs()\n  .sqrt(),\n  a\n  .abs()\n  .sqrt(),\n  a\n  .abs()\n  .sqrt()\n  )"},
-		{"method", "a.bla(5)", "a\n.bla(5)"},
-		{"method2", "(1+a).toFloat()", "(1+a)\n.toFloat()"},
-		{"method3", "(x->x*x).toFloat()", "(x -> x*x)\n.toFloat()"},
-		{"method4", "(x->x*x.abs().neg()).toFloat()", "(x -> x*x\n        .abs()\n        .neg())\n.toFloat()"},
+		{"fu4", "a(2,a.abs(),4)", "a(2, a\n      .abs(), 4)"},
+		{"fu5", "a(a.abs().sqrt(),a.abs().sqrt(),a.abs().sqrt())", "a(a\n   .abs()\n   .sqrt(),\n  a\n   .abs()\n   .sqrt(),\n  a\n   .abs()\n   .sqrt()\n  )"},
+		{"method", "a.bla(5)", "a\n .bla(5)"},
+		{"method2", "(1+a).toFloat()", "(1+a)\n .toFloat()"},
+		{"method3", "(x->x*x).toFloat()", "(x -> x*x)\n .toFloat()"},
+		{"method4", "(x->x*x.abs().neg()).toFloat()", "(x -> x*x\n         .abs()\n         .neg())\n .toFloat()"},
 		{"attr", "a.bla", "a.bla"},
 		{"index", "a[1].bla", "a[1].bla"},
 		{"cl1", "a(x->x^2)", "a(x -> x^2)"},
@@ -47,6 +48,7 @@ func TestPrettyPrintAST(t *testing.T) {
 			assert.NoError(t, err)
 			printAST := PrettyPrint[int](ast)
 			assert.Equalf(t, tt.want, printAST, "PrettyPrintAST(%v)", tt.exp)
+			fmt.Println(printAST)
 		})
 	}
 }

@@ -94,7 +94,7 @@ func prettyPrintAST[V any](buf *writer, ast AST) {
 			prettyPrintAST[V](do, e.Value)
 		}
 		do.newLine()
-		do.writeString("." + e.Name)
+		do.writeString(" ." + e.Name)
 		writeArgs[V](do, e.Args)
 	case *Let:
 		if cl, ok := e.Value.(*ClosureLiteral); ok && cl.ThisName != "" {
