@@ -1035,6 +1035,14 @@ func (p *Parser[V]) parseLet(tokenizer *Tokenizer, idents Identifiers[V]) (AST, 
 			if t := tokenizer.Next(); t.typ != tSemicolon || t.image != ";" {
 				return nil, unexpected(";", t)
 			}
+
+			if p.optimizer != nil {
+				exp, err = Optimize(exp, p.optimizer)
+				if err != nil {
+					return nil, err
+				}
+			}
+
 			inner, err := p.parseLet(tokenizer, idents.Add(name))
 			if err != nil {
 				return nil, err
