@@ -6,161 +6,190 @@ import (
 )
 
 func PrettyPrint[V any](ast AST) string {
-	var buf bytes.Buffer
-	prettyPrintAST[V](&buf, ast, "")
-	return buf.String()
+	w := newWriter()
+	prettyPrintAST[V](w, ast)
+	return w.String()
 }
 
-func prettyPrintAST[V any](buf *bytes.Buffer, ast AST, indent string) {
+func prettyPrintAST[V any](buf *writer, ast AST) {
 	switch e := ast.(type) {
 	case *Const[V]:
-		buf.WriteString(fmt.Sprint(e.Value))
+		buf.writeString(fmt.Sprint(e.Value))
 	case *Ident:
-		buf.WriteString(e.Name)
+		buf.writeString(e.Name)
 	case *MapAccess:
-		prettyPrintAST[V](buf, e.MapValue, indent)
-		buf.WriteString(".")
-		buf.WriteString(e.Key)
+		prettyPrintAST[V](buf, e.MapValue)
+		buf.writeString(".")
+		buf.writeString(e.Key)
 	case *ListAccess:
-		prettyPrintAST[V](buf, e.List, indent)
-		buf.WriteString("[")
-		prettyPrintAST[V](buf, e.Index, indent)
-		buf.WriteString("]")
+		prettyPrintAST[V](buf, e.List)
+		buf.writeString("[")
+		prettyPrintAST[V](buf, e.Index)
+		buf.writeString("]")
 	case *Unary:
-		buf.WriteString(e.Operator)
-		prettyPrintAST[V](buf, e.Value, indent)
+		buf.writeString(e.Operator)
+		prettyPrintAST[V](buf, e.Value)
 	case *FunctionCall:
-		prettyPrintAST[V](buf, e.Func, indent)
-		buf.WriteString("(")
-		for i, arg := range e.Args {
-			if i > 0 {
-				buf.WriteString(", ")
-			}
-			prettyPrintAST[V](buf, arg, indent)
-		}
-		buf.WriteString(")")
+		prettyPrintAST[V](buf, e.Func)
+		writeArgs[V](buf, e.Args)
 	case *Operate:
 		if io, ok := e.A.(*Operate); ok && io.Priority < e.Priority {
-			buf.WriteString("(")
-			prettyPrintAST[V](buf, e.A, indent)
-			buf.WriteString(")")
+			buf.writeString("(")
+			prettyPrintAST[V](buf, e.A)
+			buf.writeString(")")
 		} else {
-			prettyPrintAST[V](buf, e.A, indent)
+			prettyPrintAST[V](buf, e.A)
 		}
-		buf.WriteString(e.Operator)
+		buf.writeString(e.Operator)
 		if io, ok := e.B.(*Operate); ok && io.Priority < e.Priority {
-			buf.WriteString("(")
-			prettyPrintAST[V](buf, e.B, indent)
-			buf.WriteString(")")
+			buf.writeString("(")
+			prettyPrintAST[V](buf, e.B)
+			buf.writeString(")")
 		} else {
-			prettyPrintAST[V](buf, e.B, indent)
+			prettyPrintAST[V](buf, e.B)
 		}
 	case *ListLiteral:
-		buf.WriteString("[")
+		buf.writeString("[")
 		for i, item := range e.List {
 			if i > 0 {
-				buf.WriteString(", ")
+				buf.writeString(", ")
 			}
-			prettyPrintAST[V](buf, item, indent)
+			prettyPrintAST[V](buf, item)
 		}
-		buf.WriteString("]")
+		buf.writeString("]")
 	case *MapLiteral:
-		buf.WriteString("{")
+		buf.writeString("{")
 		i := 0
 		for k, v := range e.Map.Iter {
 			if i > 0 {
-				buf.WriteString(", ")
+				buf.writeString(", ")
 			}
-			buf.WriteString(k + ":")
-			prettyPrintAST[V](buf, v, indent)
+			buf.writeString(k + ":")
+			prettyPrintAST[V](buf, v)
 			i++
 		}
-		buf.WriteString("}")
+		buf.writeString("}")
 	case *ClosureLiteral:
 		if len(e.Names) == 1 {
-			buf.WriteString(e.Names[0])
+			buf.writeString(e.Names[0])
 		} else {
-			buf.WriteString("(")
+			buf.writeString("(")
 			for i, n := range e.Names {
 				if i > 0 {
-					buf.WriteString(", ")
+					buf.writeString(", ")
 				}
-				buf.WriteString(n)
+				buf.writeString(n)
 			}
-			buf.WriteString(")")
+			buf.writeString(")")
 		}
-		buf.WriteString(" -> ")
-		prettyPrintAST[V](buf, e.Func, indent)
+		buf.writeString(" -> ")
+		prettyPrintAST[V](buf.down(), e.Func)
 	case *MethodCall:
+		do := buf.down()
 		if methodParenthesesNeeded(e.Value) {
-			buf.WriteString("(")
-			prettyPrintAST[V](buf, e.Value, indent)
-			buf.WriteString(")")
+			do.writeString("(")
+			prettyPrintAST[V](do, e.Value)
+			do.writeString(")")
 		} else {
-			prettyPrintAST[V](buf, e.Value, indent)
+			prettyPrintAST[V](do, e.Value)
 		}
-		buf.WriteString("\n" + indent + "  ." + e.Name + "(")
-		for i, arg := range e.Args {
-			if i > 0 {
-				buf.WriteString(", ")
-			}
-			prettyPrintAST[V](buf, arg, indent+"  ")
-		}
-		buf.WriteString(")")
+		do.newLine()
+		do.writeString("." + e.Name)
+		writeArgs[V](do, e.Args)
 	case *Let:
-		if cl, ok := e.Value.(*ClosureLiteral); ok {
-			if cl.ThisName != "" {
-				buf.WriteString("func " + cl.ThisName + "(")
-				for i, n := range cl.Names {
-					if i > 0 {
-						buf.WriteString(", ")
-					}
-					buf.WriteString(n)
+		if cl, ok := e.Value.(*ClosureLiteral); ok && cl.ThisName != "" {
+			buf.writeString("func " + cl.ThisName + "(")
+			for i, n := range cl.Names {
+				if i > 0 {
+					buf.writeString(", ")
 				}
-				buf.WriteString(")\n  " + indent)
-				prettyPrintAST[V](buf, cl.Func, indent+"  ")
-				if indent == "" {
-					buf.WriteString(";\n\n" + indent)
-				} else {
-					buf.WriteString(";\n" + indent)
-				}
-				prettyPrintAST[V](buf, e.Inner, indent)
-				return
+				buf.writeString(n)
 			}
-		}
-		buf.WriteString("let " + e.Name + " = ")
-		prettyPrintAST[V](buf, e.Value, indent)
-		if indent == "" {
-			buf.WriteString(";\n\n" + indent)
+			buf.writeString(")")
+			ib := buf.indent()
+			ib.newLine()
+			prettyPrintAST[V](ib, cl.Func)
+			ib.writeString(";")
 		} else {
-			buf.WriteString(";\n" + indent)
+			buf.writeString("let " + e.Name + " = ")
+			prettyPrintAST[V](buf, e.Value)
+			buf.writeString(";")
 		}
-		prettyPrintAST[V](buf, e.Inner, indent)
+		if buf.tab == 0 {
+			buf.writeString("\n")
+		}
+		buf.newLine()
+		prettyPrintAST[V](buf, e.Inner)
 	case *If:
-		buf.WriteString("if ")
-		prettyPrintAST[V](buf, e.Cond, indent+"  ")
-		buf.WriteString("\n" + indent + "then\n" + indent + "  ")
-		prettyPrintAST[V](buf, e.Then, indent+"  ")
-		buf.WriteString("\n" + indent + "else\n" + indent + "  ")
-		prettyPrintAST[V](buf, e.Else, indent+"  ")
+		do := buf.down()
+		do.writeString("if ")
+		prettyPrintAST[V](do, e.Cond)
+		do.newLine()
+		do.writeString("then ")
+		prettyPrintAST[V](do, e.Then)
+		do.newLine()
+		do.writeString("else ")
+		prettyPrintAST[V](do, e.Else)
 	case *Switch[V]:
-		buf.WriteString("switch ")
-		prettyPrintAST[V](buf, e.SwitchValue, indent+"  ")
+		do := buf.down()
+		do.writeString("switch ")
+		do = do.indent()
+		prettyPrintAST[V](do, e.SwitchValue)
 		for _, cs := range e.Cases {
-			buf.WriteString("\n" + indent + "case ")
-			prettyPrintAST[V](buf, cs.CaseConst, indent+"  ")
-			buf.WriteString(":\n" + indent + "  ")
-			prettyPrintAST[V](buf, cs.Value, indent+"  ")
+			do.newLine()
+			do.writeString("case ")
+			prettyPrintAST[V](do, cs.CaseConst)
+			do.writeString(": ")
+			prettyPrintAST[V](do, cs.Value)
 		}
-		buf.WriteString("\n" + indent + "default\n" + indent + "  ")
-		prettyPrintAST[V](buf, e.Default, indent+"  ")
+		do.newLine()
+		do.writeString("default ")
+		prettyPrintAST[V](do, e.Default)
 	case *TryCatch:
-		buf.WriteString("try ")
-		prettyPrintAST[V](buf, e.Try, indent)
-		buf.WriteString(" catch ")
-		prettyPrintAST[V](buf, e.Catch, indent)
+		buf.writeString("try ")
+		prettyPrintAST[V](buf, e.Try)
+		buf.writeString(" catch ")
+		prettyPrintAST[V](buf, e.Catch)
 	default:
-		buf.WriteString("<unknown AST node>")
+		buf.writeString("<unknown AST node>")
+	}
+}
+
+func writeArgs[V any](buf *writer, args []AST) {
+	const maxCmplx = 6
+	cmplx := 0
+	for _, arg := range args {
+		arg.Traverse(VisitorFunc(func(ast AST) bool {
+			switch ast.(type) {
+			case *Let, *If, *Switch[V], *MethodCall:
+				cmplx += 2
+			case *TryCatch, *FunctionCall:
+				cmplx++
+			}
+			return cmplx < maxCmplx
+		}))
+	}
+	if cmplx < maxCmplx {
+		buf.writeString("(")
+		for i, arg := range args {
+			if i > 0 {
+				buf.writeString(", ")
+			}
+			prettyPrintAST[V](buf, arg)
+		}
+		buf.writeString(")")
+	} else {
+		buf.writeString("(")
+		do := buf.down()
+		for i, arg := range args {
+			if i > 0 {
+				do.writeString(",")
+				do.newLine()
+			}
+			prettyPrintAST[V](do, arg)
+		}
+		do.newLine()
+		do.writeString(")")
 	}
 }
 
@@ -172,4 +201,68 @@ func methodParenthesesNeeded(value AST) bool {
 		return true
 	}
 	return false
+}
+
+type posWriter struct {
+	buf bytes.Buffer
+	col int
+}
+
+func (w *posWriter) writeString(s string) {
+	w.buf.WriteString(s)
+	w.col += len(s)
+}
+
+func (w *posWriter) newLine() {
+	w.buf.WriteRune('\n')
+	w.col = 0
+}
+
+func (w *posWriter) String() string {
+	return w.buf.String()
+}
+
+type writer struct {
+	pw  *posWriter
+	tab int
+}
+
+func newWriter() *writer {
+	return &writer{
+		pw:  &posWriter{},
+		tab: 0,
+	}
+}
+
+func (w *writer) down() *writer {
+	return &writer{
+		pw:  w.pw,
+		tab: w.pw.col,
+	}
+}
+
+func (w *writer) indent() *writer {
+	return &writer{
+		pw:  w.pw,
+		tab: w.tab + 2,
+	}
+}
+
+func (w *writer) writeString(s string) {
+	w.pw.writeString(s)
+}
+
+func (w *writer) writeIndent() {
+	for i := 0; i < w.tab; i++ {
+		w.writeString(" ")
+	}
+}
+
+func (w *writer) newLine() {
+	w.pw.newLine()
+	w.writeIndent()
+}
+
+func (w *writer) String() string {
+	return w.pw.String()
 }
