@@ -29,14 +29,18 @@ func FlattenStack(st funcGen.Stack[Value], start int) func(yield func(v Value, e
 }
 
 func flatten(v Value, err error, yield func(v Value, err error) bool) bool {
-	if list, ok := v.ToList(); ok && err == nil {
+	if err != nil {
+		return yield(v, err)
+	}
+
+	if list, ok := v.ToList(); ok {
 		for v, err := range list.Iterate(funcGen.NewEmptyStack[Value]()) {
 			if !flatten(v, err, yield) {
 				return false
 			}
 		}
 		return true
-	} else if m, ok := v.ToMap(); ok && err == nil {
+	} else if m, ok := v.ToMap(); ok {
 		for _, value := range m.Iter {
 			if !flatten(value, nil, yield) {
 				return false
