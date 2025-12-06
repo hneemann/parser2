@@ -198,9 +198,9 @@ func (l *Let) String() string {
 	return "let " + l.Name + "=" + l.Value.String() + "; " + l.Inner.String()
 }
 
-func opt(a *AST, optimizer Optimizer) {
-	(*a).Optimize(optimizer)
-	*a = optimizer.Optimize(*a)
+func opt(a AST, optimizer Optimizer) AST {
+	a.Optimize(optimizer)
+	return optimizer.Optimize(a)
 }
 
 func (l *Let) Optimize(optimizer Optimizer) {
@@ -210,7 +210,7 @@ func (l *Let) Optimize(optimizer Optimizer) {
 	//if err != nil {
 	//	return err
 	//}
-	opt(&l.Inner, optimizer)
+	l.Inner = opt(l.Inner, optimizer)
 }
 
 type If struct {
@@ -229,9 +229,9 @@ func (i *If) Traverse(visitor Visitor) {
 }
 
 func (i *If) Optimize(optimizer Optimizer) {
-	opt(&i.Cond, optimizer)
-	opt(&i.Then, optimizer)
-	opt(&i.Else, optimizer)
+	i.Cond = opt(i.Cond, optimizer)
+	i.Then = opt(i.Then, optimizer)
+	i.Else = opt(i.Else, optimizer)
 }
 
 func (i *If) String() string {
@@ -252,8 +252,8 @@ func (t *TryCatch) Traverse(visitor Visitor) {
 }
 
 func (t *TryCatch) Optimize(optimizer Optimizer) {
-	opt(&t.Try, optimizer)
-	opt(&t.Catch, optimizer)
+	t.Try = opt(t.Try, optimizer)
+	t.Catch = opt(t.Catch, optimizer)
 }
 
 func (t *TryCatch) String() string {
@@ -283,11 +283,11 @@ func (s *Switch[V]) Traverse(visitor Visitor) {
 }
 
 func (s *Switch[V]) Optimize(o Optimizer) {
-	opt(&s.SwitchValue, o)
-	for _, c := range s.Cases {
-		opt(&c.Value, o)
+	s.SwitchValue = opt(s.SwitchValue, o)
+	for i := range s.Cases {
+		s.Cases[i].Value = opt(s.Cases[i].Value, o)
 	}
-	opt(&s.Default, o)
+	s.Default = opt(s.Default, o)
 }
 
 func (s *Switch[V]) String() string {
@@ -320,8 +320,8 @@ func (o *Operate) Traverse(visitor Visitor) {
 }
 
 func (o *Operate) Optimize(optimizer Optimizer) {
-	opt(&o.A, optimizer)
-	opt(&o.B, optimizer)
+	o.A = opt(o.A, optimizer)
+	o.B = opt(o.B, optimizer)
 }
 
 func (o *Operate) String() string {
@@ -348,7 +348,7 @@ func (u *Unary) Traverse(visitor Visitor) {
 }
 
 func (u *Unary) Optimize(optimizer Optimizer) {
-	opt(&u.Value, optimizer)
+	u.Value = opt(u.Value, optimizer)
 }
 
 func (u *Unary) String() string {
@@ -368,7 +368,7 @@ func (m *MapAccess) Traverse(visitor Visitor) {
 }
 
 func (m *MapAccess) Optimize(optimizer Optimizer) {
-	opt(&m.MapValue, optimizer)
+	m.MapValue = opt(m.MapValue, optimizer)
 }
 
 func (m *MapAccess) String() string {
@@ -392,9 +392,9 @@ func (m *MethodCall) Traverse(visitor Visitor) {
 }
 
 func (m *MethodCall) Optimize(optimizer Optimizer) {
-	opt(&m.Value, optimizer)
+	m.Value = opt(m.Value, optimizer)
 	for i := range m.Args {
-		opt(&m.Args[i], optimizer)
+		m.Args[i] = opt(m.Args[i], optimizer)
 	}
 }
 
@@ -438,8 +438,8 @@ func (a *ListAccess) Traverse(visitor Visitor) {
 }
 
 func (a *ListAccess) Optimize(optimizer Optimizer) {
-	opt(&a.Index, optimizer)
-	opt(&a.List, optimizer)
+	a.Index = opt(a.Index, optimizer)
+	a.List = opt(a.List, optimizer)
 }
 
 func (a *ListAccess) String() string {
@@ -462,7 +462,7 @@ func (c *ClosureLiteral) Traverse(visitor Visitor) {
 }
 
 func (c *ClosureLiteral) Optimize(optimizer Optimizer) {
-	opt(&c.Func, optimizer)
+	c.Func = opt(c.Func, optimizer)
 }
 
 func (c *ClosureLiteral) String() string {
@@ -488,7 +488,7 @@ func (ml *MapLiteral) Traverse(visitor Visitor) {
 
 func (ml *MapLiteral) Optimize(optimizer Optimizer) {
 	ml.Map.Iter(func(key string, value AST) bool {
-		opt(&value, optimizer)
+		value = opt(value, optimizer)
 		ml.Map.Append(key, value)
 		return true
 	})
@@ -529,7 +529,7 @@ func (al *ListLiteral) Traverse(visitor Visitor) {
 
 func (al *ListLiteral) Optimize(optimizer Optimizer) {
 	for i := range al.List {
-		opt(&al.List[i], optimizer)
+		al.List[i] = opt(al.List[i], optimizer)
 	}
 }
 
@@ -585,9 +585,9 @@ func (f *FunctionCall) Traverse(visitor Visitor) {
 }
 
 func (f *FunctionCall) Optimize(optimizer Optimizer) {
-	opt(&f.Func, optimizer)
+	f.Func = opt(f.Func, optimizer)
 	for i := range f.Args {
-		opt(&f.Args[i], optimizer)
+		f.Args[i] = opt(f.Args[i], optimizer)
 	}
 }
 
@@ -965,8 +965,21 @@ func (p *Parser[V]) parseLet(tokenizer *Tokenizer, idents Identifiers[V]) (AST, 
 				return nil, unexpected(";", t)
 			}
 
+			var clo AST = &ClosureLiteral{
+				Names:       names,
+				Func:        exp,
+				Line:        line,
+				OuterIdents: outersUsed,
+				Recursive:   recursive,
+				ThisName:    name,
+			}
+
 			if p.optimizer != nil {
-				exp = Optimize(exp, p.optimizer)
+				clo = Optimize(clo, p.optimizer)
+			}
+
+			if c, ok := clo.(*Const[V]); ok {
+				return p.parseLet(tokenizer, idents.AddConst(name, c.Value))
 			}
 
 			inner, err := p.parseLet(tokenizer, idents.Add(name))
@@ -974,15 +987,8 @@ func (p *Parser[V]) parseLet(tokenizer *Tokenizer, idents Identifiers[V]) (AST, 
 				return nil, err
 			}
 			return &Let{
-				Name: name,
-				Value: &ClosureLiteral{
-					Names:       names,
-					Func:        exp,
-					Line:        line,
-					OuterIdents: outersUsed,
-					Recursive:   recursive,
-					ThisName:    name,
-				},
+				Name:  name,
+				Value: clo,
 				Inner: inner,
 				Line:  line,
 			}, nil

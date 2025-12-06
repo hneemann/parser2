@@ -69,7 +69,7 @@ func TestErrors(t *testing.T) {
 		{"let f=(x,x)-> x+x; f(2,2)", "'x' used twice"},
 		{exp: "throw(\"error: zzzz\")", err: "error: zzzz"},
 		{exp: "func mul(a,b) a*b; mul.invoke([2,3,4])", err: "wrong number of arguments in invoke: 3 instead of 2"},
-		{exp: "func mul(a,b) a*b; mul(2)", err: "wrong number of arguments at call of \"mul\", required 2, found 1 in line 1"},
+		{exp: "func mul(a,b) a*b; mul(2)", err: "wrong number of arguments at call of function, required 2, found 1 in line 1"},
 		{exp: "let m={a:(x,y)->x*y};m.a(2)", err: "wrong number of arguments at call of \"a\", required 2, found 1"},
 		{exp: "[].size(1)", err: ", required 0, found 1"},
 	}

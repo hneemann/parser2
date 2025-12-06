@@ -1155,7 +1155,7 @@ func (g *FunctionGenerator[V]) GenerateFunc(ast parser2.AST, gc GeneratorContext
 				return zero, parser2.NewNotAFunction(a.String(), a.Errorf("not a function: %v", a.Func))
 			}
 			if theFunc.argsNumberNotMatching(len(argsFuncList)) {
-				return zero, a.Error(theFunc.argsNumberNotMatchingError(a.Func.String(), len(argsFuncList)))
+				return zero, fmt.Errorf("wrong number of arguments at call of function, required %d, found %d in line %d", theFunc.Args, len(argsFuncList), a.Line)
 			}
 			for _, argFunc := range argsFuncList {
 				v, err := argFunc(st, cs)
