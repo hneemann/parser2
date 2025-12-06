@@ -39,6 +39,7 @@ func TestMap(t *testing.T) {
 		)},
 		{exp: "{a:1,b:2,c:3,d:-1}.size()", res: Int(4)},
 		{exp: "{a:1,b:2}.replaceMap(m->m.a+m.b)", res: Int(3)},
+		{exp: "{a:1,b:2}.isAvail()", res: Bool(true)},
 		{exp: "{a:1,b:2}.isAvail(\"a\")", res: Bool(true)},
 		{exp: "{a:1,b:2}.isAvail(\"c\")", res: Bool(false)},
 		{exp: "{a:1,b:2,c:3}.isAvail(\"a\",\"b\")", res: Bool(true)},

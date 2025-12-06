@@ -127,7 +127,54 @@ func (o optimizer[V]) Optimize(ast parser2.AST) (parser2.AST, error) {
 				}
 			}
 		}
+		if con, ok := fc.Func.(*parser2.Const[V]); ok {
+			if o.g.closureHandler != nil {
+				if closure, ok := o.g.closureHandler.ToClosure(con.Value); ok {
+					if closure.IsPure {
+						if closure.Args != -1 && closure.Args != len(fc.Args) {
+							return nil, ast.GetLine().Errorf("arg number does not match; expected %d, found %d", closure.Args, len(fc.Args))
+						}
+						if c, ok := o.allConst(fc.Args); ok {
+							v, err := closure.Func(NewStack[V](c...), nil)
+							if err != nil {
+								return nil, ast.GetLine().EnhanceErrorf(err, "error in constant pre evaluation of const closure: %s", con)
+							}
+							return &parser2.Const[V]{v, con.Line}, nil
+						}
+					}
+				}
+			}
+		}
 	}
+
+	// evaluate const method calls like c.conj()
+	/** Working but dangerous: can lead to unexpected behavior if pure flag on methods is not set correctly!
+	if mc, ok := ast.(*parser2.MethodCall); ok {
+		if con, ok := mc.Value.(*parser2.Const[V]); ok {
+			if c, ok := o.allConst(mc.Args); ok {
+				if o.g.methodHandler != nil {
+					fu, err := o.g.methodHandler.GetMethod(con.Value, mc.Name)
+					if err != nil {
+						return nil, ast.GetLine().EnhanceErrorf(err, "error in constant pre evaluation of methodn: %s", mc.Name)
+					}
+					if fu.IsPure {
+						if fu.Args != -1 && len(c)+1 != fu.Args {
+							return nil, ast.GetLine().Errorf("arg number does not match; expected %d, found %d", fu.Args-1, len(c))
+						}
+						args := make([]V, len(c)+1)
+						args[0] = con.Value
+						copy(args[1:], c)
+						v, err := fu.Func(NewStack[V](args...), nil)
+						if err != nil {
+							return nil, ast.GetLine().EnhanceErrorf(err, "error in constant pre evaluation of method: %s", mc.Name)
+						}
+						return &parser2.Const[V]{v, con.Line}, nil
+					}
+				}
+			}
+		}
+	} /**/
+
 	return nil, nil
 }
 

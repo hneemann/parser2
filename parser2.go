@@ -840,7 +840,7 @@ func (p *Parser[V]) Parse(str string, idents Identifiers[V]) (ast AST, err error
 		}
 	}
 
-	//fmt.Println(PrettyPrint[V](ast))
+	fmt.Println(PrettyPrint[V](ast))
 
 	return ast, nil
 }

@@ -42,12 +42,15 @@ type Value interface {
 }
 
 func MethodAtType[V Value](args int, method func(obj V, stack funcGen.Stack[Value]) (Value, error)) funcGen.Function[Value] {
+	if args >= 0 {
+		args++
+	}
 	return funcGen.Function[Value]{Func: func(stack funcGen.Stack[Value], closureStore []Value) (Value, error) {
 		if obj, ok := stack.Get(0).(V); ok {
 			return method(obj, stack)
 		}
 		return nil, fmt.Errorf("internal error: call of method on wrong type")
-	}, Args: args + 1, IsPure: true}
+	}, Args: args, IsPure: true}
 }
 
 type MethodMap map[string]funcGen.Function[Value]
