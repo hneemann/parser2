@@ -26,7 +26,7 @@ func (o optimizer[V]) Optimize(ast parser2.AST) parser2.AST {
 						if err != nil {
 							return ast
 						}
-						return &parser2.Const[V]{co, oper.Line}
+						return &parser2.Const[V]{Value: co, Line: oper.Line}
 					}
 				}
 				if operator.IsCommutative {
@@ -39,7 +39,7 @@ func (o optimizer[V]) Optimize(ast parser2.AST) parser2.AST {
 							return &parser2.Operate{
 								Operator: oper.Operator,
 								Priority: oper.Priority,
-								A:        &parser2.Const[V]{co, oper.Line},
+								A:        &parser2.Const[V]{Value: co, Line: oper.Line},
 								B:        aOp.B,
 							}
 						}
@@ -52,7 +52,7 @@ func (o optimizer[V]) Optimize(ast parser2.AST) parser2.AST {
 								Operator: oper.Operator,
 								Priority: oper.Priority,
 								A:        aOp.A,
-								B:        &parser2.Const[V]{co, oper.Line},
+								B:        &parser2.Const[V]{Value: co, Line: oper.Line},
 							}
 						}
 					}
@@ -69,7 +69,7 @@ func (o optimizer[V]) Optimize(ast parser2.AST) parser2.AST {
 				if err != nil {
 					return ast
 				}
-				return &parser2.Const[V]{co, oper.Line}
+				return &parser2.Const[V]{Value: co, Line: oper.Line}
 			}
 		}
 	}
@@ -91,7 +91,7 @@ func (o optimizer[V]) Optimize(ast parser2.AST) parser2.AST {
 	if o.g.listHandler != nil {
 		if list, ok := ast.(*parser2.ListLiteral); ok {
 			if l, ok := o.allConst(list.List); ok {
-				return &parser2.Const[V]{o.g.listHandler.FromList(l), list.Line}
+				return &parser2.Const[V]{Value: o.g.listHandler.FromList(l), Line: list.Line}
 			}
 		}
 	}
@@ -108,7 +108,7 @@ func (o optimizer[V]) Optimize(ast parser2.AST) parser2.AST {
 				}
 			}
 			if cm != nil {
-				return &parser2.Const[V]{o.g.mapHandler.FromMap(cm), m.Line}
+				return &parser2.Const[V]{Value: o.g.mapHandler.FromMap(cm), Line: m.Line}
 			}
 		}
 	}
@@ -124,7 +124,7 @@ func (o optimizer[V]) Optimize(ast parser2.AST) parser2.AST {
 					if err != nil {
 						return ast
 					}
-					return &parser2.Const[V]{v, ident.Line}
+					return &parser2.Const[V]{Value: v, Line: ident.Line}
 				}
 			}
 		}
@@ -140,7 +140,7 @@ func (o optimizer[V]) Optimize(ast parser2.AST) parser2.AST {
 							if err != nil {
 								return ast
 							}
-							return &parser2.Const[V]{v, con.Line}
+							return &parser2.Const[V]{Value: v, Line: con.Line}
 						}
 					}
 				}
@@ -168,7 +168,7 @@ func (o optimizer[V]) Optimize(ast parser2.AST) parser2.AST {
 						if err != nil {
 							return ast
 						}
-						return &parser2.Const[V]{v, con.Line}
+						return &parser2.Const[V]{Value: v, Line: con.Line}
 					}
 				}
 			}
@@ -191,7 +191,7 @@ func (o optimizer[V]) Optimize(ast parser2.AST) parser2.AST {
 				log.Println("AST:\n" + parser2.PrettyPrint[V](ast))
 			}
 
-			return &parser2.Const[V]{v, cl.Line}
+			return &parser2.Const[V]{Value: v, Line: cl.Line}
 		}
 	}
 
