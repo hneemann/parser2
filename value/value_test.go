@@ -20,6 +20,11 @@ type testType struct {
 
 func TestBasic(t *testing.T) {
 	runTest(t, []testType{
+		{exp: `func mySqrt(a)  
+                 if a<0 then throw("sqrt of neg value") else sqrt(a);
+
+               try 2*mySqrt(-1)+1 catch e-> "sqrt of neg value" ~ e`, res: Bool(true)},
+
 		{exp: "1e-7", res: Float(1e-7)},
 		{exp: "1e7", res: Float(1e7)},
 		{exp: "1e+7", res: Float(1e+7)},
@@ -136,11 +141,6 @@ func TestBasic(t *testing.T) {
 		{exp: "let a=2; func cl(b) x->x*a*b; cl(4)(3)", res: Int(24)},
 		{exp: "let a=2; func cl(b) let f=a*b;x->x*f; cl(4)(3)", res: Int(24)},
 
-		{exp: `func mySqrt(a)  
-                 if a<0 then throw("sqrt of neg value") else sqrt(a);
-
-               try 2*mySqrt(-1)+1 catch e-> "sqrt of neg value" ~ e`, res: Bool(true)},
-
 		{exp: "bisection(x->sqr(x)-2,1,2)", res: Float(math.Sqrt(2))},
 
 		{exp: "let p={a:1,b:2}; try p.a catch 5", res: Int(1)},
@@ -237,6 +237,8 @@ func TestOptimizer(t *testing.T) {
 		{exp: "2^3", res: Float(8)},
 		{exp: "(1<2) & (2<3)", res: Bool(true)},
 		{exp: "-2/(-1)", res: Float(2)},
+		{exp: "numbers(4).sum()", res: Float(6)},
+		{exp: "numbers(4).map(n->n*n).sum()", res: Float(14)},
 		{exp: "let a=sqrt(2);let b=a*a; b", res: Float(2)},
 		{exp: "let a=2; let a=a*3; a+1", res: Float(7)},
 	}

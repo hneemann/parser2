@@ -401,34 +401,29 @@ func (fg *FunctionGenerator) AccessList(list Value, index Value) (Value, error) 
 
 func (fg *FunctionGenerator) GenerateCustom(ast parser2.AST, gc funcGen.GeneratorContext, g *funcGen.FunctionGenerator[Value]) (funcGen.ParserFunc[Value], error) {
 	if tc, ok := ast.(*parser2.TryCatch); ok {
-		if cl, ok := tc.Catch.(*parser2.ClosureLiteral); ok && len(cl.Names) == 1 {
-			tryFunc, err := g.GenerateFunc(tc.Try, gc)
-			if err != nil {
-				return nil, tc.EnhanceErrorf(err, "error in try expression")
-			}
-			catchFunc, err := g.GenerateFunc(tc.Catch, gc)
-			if err != nil {
-				return nil, tc.EnhanceErrorf(err, "error in catch expression")
-			}
-			l := tc.GetLine()
-			return func(st funcGen.Stack[Value], cs []Value) (Value, error) {
-				tryVal, tryErr := tryFunc(st, cs)
-				if tryErr == nil {
-					return tryVal, nil
-				}
-				catchVal, err := catchFunc(st, cs)
-				if err != nil {
-					return nil, l.EnhanceErrorf(err, "error in getting catch function")
-				}
-				theFunc, ok := g.ExtractFunction(catchVal)
-				if !ok || theFunc.Args != 1 {
-					// impossible because condition is checked above
-					return nil, l.Errorf("internal catch error")
-				}
-				st.Push(String(tryErr.Error()))
-				return theFunc.Func(st.CreateFrame(1), cs)
-			}, nil
+		tryFunc, err := g.GenerateFunc(tc.Try, gc)
+		if err != nil {
+			return nil, tc.EnhanceErrorf(err, "error in try expression")
 		}
+		catchFunc, err := g.GenerateFunc(tc.Catch, gc)
+		if err != nil {
+			return nil, tc.EnhanceErrorf(err, "error in catch expression")
+		}
+		l := tc.GetLine()
+		return func(st funcGen.Stack[Value], cs []Value) (Value, error) {
+			tryVal, tryErr := tryFunc(st, cs)
+			if tryErr == nil {
+				return tryVal, nil
+			}
+			catchVal, err := catchFunc(st, cs)
+			if err != nil {
+				return nil, l.EnhanceErrorf(err, "error in getting catch function")
+			}
+			if theFunc, ok := catchVal.(Closure); ok && theFunc.Args == 1 {
+				return theFunc.Eval(st, String(tryErr.Error()))
+			}
+			return catchVal, nil
+		}, nil
 	}
 	if op, ok := ast.(*parser2.Operate); ok {
 		// AND and OR with short evaluation

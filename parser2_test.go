@@ -9,24 +9,24 @@ import (
 
 type simpleOptimizer struct{}
 
-func (so simpleOptimizer) Optimize(ast AST) (AST, error) {
+func (so simpleOptimizer) Optimize(ast AST) AST {
 	if o, ok := ast.(*Operate); ok {
 		if an, aOk := o.A.(*Const[int]); aOk {
 			if bn, bOk := o.B.(*Const[int]); bOk {
 				switch o.Operator {
 				case "+":
-					return &Const[int]{an.Value + bn.Value, o.Line}, nil
+					return &Const[int]{an.Value + bn.Value, o.Line}
 				case "-":
-					return &Const[int]{an.Value - bn.Value, o.Line}, nil
+					return &Const[int]{an.Value - bn.Value, o.Line}
 				case "*":
-					return &Const[int]{an.Value * bn.Value, o.Line}, nil
+					return &Const[int]{an.Value * bn.Value, o.Line}
 				case "/":
-					return &Const[int]{an.Value / bn.Value, o.Line}, nil
+					return &Const[int]{an.Value / bn.Value, o.Line}
 				}
 			}
 		}
 	}
-	return nil, nil
+	return ast
 }
 
 type numberParser struct{}

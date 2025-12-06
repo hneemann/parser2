@@ -14,7 +14,7 @@ func NewOptimizer[V any](st Stack[V], g *FunctionGenerator[V]) parser2.Optimizer
 	return optimizer[V]{st: st, g: g}
 }
 
-func (o optimizer[V]) Optimize(ast parser2.AST) (parser2.AST, error) {
+func (o optimizer[V]) Optimize(ast parser2.AST) parser2.AST {
 	// evaluate const operations like 1+2
 	if oper, ok := ast.(*parser2.Operate); ok {
 		if operator, ok := o.g.opMap[oper.Operator]; ok {
@@ -23,9 +23,9 @@ func (o optimizer[V]) Optimize(ast parser2.AST) (parser2.AST, error) {
 					if ac, ok := o.isConst(oper.A); ok {
 						co, err := operator.Impl.Calc(o.st, ac, bc)
 						if err != nil {
-							return nil, ast.GetLine().EnhanceErrorf(err, "error in constant pre evaluation of: %s", operator.Operator)
+							return ast
 						}
-						return &parser2.Const[V]{co, oper.Line}, nil
+						return &parser2.Const[V]{co, oper.Line}
 					}
 				}
 				if operator.IsCommutative {
@@ -33,26 +33,26 @@ func (o optimizer[V]) Optimize(ast parser2.AST) (parser2.AST, error) {
 						if iac, ok := o.isConst(aOp.A); ok {
 							co, err := operator.Impl.Calc(o.st, iac, bc)
 							if err != nil {
-								return nil, ast.GetLine().EnhanceErrorf(err, "error in constant pre evaluation of: %s", operator.Operator)
+								return ast
 							}
 							return &parser2.Operate{
 								Operator: oper.Operator,
 								Priority: oper.Priority,
 								A:        &parser2.Const[V]{co, oper.Line},
 								B:        aOp.B,
-							}, nil
+							}
 						}
 						if ibc, ok := o.isConst(aOp.B); ok {
 							co, err := operator.Impl.Calc(o.st, ibc, bc)
 							if err != nil {
-								return nil, ast.GetLine().EnhanceErrorf(err, "error in constant pre evaluation of: %s", operator.Operator)
+								return ast
 							}
 							return &parser2.Operate{
 								Operator: oper.Operator,
 								Priority: oper.Priority,
 								A:        aOp.A,
 								B:        &parser2.Const[V]{co, oper.Line},
-							}, nil
+							}
 						}
 					}
 				}
@@ -66,9 +66,9 @@ func (o optimizer[V]) Optimize(ast parser2.AST) (parser2.AST, error) {
 			if c, ok := o.isConst(oper.Value); ok {
 				co, err := operator.Impl.Calc(c)
 				if err != nil {
-					return nil, ast.GetLine().EnhanceErrorf(err, "error in constant pre evaluation of unary: %s", operator.Operator)
+					return ast
 				}
-				return &parser2.Const[V]{co, oper.Line}, nil
+				return &parser2.Const[V]{co, oper.Line}
 			}
 		}
 	}
@@ -77,12 +77,12 @@ func (o optimizer[V]) Optimize(ast parser2.AST) (parser2.AST, error) {
 		if c, ok := o.isConst(ifNode.Cond); ok {
 			if cond, ok := o.g.toBool(c); ok {
 				if cond {
-					return ifNode.Then, nil
+					return ifNode.Then
 				} else {
-					return ifNode.Else, nil
+					return ifNode.Else
 				}
 			} else {
-				return nil, ast.GetLine().Errorf("error in constant pre evaluation of if condition")
+				return ast
 			}
 		}
 	}
@@ -90,7 +90,7 @@ func (o optimizer[V]) Optimize(ast parser2.AST) (parser2.AST, error) {
 	if o.g.listHandler != nil {
 		if list, ok := ast.(*parser2.ListLiteral); ok {
 			if l, ok := o.allConst(list.List); ok {
-				return &parser2.Const[V]{o.g.listHandler.FromList(l), list.Line}, nil
+				return &parser2.Const[V]{o.g.listHandler.FromList(l), list.Line}
 			}
 		}
 	}
@@ -107,7 +107,7 @@ func (o optimizer[V]) Optimize(ast parser2.AST) (parser2.AST, error) {
 				}
 			}
 			if cm != nil {
-				return &parser2.Const[V]{o.g.mapHandler.FromMap(cm), m.Line}, nil
+				return &parser2.Const[V]{o.g.mapHandler.FromMap(cm), m.Line}
 			}
 		}
 	}
@@ -116,14 +116,14 @@ func (o optimizer[V]) Optimize(ast parser2.AST) (parser2.AST, error) {
 		if ident, ok := fc.Func.(*parser2.Ident); ok {
 			if fu, ok := o.g.staticFunctions[ident.Name]; ok && fu.IsPure {
 				if fu.argsNumberNotMatching(len(fc.Args)) {
-					return nil, ast.GetLine().Error(fu.argsNumberNotMatchingError(fc.Func.String(), len(fc.Args)))
+					return ast
 				}
 				if c, ok := o.allConst(fc.Args); ok {
 					v, err := fu.Func(NewStack[V](c...), nil)
 					if err != nil {
-						return nil, ast.GetLine().EnhanceErrorf(err, "error in constant pre evaluation of function: %s", ident)
+						return ast
 					}
-					return &parser2.Const[V]{v, ident.Line}, nil
+					return &parser2.Const[V]{v, ident.Line}
 				}
 			}
 		}
@@ -132,14 +132,14 @@ func (o optimizer[V]) Optimize(ast parser2.AST) (parser2.AST, error) {
 				if closure, ok := o.g.closureHandler.ToClosure(con.Value); ok {
 					if closure.IsPure {
 						if closure.Args != -1 && closure.Args != len(fc.Args) {
-							return nil, ast.GetLine().Errorf("arg number does not match; expected %d, found %d", closure.Args, len(fc.Args))
+							return ast
 						}
 						if c, ok := o.allConst(fc.Args); ok {
 							v, err := closure.Func(NewStack[V](c...), nil)
 							if err != nil {
-								return nil, ast.GetLine().EnhanceErrorf(err, "error in constant pre evaluation of const closure: %s", con)
+								return ast
 							}
-							return &parser2.Const[V]{v, con.Line}, nil
+							return &parser2.Const[V]{v, con.Line}
 						}
 					}
 				}
@@ -148,34 +148,47 @@ func (o optimizer[V]) Optimize(ast parser2.AST) (parser2.AST, error) {
 	}
 
 	// evaluate const method calls like c.conj()
-	/** Working but dangerous: can lead to unexpected behavior if pure flag on methods is not set correctly!
 	if mc, ok := ast.(*parser2.MethodCall); ok {
 		if con, ok := mc.Value.(*parser2.Const[V]); ok {
 			if c, ok := o.allConst(mc.Args); ok {
 				if o.g.methodHandler != nil {
 					fu, err := o.g.methodHandler.GetMethod(con.Value, mc.Name)
 					if err != nil {
-						return nil, ast.GetLine().EnhanceErrorf(err, "error in constant pre evaluation of methodn: %s", mc.Name)
+						return ast
 					}
 					if fu.IsPure {
 						if fu.Args != -1 && len(c)+1 != fu.Args {
-							return nil, ast.GetLine().Errorf("arg number does not match; expected %d, found %d", fu.Args-1, len(c))
+							return ast
 						}
 						args := make([]V, len(c)+1)
 						args[0] = con.Value
 						copy(args[1:], c)
 						v, err := fu.Func(NewStack[V](args...), nil)
 						if err != nil {
-							return nil, ast.GetLine().EnhanceErrorf(err, "error in constant pre evaluation of method: %s", mc.Name)
+							return ast
 						}
-						return &parser2.Const[V]{v, con.Line}, nil
+						return &parser2.Const[V]{v, con.Line}
 					}
 				}
 			}
 		}
-	} /**/
+	}
 
-	return nil, nil
+	if o.g.closureHandler != nil {
+		if cl, ok := ast.(*parser2.ClosureLiteral); ok && len(cl.OuterIdents) == 0 && !cl.Recursive {
+			closureFunc, err := o.g.GenerateFunc(cl.Func, GeneratorContext{am: cl.Names})
+			if err != nil {
+				return ast
+			}
+			v := o.g.closureHandler.FromClosure(Function[V]{
+				Func: closureFunc,
+				Args: len(cl.Names),
+			})
+			return &parser2.Const[V]{v, cl.Line}
+		}
+	}
+
+	return ast
 }
 
 func (o optimizer[V]) allConst(asts []parser2.AST) ([]V, bool) {

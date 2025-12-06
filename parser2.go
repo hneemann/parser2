@@ -79,12 +79,12 @@ type Optimizer interface {
 	// Optimize takes an AST and tries to optimize it.
 	// If an optimization is found, the optimizes AST is returned.
 	// If no optimization is found, nil is returned.
-	Optimize(AST) (AST, error)
+	Optimize(AST) AST
 }
 
-type OptimizerFunc func(AST) (AST, error)
+type OptimizerFunc func(AST) AST
 
-func (o OptimizerFunc) Optimize(ast AST) (AST, error) {
+func (o OptimizerFunc) Optimize(ast AST) AST {
 	return o(ast)
 }
 
@@ -95,7 +95,7 @@ type AST interface {
 	// Optimize is called to optimize the AST
 	// At first the children Optimize method is called and
 	// After that the own node is to be optimized.
-	Optimize(Optimizer) error
+	Optimize(Optimizer)
 	// String return a string representation of the AST
 	String() string
 	// GetLine returns the line in the source code
@@ -111,26 +111,15 @@ func AnyToError(e any) error {
 
 // Optimize uses the given optimizer to optimize the given AST.
 // If no optimization is possible, the given AST is returned unchanged.
-func Optimize(ast AST, optimizer Optimizer) (astRet AST, errRet error) {
+func Optimize(ast AST, optimizer Optimizer) (astRet AST) {
 	defer func() {
 		if rec := recover(); rec != nil {
 			log.Print("panic in optimizer: ", rec)
-			errRet = AnyToError(rec)
-			astRet = nil
+			astRet = ast
 		}
 	}()
-	err := ast.Optimize(optimizer)
-	if err != nil {
-		return nil, err
-	}
-	o, err := optimizer.Optimize(ast)
-	if err != nil {
-		return nil, err
-	}
-	if o != nil {
-		return o, nil
-	}
-	return ast, nil
+	ast.Optimize(optimizer)
+	return optimizer.Optimize(ast)
 }
 
 type Line int
@@ -209,29 +198,19 @@ func (l *Let) String() string {
 	return "let " + l.Name + "=" + l.Value.String() + "; " + l.Inner.String()
 }
 
-func opt(a *AST, optimizer Optimizer) error {
-	err := (*a).Optimize(optimizer)
-	if err != nil {
-		return err
-	}
-	o, err := optimizer.Optimize(*a)
-	if err != nil {
-		return err
-	}
-	if o != nil {
-		*a = o
-	}
-	return nil
+func opt(a *AST, optimizer Optimizer) {
+	(*a).Optimize(optimizer)
+	*a = optimizer.Optimize(*a)
 }
 
-func (l *Let) Optimize(optimizer Optimizer) error {
+func (l *Let) Optimize(optimizer Optimizer) {
 	// Value is already optimized!
 	// Not needed to optimize again.
 	//err := opt(&l.Value, optimizer)
 	//if err != nil {
 	//	return err
 	//}
-	return opt(&l.Inner, optimizer)
+	opt(&l.Inner, optimizer)
 }
 
 type If struct {
@@ -249,16 +228,10 @@ func (i *If) Traverse(visitor Visitor) {
 	}
 }
 
-func (i *If) Optimize(optimizer Optimizer) error {
-	err := opt(&i.Cond, optimizer)
-	if err != nil {
-		return err
-	}
-	err = opt(&i.Then, optimizer)
-	if err != nil {
-		return err
-	}
-	return opt(&i.Else, optimizer)
+func (i *If) Optimize(optimizer Optimizer) {
+	opt(&i.Cond, optimizer)
+	opt(&i.Then, optimizer)
+	opt(&i.Else, optimizer)
 }
 
 func (i *If) String() string {
@@ -278,12 +251,9 @@ func (t *TryCatch) Traverse(visitor Visitor) {
 	}
 }
 
-func (t *TryCatch) Optimize(optimizer Optimizer) error {
-	err := opt(&t.Try, optimizer)
-	if err != nil {
-		return err
-	}
-	return opt(&t.Catch, optimizer)
+func (t *TryCatch) Optimize(optimizer Optimizer) {
+	opt(&t.Try, optimizer)
+	opt(&t.Catch, optimizer)
 }
 
 func (t *TryCatch) String() string {
@@ -312,18 +282,12 @@ func (s *Switch[V]) Traverse(visitor Visitor) {
 	}
 }
 
-func (s *Switch[V]) Optimize(o Optimizer) error {
-	err := opt(&s.SwitchValue, o)
-	if err != nil {
-		return err
-	}
+func (s *Switch[V]) Optimize(o Optimizer) {
+	opt(&s.SwitchValue, o)
 	for _, c := range s.Cases {
-		err := opt(&c.Value, o)
-		if err != nil {
-			return err
-		}
+		opt(&c.Value, o)
 	}
-	return opt(&s.Default, o)
+	opt(&s.Default, o)
 }
 
 func (s *Switch[V]) String() string {
@@ -355,12 +319,9 @@ func (o *Operate) Traverse(visitor Visitor) {
 	}
 }
 
-func (o *Operate) Optimize(optimizer Optimizer) error {
-	err := opt(&o.A, optimizer)
-	if err != nil {
-		return err
-	}
-	return opt(&o.B, optimizer)
+func (o *Operate) Optimize(optimizer Optimizer) {
+	opt(&o.A, optimizer)
+	opt(&o.B, optimizer)
 }
 
 func (o *Operate) String() string {
@@ -386,8 +347,8 @@ func (u *Unary) Traverse(visitor Visitor) {
 	}
 }
 
-func (u *Unary) Optimize(optimizer Optimizer) error {
-	return opt(&u.Value, optimizer)
+func (u *Unary) Optimize(optimizer Optimizer) {
+	opt(&u.Value, optimizer)
 }
 
 func (u *Unary) String() string {
@@ -406,8 +367,8 @@ func (m *MapAccess) Traverse(visitor Visitor) {
 	}
 }
 
-func (m *MapAccess) Optimize(optimizer Optimizer) error {
-	return opt(&m.MapValue, optimizer)
+func (m *MapAccess) Optimize(optimizer Optimizer) {
+	opt(&m.MapValue, optimizer)
 }
 
 func (m *MapAccess) String() string {
@@ -430,18 +391,11 @@ func (m *MethodCall) Traverse(visitor Visitor) {
 	}
 }
 
-func (m *MethodCall) Optimize(optimizer Optimizer) error {
-	err := opt(&m.Value, optimizer)
-	if err != nil {
-		return err
-	}
+func (m *MethodCall) Optimize(optimizer Optimizer) {
+	opt(&m.Value, optimizer)
 	for i := range m.Args {
-		err := opt(&m.Args[i], optimizer)
-		if err != nil {
-			return err
-		}
+		opt(&m.Args[i], optimizer)
 	}
-	return nil
 }
 
 func (m *MethodCall) String() string {
@@ -483,12 +437,9 @@ func (a *ListAccess) Traverse(visitor Visitor) {
 	}
 }
 
-func (a *ListAccess) Optimize(optimizer Optimizer) error {
-	err := opt(&a.Index, optimizer)
-	if err != nil {
-		return err
-	}
-	return opt(&a.List, optimizer)
+func (a *ListAccess) Optimize(optimizer Optimizer) {
+	opt(&a.Index, optimizer)
+	opt(&a.List, optimizer)
 }
 
 func (a *ListAccess) String() string {
@@ -510,8 +461,8 @@ func (c *ClosureLiteral) Traverse(visitor Visitor) {
 	}
 }
 
-func (c *ClosureLiteral) Optimize(optimizer Optimizer) error {
-	return opt(&c.Func, optimizer)
+func (c *ClosureLiteral) Optimize(optimizer Optimizer) {
+	opt(&c.Func, optimizer)
 }
 
 func (c *ClosureLiteral) String() string {
@@ -535,12 +486,9 @@ func (ml *MapLiteral) Traverse(visitor Visitor) {
 	}
 }
 
-func (ml *MapLiteral) Optimize(optimizer Optimizer) (err error) {
+func (ml *MapLiteral) Optimize(optimizer Optimizer) {
 	ml.Map.Iter(func(key string, value AST) bool {
-		err = opt(&value, optimizer)
-		if err != nil {
-			return false
-		}
+		opt(&value, optimizer)
 		ml.Map.Append(key, value)
 		return true
 	})
@@ -579,14 +527,10 @@ func (al *ListLiteral) Traverse(visitor Visitor) {
 	}
 }
 
-func (al *ListLiteral) Optimize(optimizer Optimizer) error {
+func (al *ListLiteral) Optimize(optimizer Optimizer) {
 	for i := range al.List {
-		err := opt(&al.List[i], optimizer)
-		if err != nil {
-			return err
-		}
+		opt(&al.List[i], optimizer)
 	}
-	return nil
 }
 
 func (al *ListLiteral) String() string {
@@ -602,8 +546,7 @@ func (i *Ident) Traverse(visitor Visitor) {
 	visitor.Visit(i)
 }
 
-func (i *Ident) Optimize(Optimizer) error {
-	return nil
+func (i *Ident) Optimize(Optimizer) {
 }
 
 func (i *Ident) String() string {
@@ -619,8 +562,7 @@ func (n *Const[V]) Traverse(visitor Visitor) {
 	visitor.Visit(n)
 }
 
-func (n *Const[V]) Optimize(Optimizer) error {
-	return nil
+func (n *Const[V]) Optimize(Optimizer) {
 }
 
 func (n *Const[V]) String() string {
@@ -642,18 +584,11 @@ func (f *FunctionCall) Traverse(visitor Visitor) {
 	}
 }
 
-func (f *FunctionCall) Optimize(optimizer Optimizer) error {
-	err := opt(&f.Func, optimizer)
-	if err != nil {
-		return err
-	}
+func (f *FunctionCall) Optimize(optimizer Optimizer) {
+	opt(&f.Func, optimizer)
 	for i := range f.Args {
-		err := opt(&f.Args[i], optimizer)
-		if err != nil {
-			return err
-		}
+		opt(&f.Args[i], optimizer)
 	}
-	return nil
 }
 
 func (f *FunctionCall) String() string {
@@ -834,10 +769,7 @@ func (p *Parser[V]) Parse(str string, idents Identifiers[V]) (ast AST, err error
 	}
 
 	if p.optimizer != nil {
-		ast, err = Optimize(ast, p.optimizer)
-		if err != nil {
-			return nil, err
-		}
+		ast = Optimize(ast, p.optimizer)
 	}
 
 	fmt.Println(PrettyPrint[V](ast))
@@ -991,10 +923,7 @@ func (p *Parser[V]) parseLet(tokenizer *Tokenizer, idents Identifiers[V]) (AST, 
 			}
 
 			if p.optimizer != nil {
-				exp, err = Optimize(exp, p.optimizer)
-				if err != nil {
-					return nil, err
-				}
+				exp = Optimize(exp, p.optimizer)
 			}
 
 			if c, ok := exp.(*Const[V]); ok {
@@ -1037,10 +966,7 @@ func (p *Parser[V]) parseLet(tokenizer *Tokenizer, idents Identifiers[V]) (AST, 
 			}
 
 			if p.optimizer != nil {
-				exp, err = Optimize(exp, p.optimizer)
-				if err != nil {
-					return nil, err
-				}
+				exp = Optimize(exp, p.optimizer)
 			}
 
 			inner, err := p.parseLet(tokenizer, idents.Add(name))
