@@ -653,6 +653,7 @@ type Parser[V any] struct {
 	allowComments  bool
 	operatorDetect OperatorDetector
 	comfort        bool
+	debug          bool
 }
 
 // NewParser creates a new Parser
@@ -680,6 +681,15 @@ func (p *Parser[V]) Op(name ...string) *Parser[V] {
 func (p *Parser[V]) Comfort(comfort bool) *Parser[V] {
 	p.comfort = comfort
 	return p
+}
+
+func (p *Parser[V]) Debug(debug bool) *Parser[V] {
+	p.debug = debug
+	return p
+}
+
+func (p *Parser[V]) IsDebug() bool {
+	return p.debug
 }
 
 // Unary is used to declare unary operations like "-" or "!".
@@ -772,7 +782,9 @@ func (p *Parser[V]) Parse(str string, idents Identifiers[V]) (ast AST, err error
 		ast = Optimize(ast, p.optimizer)
 	}
 
-	fmt.Println(PrettyPrint[V](ast))
+	if p.debug {
+		log.Println("AST:\n" + PrettyPrint[V](ast))
+	}
 
 	return ast, nil
 }

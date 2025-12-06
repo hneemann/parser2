@@ -3,6 +3,7 @@ package funcGen
 import (
 	"github.com/hneemann/parser2"
 	"github.com/hneemann/parser2/listMap"
+	"log"
 )
 
 type optimizer[V any] struct {
@@ -184,6 +185,12 @@ func (o optimizer[V]) Optimize(ast parser2.AST) parser2.AST {
 				Func: closureFunc,
 				Args: len(cl.Names),
 			})
+
+			if o.g.GetParser().IsDebug() {
+				log.Println("optimized closure literal to const at line", cl.Line)
+				log.Println("AST:\n" + parser2.PrettyPrint[V](ast))
+			}
+
 			return &parser2.Const[V]{v, cl.Line}
 		}
 	}

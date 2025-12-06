@@ -101,8 +101,12 @@ func (c Closure) ToFloat() (float64, bool) {
 	return 0, false
 }
 
+func (c Closure) String() string {
+	return fmt.Sprintf("<function with %d args>", c.Args)
+}
+
 func (c Closure) ToString(funcGen.Stack[Value]) (string, error) {
-	return "<function>", nil
+	return c.String(), nil
 }
 
 func (c Closure) Eval(st funcGen.Stack[Value], a Value) (Value, error) {
