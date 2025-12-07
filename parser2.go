@@ -783,7 +783,7 @@ func (p *Parser[V]) Parse(str string, idents Identifiers[V]) (ast AST, err error
 	}
 
 	if p.debug {
-		log.Println("AST:\n" + PrettyPrint[V](ast))
+		log.Println("AST main:\n" + PrettyPrint[V](ast))
 	}
 
 	return ast, nil

@@ -187,8 +187,7 @@ func (o optimizer[V]) Optimize(ast parser2.AST) parser2.AST {
 			})
 
 			if o.g.GetParser().IsDebug() {
-				log.Println("optimized closure literal to const at line", cl.Line)
-				log.Println("AST:\n" + parser2.PrettyPrint[V](ast))
+				log.Println("AST pre eval. closure:\n" + parser2.PrettyPrint[V](ast))
 			}
 
 			return &parser2.Const[V]{Value: v, Line: cl.Line}

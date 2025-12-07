@@ -102,7 +102,7 @@ func (c Closure) ToFloat() (float64, bool) {
 }
 
 func (c Closure) String() string {
-	return fmt.Sprintf("<function with %d args>", c.Args)
+	return fmt.Sprintf("func%d", c.Args)
 }
 
 func (c Closure) ToString(funcGen.Stack[Value]) (string, error) {
