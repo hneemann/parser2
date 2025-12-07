@@ -93,6 +93,16 @@ func (o optimizer[V]) Optimize(ast parser2.AST) parser2.AST {
 			if l, ok := o.allConst(list.List); ok {
 				return &parser2.Const[V]{Value: o.g.listHandler.FromList(l), Line: list.Line}
 			}
+		} else if la, ok := ast.(*parser2.ListAccess); ok {
+			if list, ok := o.isConst(la.List); ok {
+				if index, ok := o.isConst(la.Index); ok {
+					v, err := o.g.listHandler.AccessList(list, index)
+					if err != nil {
+						return ast
+					}
+					return &parser2.Const[V]{Value: v, Line: la.Line}
+				}
+			}
 		}
 	}
 	// evaluate const map literals like {a:1,b:2}
@@ -110,8 +120,17 @@ func (o optimizer[V]) Optimize(ast parser2.AST) parser2.AST {
 			if cm != nil {
 				return &parser2.Const[V]{Value: o.g.mapHandler.FromMap(cm), Line: m.Line}
 			}
+		} else if ma, ok := ast.(*parser2.MapAccess); ok {
+			if v, ok := o.isConst(ma.MapValue); ok {
+				val, err := o.g.mapHandler.AccessMap(v, ma.Key)
+				if err != nil {
+					return ast
+				}
+				return &parser2.Const[V]{Value: val, Line: ma.Line}
+			}
 		}
 	}
+
 	// evaluate const static function calls like sqrt(2)
 	if fc, ok := ast.(*parser2.FunctionCall); ok {
 		if ident, ok := fc.Func.(*parser2.Ident); ok {
@@ -182,8 +201,9 @@ func (o optimizer[V]) Optimize(ast parser2.AST) parser2.AST {
 				return ast
 			}
 			v := o.g.closureHandler.FromClosure(Function[V]{
-				Func: closureFunc,
-				Args: len(cl.Names),
+				Func:   closureFunc,
+				Args:   len(cl.Names),
+				IsPure: true,
 			})
 
 			if o.g.GetParser().IsDebug() {
