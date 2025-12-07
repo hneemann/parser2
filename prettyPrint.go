@@ -59,16 +59,18 @@ func prettyPrintAST[V any](buf *writer, ast AST) {
 		buf.writeString("]")
 	case *MapLiteral:
 		buf.writeString("{")
+		ib := buf.down()
 		i := 0
 		for k, v := range e.Map.Iter {
 			if i > 0 {
-				buf.writeString(", ")
+				ib.writeString(",")
+				ib.newLine()
 			}
-			buf.writeString(k + ":")
-			prettyPrintAST[V](buf, v)
+			ib.writeString(k + ": ")
+			prettyPrintAST[V](ib, v)
 			i++
 		}
-		buf.writeString("}")
+		ib.writeString("}")
 	case *ClosureLiteral:
 		if len(e.Names) == 1 {
 			buf.writeString(e.Names[0])

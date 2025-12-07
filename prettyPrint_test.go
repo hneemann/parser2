@@ -36,7 +36,8 @@ func TestPrettyPrintAST(t *testing.T) {
 		{"switch2", "a(switch a=0 case 0: 1 case 1: 3 default -1)", "a(switch a=0\n    case 0: 1\n    case 1: 3\n    default -1)"},
 		{"try", "try a+1 catch 1", "try a+1 catch 1"},
 		{"listLit", "[1,2,3]", "[1, 2, 3]"},
-		{"mapLit", "{a:1,b:2}", "{a:1, b:2}"},
+		{"mapLit", "{a:1,b:2}", "{a: 1,\n b: 2}"},
+		{"mapLit2", "a({a:1,b:2})", "a({a: 1,\n   b: 2})"},
 		{"e", "(((f->f(f))(h->f->f(x->(f->f(f))(h)(f)(x))))(f->a->b->x->if x=0 then a else f(b)(a + b)(x-1))(0)(1))(12)", "f -> f(f)(h -> f -> f(x -> f -> f(f)(h)(f)(x)))(f -> a -> b -> x -> if x=0\n                                                                    then a\n                                                                    else f(b)(a+b)(x-1))(0)(1)(12)"},
 	}
 
