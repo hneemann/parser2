@@ -107,7 +107,7 @@ func TestGetFromStack(t *testing.T) {
 	assert.Equal(t, value.Float(1.5), slice[0])
 }
 
-func TestMethod2(t *testing.T) {
+func TestFunction2(t *testing.T) {
 	v := Function2[value.Float, *value.List](func(a value.Float, b *value.List, st funcGen.Stack[value.Value]) (value.Value, error) {
 		l := TryArg(b.ToSlice(st))
 		if l0, ok := l[0].ToFloat(); ok {
@@ -121,7 +121,7 @@ func TestMethod2(t *testing.T) {
 	assert.Equal(t, value.Float(3.0), eval)
 }
 
-func TestMethod2opt(t *testing.T) {
+func TestFunction2opt(t *testing.T) {
 	list, ok := TestType{1.5}.ToList()
 	assert.True(t, ok)
 	v := Function2[value.Float, *value.List](func(a value.Float, b *value.List, st funcGen.Stack[value.Value]) (value.Value, error) {
@@ -135,4 +135,14 @@ func TestMethod2opt(t *testing.T) {
 	eval, err := v.EvalSt(st, TestType{1.5})
 	assert.NoError(t, err)
 	assert.Equal(t, value.Float(3.0), eval)
+}
+
+func TestFunction1Int(t *testing.T) {
+	v := Function1[value.Int](func(a value.Int, st funcGen.Stack[value.Value]) (value.Value, error) {
+		return 2 * a, nil
+	})
+	st := funcGen.NewEmptyStack[value.Value]()
+	eval, err := v.EvalSt(st, TestType{1.6})
+	assert.NoError(t, err)
+	assert.Equal(t, value.Int(4), eval)
 }

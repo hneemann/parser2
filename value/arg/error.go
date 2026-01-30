@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/hneemann/parser2/funcGen"
 	"github.com/hneemann/parser2/value"
+	"math"
 	"strings"
 )
 
@@ -46,6 +47,12 @@ func GetFromStack[R value.Value](st funcGen.Stack[value.Value], n int) (r R) {
 	case value.Float:
 		if v, ok := vv.ToFloat(); ok {
 			vv = value.Float(v)
+		}
+	case value.Int:
+		if _, ok := vv.(value.Int); !ok {
+			if v, ok := vv.ToFloat(); ok {
+				vv = value.Int(math.Round(v))
+			}
 		}
 	case *value.List:
 		if v, ok := vv.ToList(); ok {
