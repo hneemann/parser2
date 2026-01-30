@@ -841,16 +841,16 @@ func New() *FunctionGenerator {
 			IsPure: true,
 		}.SetDescription("value", "Returns the square of the value.")).
 		AddStaticFunction("random", funcGen.Function[Value]{
-			Func: func(st funcGen.Stack[Value], cs []Value) (Value, error) {
-				v := st.Get(0)
-				if n, ok := v.(Int); ok {
-					return Int(rand.Intn(int(n))), nil
-				}
-				return nil, errors.New("random only allowed on int")
-			},
-			Args:   1,
+			Func:   randomFunc(),
+			Args:   -1,
 			IsPure: false,
-		}.SetDescription("n", "Returns a random integer between 0 and n-1.")).
+		}.SetDescription("n", "Returns a random integer between 0 and n-1. If n is missing, a random float value between 0<=r<1 is returned. ")).
+		AddStaticFunction("randomConst", funcGen.Function[Value]{
+			Func:   randomFunc(),
+			Args:   -1,
+			IsPure: true,
+		}.SetDescription("n", "Returns a const random integer between 0 and n-1. If n is missing, a random float value between 0<=r<1 is returned. "+
+			"The random number is treated as a constant, which means that it is generated at compile time and remains unchanged in all evaluations of the generated expression.")).
 		AddStaticFunction("round", funcGen.Function[Value]{
 			Func: func(st funcGen.Stack[Value], cs []Value) (Value, error) {
 				v := st.Get(0)
@@ -992,6 +992,21 @@ func New() *FunctionGenerator {
 		IsPure: true,
 	}.SetDescription("a", "b", "Returns the larger of a and b."))
 	return f
+}
+
+func randomFunc() func(st funcGen.Stack[Value], cs []Value) (Value, error) {
+	return func(st funcGen.Stack[Value], cs []Value) (Value, error) {
+		if st.Size() == 0 {
+			return Float(rand.Float64()), nil
+		} else if st.Size() == 1 {
+			v := st.Get(0)
+			if n, ok := v.(Int); ok {
+				return Int(rand.Intn(int(n))), nil
+			}
+			return nil, errors.New("random only allowed on int")
+		}
+		return nil, errors.New("random requires 0 or 1 argument")
+	}
 }
 
 func sprintf(st funcGen.Stack[Value], cs []Value) (Value, error) {
