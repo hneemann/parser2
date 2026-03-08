@@ -33,6 +33,10 @@ func (f File) ToString(st funcGen.Stack[value.Value]) (string, error) {
 	return fmt.Sprintf("file %s (%d bytes)", f.Name, len(f.Data)), nil
 }
 
+func (f File) String() string {
+	return fmt.Sprintf("file %s (%d bytes)", f.Name, len(f.Data))
+}
+
 func (f File) GetType() value.Type {
 	return value.FileTypeId
 }
