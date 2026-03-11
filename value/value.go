@@ -87,6 +87,15 @@ func (mm MethodMap) add(more MethodMap) {
 	}
 }
 
+func (mm MethodMap) Alias(existing, alias string) MethodMap {
+	if ex, ok := mm[existing]; ok {
+		mm[alias] = ex
+	} else {
+		panic("method map does not have an existing method " + existing)
+	}
+	return mm
+}
+
 type Closure funcGen.Function[Value]
 
 func (c Closure) ToList() (*List, bool) {
