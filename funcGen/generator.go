@@ -254,13 +254,18 @@ type FunctionDocumentation struct {
 	Description *FunctionDescription
 }
 
-type TypeDocumentation struct {
+type TypeDescription struct {
 	Name        string
 	Description string
-	Functions   []FunctionDocumentation
 }
 
-func CreateTypeDocumentation[V any](typeName string, mm map[string]Function[V]) TypeDocumentation {
+type TypeDocumentation struct {
+	TypeDescription
+	Type      string
+	Functions []FunctionDocumentation
+}
+
+func CreateTypeDocumentation[V any](typeDescription TypeDescription, mm map[string]Function[V]) TypeDocumentation {
 	var l []FunctionDocumentation
 	for k, f := range mm {
 		l = append(l, FunctionDocumentation{
@@ -272,9 +277,9 @@ func CreateTypeDocumentation[V any](typeName string, mm map[string]Function[V]) 
 		return l[i].Name < l[j].Name
 	})
 	return TypeDocumentation{
-		Name:        typeName,
-		Description: "Methods",
-		Functions:   l,
+		TypeDescription: typeDescription,
+		Type:            "Methods",
+		Functions:       l,
 	}
 }
 
@@ -1349,9 +1354,12 @@ func (g *FunctionGenerator[V]) GetStaticDocumentation() TypeDocumentation {
 		return l[i].Name < l[j].Name
 	})
 	return TypeDocumentation{
-		Name:        "global",
-		Description: "Functions",
-		Functions:   l,
+		TypeDescription: TypeDescription{
+			Name:        "global",
+			Description: "Globally available functions.",
+		},
+		Type:      "Functions",
+		Functions: l,
 	}
 }
 

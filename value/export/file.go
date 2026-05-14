@@ -42,7 +42,7 @@ func (f File) GetType() value.Type {
 }
 
 func AddFileHelpers(f *value.FunctionGenerator) {
-	DataTypeId = f.RegisterType("DataFile")
+	DataTypeId = f.RegisterType("dataFile", "Represents a data table which can be exported as a csv or dat file.")
 	f.RegisterMethods(value.ListTypeId, value.MethodMap{
 		"zip": value.MethodAtType(1, func(list *value.List, st funcGen.Stack[value.Value]) (value.Value, error) {
 			if name, ok := st.Get(1).(value.String); ok {
@@ -190,7 +190,7 @@ func AddFileHelpers(f *value.FunctionGenerator) {
 		},
 		Args:   3,
 		IsPure: true,
-	}.SetDescription("name", "unit", "func", "Creates a data file. the function is used to create the time value."))
+	}.SetDescription("name", "unit", "func", "Creates a data file. The function is used to create the time value."))
 }
 
 type DataContent struct {
@@ -225,7 +225,7 @@ func (d *Data) ToFloat() (float64, bool) {
 
 func (d *Data) ToString(_ funcGen.Stack[value.Value]) (string, error) {
 	sb := &bytes.Buffer{}
-	sb.WriteString("DataFile(")
+	sb.WriteString("dataFile(")
 	for i, content := range d.DataContent {
 		if i > 0 {
 			sb.WriteString(", ")

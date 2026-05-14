@@ -85,7 +85,7 @@ func toErr(stack funcGen.Stack[value.Value], store []value.Value) (value.Value, 
 
 var ErrValueParser = value.New().
 	Modify(func(f *value.FunctionGenerator) {
-		errValType = f.RegisterType("errValue")
+		errValType = f.RegisterType("errValue", "Represents a value and it's measurement error")
 		addAdd(f)
 		addSub(f)
 		addMul(f)

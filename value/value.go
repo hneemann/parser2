@@ -272,7 +272,7 @@ func (su *SimpleUnary) Calc(v Value) (Value, error) {
 			return un(v)
 		}
 	}
-	return nil, errors.New("unary operation '" + su.op + "' not defined on " + su.fg.typeNames[aType])
+	return nil, errors.New("unary operation '" + su.op + "' not defined on " + su.fg.typeDescriptions[aType].Name)
 }
 
 func (su *SimpleUnary) Register(a Type, op funcGen.UnaryOperatorFunc[Value]) {
@@ -312,7 +312,7 @@ func (o *operationMatrixSimple) Calc(st funcGen.Stack[Value], a, b Value) (Value
 			}
 		}
 	}
-	return nil, errors.New("operation '" + o.op + "' not defined on " + o.fg.typeNames[aType] + ", " + o.fg.typeNames[bType])
+	return nil, errors.New("operation '" + o.op + "' not defined on " + o.fg.typeDescriptions[aType].Name + ", " + o.fg.typeDescriptions[bType].Name)
 }
 
 func (o *operationMatrixSimple) Register(a, b Type, op funcGen.OperatorFunc[Value]) {
@@ -547,20 +547,23 @@ func simpleOnlyFloatFuncCheck(name string, argValid func(float65 float64) bool, 
 
 type FunctionGenerator struct {
 	*funcGen.FunctionGenerator[Value]
-	methods   [maxTypeId]MethodMap
-	equal     funcGen.BoolFunc[Value]
-	less      funcGen.BoolFunc[Value]
-	typeNames [maxTypeId]string
+	methods          [maxTypeId]MethodMap
+	equal            funcGen.BoolFunc[Value]
+	less             funcGen.BoolFunc[Value]
+	typeDescriptions [maxTypeId]funcGen.TypeDescription
 
 	typeId Type
 }
 
-func (fg *FunctionGenerator) RegisterType(name string) Type {
+func (fg *FunctionGenerator) RegisterType(name string, description string) Type {
 	fg.typeId++
 	if fg.typeId >= maxTypeId {
 		panic("too many types")
 	}
-	fg.typeNames[fg.typeId] = name
+	fg.typeDescriptions[fg.typeId] = funcGen.TypeDescription{
+		Name:        name,
+		Description: description,
+	}
 	return fg.typeId
 }
 
@@ -626,7 +629,7 @@ func (fg *FunctionGenerator) GetDocumentation() []funcGen.TypeDocumentation {
 	for i := Type(1); i <= fg.typeId; i++ {
 		methodMap := fg.methods[i]
 		if len(methodMap) > 0 {
-			td = append(td, funcGen.CreateTypeDocumentation(fg.typeNames[i], methodMap))
+			td = append(td, funcGen.CreateTypeDocumentation(fg.typeDescriptions[i], methodMap))
 		}
 	}
 	td = append(td, fg.FunctionGenerator.GetStaticDocumentation())
@@ -635,16 +638,16 @@ func (fg *FunctionGenerator) GetDocumentation() []funcGen.TypeDocumentation {
 
 func New() *FunctionGenerator {
 	f := &FunctionGenerator{}
-	IntTypeId = f.RegisterType("int")
-	FloatTypeId = f.RegisterType("float")
-	StringTypeId = f.RegisterType("string")
-	BoolTypeId = f.RegisterType("bool")
-	ListTypeId = f.RegisterType("list")
-	MapTypeId = f.RegisterType("map")
-	ClosureTypeId = f.RegisterType("closure")
-	FormatTypeId = f.RegisterType("format")
-	LinkTypeId = f.RegisterType("link")
-	FileTypeId = f.RegisterType("file")
+	IntTypeId = f.RegisterType("int", "Represents an integer value.")
+	FloatTypeId = f.RegisterType("float", "Represents a float value.")
+	StringTypeId = f.RegisterType("string", "Represents a string value.")
+	BoolTypeId = f.RegisterType("bool", "Represents a boolean value.")
+	ListTypeId = f.RegisterType("list", "Represents a list of values.")
+	MapTypeId = f.RegisterType("map", "Represents a key value map.")
+	ClosureTypeId = f.RegisterType("closure", "Represents a closure.")
+	FormatTypeId = f.RegisterType("format", "Used to add css to values which is used when they are exported to a html file.")
+	LinkTypeId = f.RegisterType("link", "Used to add a link to a value.")
+	FileTypeId = f.RegisterType("file", "Represents a file which can be downloaded.")
 
 	fg := funcGen.New[Value]().
 		AddConstant("pi", Float(math.Pi)).
