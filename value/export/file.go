@@ -190,7 +190,10 @@ func AddFileHelpers(f *value.FunctionGenerator) {
 		},
 		Args:   3,
 		IsPure: true,
-	}.SetDescription("name", "unit", "func", "Creates a data file. The function is used to create the time value."))
+	}.SetDescription("timeName", "timeUnit", "func", "Creates a data file. The given function is used to create the time value. "+
+		"This function returns a data file. This file has the methods 'dat' and 'csv', which can be called with a list. "+
+		"A corresponding file is then generated from this list by calling the specified functions with the list elements. "+
+		"The data columns are created using the 'add' method."))
 }
 
 type DataContent struct {
