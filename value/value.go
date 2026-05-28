@@ -920,7 +920,7 @@ func New() *FunctionGenerator {
 							return iterator.Generate[Value](int(size), func(i int) (Value, error) { return Int(i), nil })
 						}, int(size)), nil
 				}
-				return nil, fmt.Errorf("list not alowed on %s", TypeName(v))
+				return nil, fmt.Errorf("numbers requires an int value")
 			},
 			Args:   1,
 			IsPure: true,
