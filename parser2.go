@@ -653,6 +653,7 @@ type Parser[V any] struct {
 	allowComments  bool
 	operatorDetect OperatorDetector
 	comfort        bool
+	opMinus        int
 	debug          bool
 }
 
@@ -759,6 +760,15 @@ func (p *Parser[V]) Parse(str string, idents Identifiers[V]) (ast AST, err error
 			op = append(op, u)
 		}
 		p.operatorDetect = NewOperatorDetector(op)
+
+		p.opMinus = -1
+		for i, opStr := range p.operators {
+			if opStr == "-" {
+				p.opMinus = i
+				break
+			}
+		}
+
 	}
 
 	tokenizer :=
@@ -1056,13 +1066,19 @@ func (p *Parser[V]) parseUnary(tokenizer *Tokenizer, constants Identifiers[V]) (
 	if t := tokenizer.Peek(); t.typ == tOperate {
 		if _, ok := p.unary[t.image]; ok {
 			t = tokenizer.Next()
-			e, err := p.parseNonOperator(tokenizer, constants)
+			var inner AST
+			var err error
+			if p.opMinus >= 0 && t.image == "-" {
+				inner, err = p.parseOp(tokenizer, p.opMinus+1, constants)
+			} else {
+				inner, err = p.parseNonOperator(tokenizer, constants)
+			}
 			if err != nil {
 				return nil, err
 			}
 			return &Unary{
 				Operator: t.image,
-				Value:    e,
+				Value:    inner,
 				Line:     t.Line,
 			}, nil
 		}

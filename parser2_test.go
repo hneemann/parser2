@@ -40,7 +40,7 @@ var parser = NewParser[int]().
 	SetKeyWords("let", "switch", "case", "default", "func", "if", "then", "else", "try", "catch").
 	SetNumberParser(numberParser{}).
 	SetOptimizer(&simpleOptimizer{}).
-	Op("+", "-", "*", "/", "^", "<", ">", "=").
+	Op("<", ">", "=", "+", "-", "*", "/", "^").
 	Unary("-")
 
 var parserComfort = NewParser[int]().
@@ -57,6 +57,12 @@ func TestParser(t *testing.T) {
 		args []string
 		opt  string
 	}{
+		{exp: "-xˆ2", opt: "-(x^2)", args: []string{"x"}},
+		{exp: "-2<-1", opt: "-2<-1"},
+		{exp: "-x*(-2)", opt: "-(x*-2)", args: []string{"x"}},
+		{exp: "-2*x-2", opt: "-(2*x)-2", args: []string{"x"}},
+		{exp: "-x-2", opt: "-x-2", args: []string{"x"}},
+		{exp: "-x+2", opt: "-x+2", args: []string{"x"}},
 		{exp: "(1+1)*(2+2)", opt: "8"},
 		{exp: "(a,b)->a*b*(1+1)", opt: "(a, b)->(a*b)*2", args: []string{"a", "b"}},
 		{exp: "a->a*(1+1)", opt: "a->a*2", args: []string{"a"}},
