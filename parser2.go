@@ -639,10 +639,16 @@ func (shf StringConverterFunc[V]) FromString(s string) V {
 	return shf(s)
 }
 
+type unaryEntry struct {
+	// Used to handle operator priority if there is an operator that
+	// is also an unary. In most cases just the "-"
+	opPos int
+}
+
 // Parser is the base class of the parser
 type Parser[V any] struct {
 	operators      []string
-	unary          map[string]struct{}
+	unary          map[string]*unaryEntry
 	textOperators  map[string]string
 	keyWords       []string
 	numberParser   NumberParser[V]
@@ -653,14 +659,13 @@ type Parser[V any] struct {
 	allowComments  bool
 	operatorDetect OperatorDetector
 	comfort        bool
-	opMinus        int
 	debug          bool
 }
 
 // NewParser creates a new Parser
 func NewParser[V any]() *Parser[V] {
 	return &Parser[V]{
-		unary:      map[string]struct{}{},
+		unary:      map[string]*unaryEntry{},
 		number:     simpleNumber,
 		identifier: simpleIdentifier,
 	}
@@ -696,7 +701,7 @@ func (p *Parser[V]) IsDebug() bool {
 // Unary is used to declare unary operations like "-" or "!".
 func (p *Parser[V]) Unary(operators ...string) *Parser[V] {
 	for _, o := range operators {
-		p.unary[o] = struct{}{}
+		p.unary[o] = &unaryEntry{opPos: -1}
 	}
 	return p
 }
@@ -761,11 +766,13 @@ func (p *Parser[V]) Parse(str string, idents Identifiers[V]) (ast AST, err error
 		}
 		p.operatorDetect = NewOperatorDetector(op)
 
-		p.opMinus = -1
+		// Store the position of the operator if there is an operator
+		// the same as the unary. In most cases just the "-" sign.
 		for i, opStr := range p.operators {
-			if opStr == "-" {
-				p.opMinus = i
-				break
+			for uek, uep := range p.unary {
+				if uek == opStr {
+					uep.opPos = i
+				}
 			}
 		}
 
@@ -1064,12 +1071,13 @@ func (p *Parser[V]) nextParserCall(op int) parserFunc[V] {
 
 func (p *Parser[V]) parseUnary(tokenizer *Tokenizer, constants Identifiers[V]) (AST, error) {
 	if t := tokenizer.Peek(); t.typ == tOperate {
-		if _, ok := p.unary[t.image]; ok {
+		if un, ok := p.unary[t.image]; ok {
 			t = tokenizer.Next()
 			var inner AST
 			var err error
-			if p.opMinus >= 0 && t.image == "-" {
-				inner, err = p.parseOp(tokenizer, p.opMinus+1, constants)
+			if un.opPos >= 0 {
+				// the unary is also an operator ("-")
+				inner, err = p.parseOp(tokenizer, un.opPos+1, constants)
 			} else {
 				inner, err = p.parseNonOperator(tokenizer, constants)
 			}
