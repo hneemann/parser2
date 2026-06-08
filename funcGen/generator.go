@@ -781,37 +781,37 @@ func (f Func[V]) Eval(args ...V) (V, error) {
 	return f(NewEmptyStack[V]().Init(args...))
 }
 
-func (g *FunctionGenerator[V]) Generate(exp string, args ...string) (Func[V], error) {
+func (g *FunctionGenerator[V]) Generate(exp string, args ...string) (Func[V], bool, error) {
 	return g.generateIntern(args, exp, g.identifier)
 }
 
-func (g *FunctionGenerator[V]) GenerateWithMap(exp string, mapName string) (Func[V], error) {
+func (g *FunctionGenerator[V]) GenerateWithMap(exp string, mapName string) (Func[V], bool, error) {
 	idents := g.identifier.AddMap(mapName)
 	return g.generateIntern([]string{mapName}, exp, idents)
 }
 
 // GenerateFromString creates a function from a string.
 // The generated function can be used to register a static function to a parser.
-func (g *FunctionGenerator[V]) GenerateFromString(exp string, args ...string) (ParserFunc[V], error) {
+func (g *FunctionGenerator[V]) GenerateFromString(exp string, args ...string) (ParserFunc[V], bool, error) {
 	ast, err := g.CreateAst(exp, nil)
 	if err != nil {
-		return nil, err
+		return nil, false, err
 	}
 	return g.GenerateFunc(ast, GeneratorContext{am: args})
 }
 
-func (g *FunctionGenerator[V]) generateIntern(args []string, exp string, idents parser2.Identifiers[V]) (Func[V], error) {
+func (g *FunctionGenerator[V]) generateIntern(args []string, exp string, idents parser2.Identifiers[V]) (Func[V], bool, error) {
 	idents = idents.AddArgs(args, nil)
 	ast, err := g.CreateAst(exp, idents)
 	if err != nil {
-		return nil, err
+		return nil, false, err
 	}
 
 	gc := GeneratorContext{am: args, cm: nil}
 
-	f, err := g.GenerateFunc(ast, gc)
+	f, pure, err := g.GenerateFunc(ast, gc)
 	if err != nil {
-		return nil, err
+		return nil, false, err
 	}
 	return func(st Stack[V]) (val V, err error) {
 		defer func() {
@@ -824,7 +824,7 @@ func (g *FunctionGenerator[V]) generateIntern(args []string, exp string, idents 
 			}
 		}()
 		return f(st, nil)
-	}, nil
+	}, pure, nil
 }
 
 // CreateAst uses the parser to create the abstract syntax tree.
@@ -838,49 +838,49 @@ func (g *FunctionGenerator[V]) CreateAst(exp string, idents parser2.Identifiers[
 	return ast, nil
 }
 
-func (g *FunctionGenerator[V]) GenerateFunc(ast parser2.AST, gc GeneratorContext) (ParserFunc[V], error) {
+func (g *FunctionGenerator[V]) GenerateFunc(ast parser2.AST, gc GeneratorContext) (ParserFunc[V], bool, error) {
 	var zero V
 	if g.customGenerator != nil {
 		c, err := g.customGenerator.GenerateCustom(ast, gc, g)
 		if err != nil {
-			return nil, err
+			return nil, false, err
 		}
 		if c != nil {
-			return c, nil
+			return c, false, nil
 		}
 	}
 	switch a := ast.(type) {
 	case *parser2.Const[V]:
 		return func(st Stack[V], cs []V) (V, error) {
 			return a.Value, nil
-		}, nil
+		}, true, nil
 	case *parser2.Ident:
 		if index, ok := gc.am.get(a.Name); ok {
 			return func(st Stack[V], cs []V) (V, error) {
 				return st.Get(index), nil
-			}, nil
+			}, true, nil
 		} else {
 			if index, ok := gc.cm.get(a.Name); ok {
 				return func(st Stack[V], cs []V) (V, error) {
 					return cs[index], nil
-				}, nil
+				}, true, nil
 			} else {
 				avail := append(gc.am, gc.cm...)
-				return nil, parser2.NewNotFoundError(a.Name, a.Errorf("not found: %s", a.Name)).SetAvail(avail...)
+				return nil, false, parser2.NewNotFoundError(a.Name, a.Errorf("not found: %s", a.Name)).SetAvail(avail...)
 			}
 		}
 	case *parser2.Let:
-		valFunc, err := g.GenerateFunc(a.Value, gc)
+		valFunc, pure, err := g.GenerateFunc(a.Value, gc)
 		if err != nil {
-			return nil, err
+			return nil, false, err
 		}
 		newGc, err := gc.addLocalVar(a.Name)
 		if err != nil {
-			return nil, a.EnhanceErrorf(err, "error in let")
+			return nil, false, a.EnhanceErrorf(err, "error in let")
 		}
-		mainFunc, err := g.GenerateFunc(a.Inner, newGc)
+		mainFunc, mainPure, err := g.GenerateFunc(a.Inner, newGc)
 		if err != nil {
-			return nil, err
+			return nil, false, err
 		}
 		return func(st Stack[V], cs []V) (V, error) {
 			va, err := valFunc(st, cs)
@@ -889,20 +889,20 @@ func (g *FunctionGenerator[V]) GenerateFunc(ast parser2.AST, gc GeneratorContext
 			}
 			st.Push(va)
 			return mainFunc(st, cs)
-		}, nil
+		}, pure && mainPure, nil
 	case *parser2.If:
 		if g.toBool != nil {
-			condFunc, err := g.GenerateFunc(a.Cond, gc)
+			condFunc, condPure, err := g.GenerateFunc(a.Cond, gc)
 			if err != nil {
-				return nil, err
+				return nil, false, err
 			}
-			thenFunc, err := g.GenerateFunc(a.Then, gc)
+			thenFunc, thenPure, err := g.GenerateFunc(a.Then, gc)
 			if err != nil {
-				return nil, err
+				return nil, false, err
 			}
-			elseFunc, err := g.GenerateFunc(a.Else, gc)
+			elseFunc, elsePure, err := g.GenerateFunc(a.Else, gc)
 			if err != nil {
-				return nil, err
+				return nil, false, err
 			}
 			return func(st Stack[V], cs []V) (V, error) {
 				condVal, err := condFunc(st, cs)
@@ -918,32 +918,35 @@ func (g *FunctionGenerator[V]) GenerateFunc(ast parser2.AST, gc GeneratorContext
 				} else {
 					return zero, a.Errorf("if condition is not a bool")
 				}
-			}, nil
+			}, condPure && thenPure && elsePure, nil
 		}
 	case *parser2.Switch[V]:
 		if g.isEqual != nil {
-			switchValueFunc, err := g.GenerateFunc(a.SwitchValue, gc)
+			switchValueFunc, switchPure, err := g.GenerateFunc(a.SwitchValue, gc)
 			if err != nil {
-				return nil, err
+				return nil, false, err
 			}
-			defaultFunc, err := g.GenerateFunc(a.Default, gc)
+			defaultFunc, defaultPure, err := g.GenerateFunc(a.Default, gc)
 			if err != nil {
-				return nil, err
+				return nil, false, err
 			}
 
+			pure := switchPure && defaultPure
 			type caseFunc struct {
 				constFunc  ParserFunc[V]
 				resultFunc ParserFunc[V]
 			}
 			var cases []caseFunc
 			for _, c := range a.Cases {
-				constFunc, err := g.GenerateFunc(c.CaseConst, gc)
+				constFunc, condPure, err := g.GenerateFunc(c.CaseConst, gc)
+				pure = pure && condPure
 				if err != nil {
-					return nil, err
+					return nil, false, err
 				}
-				resultFunc, err := g.GenerateFunc(c.Value, gc)
+				resultFunc, resultPure, err := g.GenerateFunc(c.Value, gc)
+				pure = pure && resultPure
 				if err != nil {
-					return nil, err
+					return nil, false, err
 				}
 				cases = append(cases, caseFunc{
 					constFunc:  constFunc,
@@ -969,16 +972,17 @@ func (g *FunctionGenerator[V]) GenerateFunc(ast parser2.AST, gc GeneratorContext
 					}
 				}
 				return defaultFunc(st, cs)
-			}, nil
+			}, pure, nil
 		}
 	case *parser2.TryCatch:
-		tryFunc, err := g.GenerateFunc(a.Try, gc)
+		tryFunc, pure, err := g.GenerateFunc(a.Try, gc)
 		if err != nil {
-			return nil, err
+			return nil, false, err
 		}
-		catchFunc, err := g.GenerateFunc(a.Catch, gc)
+		catchFunc, p, err := g.GenerateFunc(a.Catch, gc)
+		pure = pure && p
 		if err != nil {
-			return nil, err
+			return nil, false, err
 		}
 		return func(st Stack[V], cs []V) (V, error) {
 			v, err := tryFunc(st, cs)
@@ -990,11 +994,11 @@ func (g *FunctionGenerator[V]) GenerateFunc(ast parser2.AST, gc GeneratorContext
 				return zero, a.EnhanceErrorf(err, "error in catch")
 			}
 			return v2, err
-		}, nil
+		}, pure, nil
 	case *parser2.Unary:
-		valFunc, err := g.GenerateFunc(a.Value, gc)
+		valFunc, pure, err := g.GenerateFunc(a.Value, gc)
 		if err != nil {
-			return nil, err
+			return nil, false, err
 		}
 		op := g.uMap[a.Operator].Impl
 		return func(st Stack[V], cs []V) (V, error) {
@@ -1003,15 +1007,15 @@ func (g *FunctionGenerator[V]) GenerateFunc(ast parser2.AST, gc GeneratorContext
 				return zero, a.EnhanceErrorf(err, "error in unary %v", a.Operator)
 			}
 			return op.Calc(v)
-		}, nil
+		}, pure, nil
 	case *parser2.Operate:
-		aFunc, err := g.GenerateFunc(a.A, gc)
+		aFunc, aPure, err := g.GenerateFunc(a.A, gc)
 		if err != nil {
-			return nil, err
+			return nil, false, err
 		}
-		bFunc, err := g.GenerateFunc(a.B, gc)
+		bFunc, bPure, err := g.GenerateFunc(a.B, gc)
 		if err != nil {
-			return nil, err
+			return nil, false, err
 		}
 		op := g.opMap[a.Operator].Impl
 		return func(st Stack[V], cs []V) (V, error) {
@@ -1024,29 +1028,29 @@ func (g *FunctionGenerator[V]) GenerateFunc(ast parser2.AST, gc GeneratorContext
 				return zero, a.EnhanceErrorf(err, "error in operation %v", a.Operator)
 			}
 			return op.Calc(st, aVal, bVal)
-		}, nil
+		}, aPure && bPure, nil
 	case *parser2.ClosureLiteral:
 		if len(a.OuterIdents) == 0 && !a.Recursive {
 			// not a closure, not recursive, just a pure function
-			closureFunc, err := g.GenerateFunc(a.Func, GeneratorContext{am: a.Names})
+			closureFunc, pure, err := g.GenerateFunc(a.Func, GeneratorContext{am: a.Names})
 			if err != nil {
-				return nil, err
+				return nil, false, err
 			}
 			return func(st Stack[V], cs []V) (V, error) {
 				return g.closureHandler.FromClosure(Function[V]{
 					Func: closureFunc,
 					Args: len(a.Names),
 				}), nil
-			}, nil
+			}, pure, nil
 		} else {
 			// is a real closure
 			return g.createClosureLiteralFunc(a, gc)
 		}
 	case *parser2.ListLiteral:
 		if g.listHandler != nil {
-			itemFuncs, err := g.genFuncList(a.List, gc)
+			itemFuncs, pure, err := g.genFuncList(a.List, gc)
 			if err != nil {
-				return nil, err
+				return nil, false, err
 			}
 			return func(st Stack[V], cs []V) (V, error) {
 				itemValues := make([]V, len(itemFuncs))
@@ -1058,17 +1062,17 @@ func (g *FunctionGenerator[V]) GenerateFunc(ast parser2.AST, gc GeneratorContext
 					itemValues[i] = v
 				}
 				return g.listHandler.FromList(itemValues), nil
-			}, nil
+			}, pure, nil
 		}
 	case *parser2.ListAccess:
 		if g.listHandler != nil {
-			indexFunc, err := g.GenerateFunc(a.Index, gc)
+			indexFunc, iPure, err := g.GenerateFunc(a.Index, gc)
 			if err != nil {
-				return nil, err
+				return nil, false, err
 			}
-			listFunc, err := g.GenerateFunc(a.List, gc)
+			listFunc, lPure, err := g.GenerateFunc(a.List, gc)
 			if err != nil {
-				return nil, err
+				return nil, false, err
 			}
 			return func(st Stack[V], cs []V) (V, error) {
 				i, err := indexFunc(st, cs)
@@ -1080,13 +1084,13 @@ func (g *FunctionGenerator[V]) GenerateFunc(ast parser2.AST, gc GeneratorContext
 					return zero, a.EnhanceErrorf(err, "error in getting list")
 				}
 				return g.listHandler.AccessList(l, i)
-			}, nil
+			}, iPure && lPure, nil
 		}
 	case *parser2.MapLiteral:
 		if g.mapHandler != nil {
-			itemsCode, err := g.genCodeMap(a.Map, gc)
+			itemsCode, pure, err := g.genCodeMap(a.Map, gc)
 			if err != nil {
-				return nil, err
+				return nil, false, err
 			}
 			return func(st Stack[V], cs []V) (V, error) {
 				mapValues := listMap.New[V](len(itemsCode))
@@ -1104,13 +1108,13 @@ func (g *FunctionGenerator[V]) GenerateFunc(ast parser2.AST, gc GeneratorContext
 					return zero, a.EnhanceErrorf(innerError, "Map literal error")
 				}
 				return g.mapHandler.FromMap(mapValues), nil
-			}, nil
+			}, pure, nil
 		}
 	case *parser2.MapAccess:
 		if g.mapHandler != nil {
-			mapFunc, err := g.GenerateFunc(a.MapValue, gc)
+			mapFunc, pure, err := g.GenerateFunc(a.MapValue, gc)
 			if err != nil {
-				return nil, err
+				return nil, false, err
 			}
 			return func(st Stack[V], cs []V) (V, error) {
 				l, err := mapFunc(st, cs)
@@ -1118,17 +1122,17 @@ func (g *FunctionGenerator[V]) GenerateFunc(ast parser2.AST, gc GeneratorContext
 					return zero, a.EnhanceErrorf(err, "error in getting map")
 				}
 				return g.mapHandler.AccessMap(l, a.Key)
-			}, nil
+			}, pure, nil
 		}
 	case *parser2.FunctionCall:
 		if id, ok := a.Func.(*parser2.Ident); ok {
 			if fun, ok := g.staticFunctions[id.Name]; ok {
 				if fun.argsNumberNotMatching(len(a.Args)) {
-					return nil, id.Error(fun.argsNumberNotMatchingError(id.Name, len(a.Args)))
+					return nil, false, id.Error(fun.argsNumberNotMatchingError(id.Name, len(a.Args)))
 				}
-				argsFuncList, err := g.genFuncList(a.Args, gc)
+				argsFuncList, pure, err := g.genFuncList(a.Args, gc)
 				if err != nil {
-					return nil, err
+					return nil, false, err
 				}
 				return func(st Stack[V], cs []V) (V, error) {
 					for _, argFunc := range argsFuncList {
@@ -1139,16 +1143,16 @@ func (g *FunctionGenerator[V]) GenerateFunc(ast parser2.AST, gc GeneratorContext
 						st.Push(v)
 					}
 					return fun.Func(st.CreateFrame(len(argsFuncList)), nil)
-				}, nil
+				}, fun.IsPure && pure, nil
 			}
 		}
-		funcFunc, err := g.GenerateFunc(a.Func, gc)
+		funcFunc, fPure, err := g.GenerateFunc(a.Func, gc)
 		if err != nil {
-			return nil, g.generateStaticFunctionDocu(err)
+			return nil, false, g.generateStaticFunctionDocu(err)
 		}
-		argsFuncList, err := g.genFuncList(a.Args, gc)
+		argsFuncList, aPure, err := g.genFuncList(a.Args, gc)
 		if err != nil {
-			return nil, err
+			return nil, false, err
 		}
 		return func(st Stack[V], cs []V) (V, error) {
 			funcVal, err := funcFunc(st, cs)
@@ -1170,16 +1174,16 @@ func (g *FunctionGenerator[V]) GenerateFunc(ast parser2.AST, gc GeneratorContext
 				st.Push(v)
 			}
 			return theFunc.Func(st.CreateFrame(len(argsFuncList)), cs)
-		}, nil
+		}, fPure && aPure, nil
 	case *parser2.MethodCall:
-		valFunc, err := g.GenerateFunc(a.Value, gc)
+		valFunc, fPure, err := g.GenerateFunc(a.Value, gc)
 		if err != nil {
-			return nil, err
+			return nil, false, err
 		}
 		name := a.Name
-		argsFuncList, err := g.genFuncList(a.Args, gc)
+		argsFuncList, aPure, err := g.genFuncList(a.Args, gc)
 		if err != nil {
-			return nil, err
+			return nil, false, err
 		}
 		return func(st Stack[V], cs []V) (V, error) {
 			value, err := valFunc(st, cs)
@@ -1232,23 +1236,23 @@ func (g *FunctionGenerator[V]) GenerateFunc(ast parser2.AST, gc GeneratorContext
 				return v, err
 			}
 			return zero, parser2.NewNotFoundError(name, a.Errorf("method %s not found", name))
-		}, nil
+		}, fPure && aPure, nil
 	}
-	return nil, ast.GetLine().Errorf("not supported: %v", ast)
+	return nil, false, ast.GetLine().Errorf("not supported: %v", ast)
 }
 
-func (g *FunctionGenerator[V]) createClosureLiteralFunc(a *parser2.ClosureLiteral, gc GeneratorContext) (ParserFunc[V], error) {
+func (g *FunctionGenerator[V]) createClosureLiteralFunc(a *parser2.ClosureLiteral, gc GeneratorContext) (ParserFunc[V], bool, error) {
 	usedVars := argsList(a.OuterIdents)
 	if a.Recursive {
 		var err error
 		usedVars, err = usedVars.add(a.ThisName)
 		if err != nil {
-			return nil, err
+			return nil, false, err
 		}
 	}
-	closureFunc, err := g.GenerateFunc(a.Func, GeneratorContext{am: a.Names, cm: usedVars})
+	closureFunc, pure, err := g.GenerateFunc(a.Func, GeneratorContext{am: a.Names, cm: usedVars})
 	if err != nil {
-		return nil, err
+		return nil, false, err
 	}
 
 	type accessContextOperation func(st Stack[V], cs []V, this V) V
@@ -1260,7 +1264,7 @@ func (g *FunctionGenerator[V]) createClosureLiteralFunc(a *parser2.ClosureLitera
 			if i, ok := gc.cm.get(name); ok {
 				accessContextOperations[ci] = func(st Stack[V], cs []V, this V) V { return cs[i] }
 			} else {
-				return nil, parser2.NewNotFoundError(name, a.Errorf("outer value '%s' not found", name))
+				return nil, false, parser2.NewNotFoundError(name, a.Errorf("outer value '%s' not found", name))
 			}
 		}
 	}
@@ -1280,19 +1284,22 @@ func (g *FunctionGenerator[V]) createClosureLiteralFunc(a *parser2.ClosureLitera
 			closureContext[i] = accessContext(st, cs, closure)
 		}
 		return closure, nil
-	}, nil
+	}, pure, nil
 }
 
-func (g *FunctionGenerator[V]) genFuncList(a []parser2.AST, gc GeneratorContext) ([]ParserFunc[V], error) {
+func (g *FunctionGenerator[V]) genFuncList(a []parser2.AST, gc GeneratorContext) ([]ParserFunc[V], bool, error) {
 	args := make([]ParserFunc[V], len(a))
+	pure := true
 	for i, arg := range a {
 		var err error
-		args[i], err = g.GenerateFunc(arg, gc)
+		var p bool
+		args[i], p, err = g.GenerateFunc(arg, gc)
 		if err != nil {
-			return nil, err
+			return nil, false, err
 		}
+		pure = pure && p
 	}
-	return args, nil
+	return args, pure, nil
 }
 
 // ExtractFunction is used to extract a function from a value
@@ -1306,15 +1313,18 @@ func (g *FunctionGenerator[V]) ExtractFunction(fu V) (Function[V], bool) {
 	return Function[V]{}, false
 }
 
-func (g *FunctionGenerator[V]) genCodeMap(a listMap.ListMap[parser2.AST], gc GeneratorContext) (args listMap.ListMap[ParserFunc[V]], err error) {
+func (g *FunctionGenerator[V]) genCodeMap(a listMap.ListMap[parser2.AST], gc GeneratorContext) (args listMap.ListMap[ParserFunc[V]], pure bool, err error) {
 	args = listMap.New[ParserFunc[V]](a.Size())
+	pure = true
 	a.Iter(func(key string, value parser2.AST) bool {
 		var f ParserFunc[V]
-		f, err = g.GenerateFunc(value, gc)
+		var p bool
+		f, p, err = g.GenerateFunc(value, gc)
 		if err != nil {
 			args = nil
 			return false
 		}
+		pure = pure && p
 		args = args.Append(key, f)
 		return true
 	})
