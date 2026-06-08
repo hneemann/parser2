@@ -20,11 +20,6 @@ type testType struct {
 
 func TestBasic(t *testing.T) {
 	runTest(t, []testType{
-		{exp: `func mySqrt(a)  
-                 if a<0 then throw("sqrt of neg value") else sqrt(a);
-
-               try 2*mySqrt(-1)+1 catch e-> "sqrt of neg value" ~ e`, res: Bool(true)},
-
 		{exp: "1e-7", res: Float(1e-7)},
 		{exp: "1e7", res: Float(1e7)},
 		{exp: "1e+7", res: Float(1e+7)},
@@ -160,6 +155,12 @@ func TestBasic(t *testing.T) {
 		//https://stackoverflow.com/questions/3883780/javascript-recursive-anonymous-function
 		{exp: "(((f->f(f))(h->f->f(x->(f->f(f))(h)(f)(x))))(f->a->b->x->if x=0 then a else f(b)(a+b)(x-1))(0)(1))(12)", res: Int(144)},
 
+		// throw, catch function
+		{exp: `func mySqrt(a)  
+                 if a<0 then throw("sqrt of neg value") else sqrt(a);
+
+               try 2*mySqrt(-1)+1 catch e-> "sqrt of neg value" ~ e`, res: Bool(true)},
+
 		// Func in Func
 		{exp: `func f(x)
                  func a(y)
@@ -171,6 +172,17 @@ func TestBasic(t *testing.T) {
                    if y>0 then y+a(y-1) else y;
                  a(2*x);
                f(2)`, res: Int(4 + 3 + 2 + 1)},
+		// Test pure, non pure functions
+		{exp: `let u=2;
+               let bins=numbers(30000)
+                         .map(n->numbers(u).map(i->random()).sum()/u)
+                         .binning(0,0.05,20,n->n,n->1);
+               bins.values.map(n->if n>0 then 1 else 0).sum()`, res: Int(20)},
+		{exp: `let u=2;
+               let bins=numbers(30000)
+                         .map(n->numbers(u).map(i->randomConst()).sum()/u)
+                         .binning(0,0.05,20,n->n,n->1);
+               bins.values.map(n->if n>0 then 1 else 0).sum()`, res: Int(1)},
 	})
 }
 
