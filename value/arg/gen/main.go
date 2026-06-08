@@ -10,7 +10,7 @@ import (
 func writeMethod(w io.StringWriter, d int) {
 	gen := ""
 	for i := 0; i < d; i++ {
-		gen += ", " + string('A'+i)
+		gen += ", " + string(rune('A'+i))
 	}
 	w.WriteString("func Method" + strconv.Itoa(d) + "[T" + gen + " value.Value](method func(T" + gen + ", funcGen.Stack[value.Value]) (value.Value, error), def ...value.Value) funcGen.Function[value.Value] {\n")
 	w.WriteString(`	switch len(def) {
@@ -20,7 +20,7 @@ func writeMethod(w io.StringWriter, d int) {
 	     if obj, ok := stack.Get(0).(T); ok {
 	        return method(obj`)
 	for i := 0; i < d; i++ {
-		w.WriteString(", GetFromStack[" + string('A'+i) + "](stack, " + strconv.Itoa(i+1) + ")")
+		w.WriteString(", GetFromStack[" + string(rune('A'+i)) + "](stack, " + strconv.Itoa(i+1) + ")")
 	}
 	w.WriteString(`, stack)
          }
@@ -31,7 +31,7 @@ func writeMethod(w io.StringWriter, d int) {
 		w.WriteString(`	case ` + strconv.Itoa(i) + ":\n")
 		for j := 0; j < i; j++ {
 			v := d - i + j
-			w.WriteString("      " + string('a'+v) + " := " + "def[" + strconv.Itoa(j) + "].(" + string('A'+v) + ")\n")
+			w.WriteString("      " + string(rune('a'+v)) + " := " + "def[" + strconv.Itoa(j) + "].(" + string(rune('A'+v)) + ")\n")
 		}
 		w.WriteString(`	return funcGen.Function[value.Value]{Func: func(stack funcGen.Stack[value.Value], closureStore []value.Value) (v value.Value, er error) {
 	     defer CatchErr(&er)
@@ -40,10 +40,10 @@ func writeMethod(w io.StringWriter, d int) {
 	        return method(obj`)
 		v := d - i
 		for j := 0; j < v; j++ {
-			w.WriteString(", GetFromStack[" + string('A'+j) + "](stack, " + strconv.Itoa(j+1) + ")")
+			w.WriteString(", GetFromStack[" + string(rune('A'+j)) + "](stack, " + strconv.Itoa(j+1) + ")")
 		}
 		for j := v; j < d; j++ {
-			w.WriteString(", GetFromStackOptional[" + string('A'+j) + "](stack, " + strconv.Itoa(j+1) + "," + string('a'+j) + ")")
+			w.WriteString(", GetFromStackOptional[" + string(rune('A'+j)) + "](stack, " + strconv.Itoa(j+1) + "," + string(rune('a'+j)) + ")")
 		}
 		w.WriteString(`, stack)
          }
@@ -65,7 +65,7 @@ func writeFunction(w io.StringWriter, d int) {
 		if len(gen) > 0 {
 			gen += ", "
 		}
-		gen += string('A' + i)
+		gen += string(rune('A' + i))
 	}
 	w.WriteString("func Function" + strconv.Itoa(d) + "[" + gen + " value.Value](work func(" + gen + ", funcGen.Stack[value.Value]) (value.Value, error), def ...value.Value) funcGen.Function[value.Value] {\n")
 	w.WriteString(`	switch len(def) {
@@ -77,7 +77,7 @@ func writeFunction(w io.StringWriter, d int) {
 		if i > 0 {
 			w.WriteString(", ")
 		}
-		w.WriteString("GetFromStack[" + string('A'+i) + "](stack, " + strconv.Itoa(i) + ")")
+		w.WriteString("GetFromStack[" + string(rune('A'+i)) + "](stack, " + strconv.Itoa(i) + ")")
 	}
 	w.WriteString(`,stack)
 	}, Args: ` + strconv.Itoa(d) + `, IsPure: true}
@@ -86,7 +86,7 @@ func writeFunction(w io.StringWriter, d int) {
 		w.WriteString(`	case ` + strconv.Itoa(i) + ":\n")
 		for j := 0; j < i; j++ {
 			v := d - i + j
-			w.WriteString("      " + string('a'+v) + " := " + "def[" + strconv.Itoa(j) + "].(" + string('A'+v) + ")\n")
+			w.WriteString("      " + string(rune('a'+v)) + " := " + "def[" + strconv.Itoa(j) + "].(" + string(rune('A'+v)) + ")\n")
 		}
 		w.WriteString(`	return funcGen.Function[value.Value]{Func: func(stack funcGen.Stack[value.Value], closureStore []value.Value) (v value.Value, er error) {
 	     defer CatchErr(&er)
@@ -97,13 +97,13 @@ func writeFunction(w io.StringWriter, d int) {
 			if j > 0 {
 				w.WriteString(", ")
 			}
-			w.WriteString("GetFromStack[" + string('A'+j) + "](stack, " + strconv.Itoa(j) + ")")
+			w.WriteString("GetFromStack[" + string(rune('A'+j)) + "](stack, " + strconv.Itoa(j) + ")")
 		}
 		for j := v; j < d; j++ {
 			if j > 0 {
 				w.WriteString(", ")
 			}
-			w.WriteString("GetFromStackOptional[" + string('A'+j) + "](stack, " + strconv.Itoa(j) + "," + string('a'+j) + ")")
+			w.WriteString("GetFromStackOptional[" + string(rune('A'+j)) + "](stack, " + strconv.Itoa(j) + "," + string(rune('a'+j)) + ")")
 		}
 		w.WriteString(`, stack)
 	}, Args: -1, IsPure: true}
@@ -127,7 +127,7 @@ func main() {
 	for d := range 6 {
 		writeFunction(&buffer, d+1)
 	}
-	f, _ := os.Create("generated.go")
+	f, _ := os.Create("value/arg/generated.go")
 	buffer.WriteTo(f)
 	f.Close()
 }
