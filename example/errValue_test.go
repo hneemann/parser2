@@ -86,7 +86,7 @@ func TestErrValue(t *testing.T) {
 	for _, test := range tests {
 		test := test
 		t.Run(test.exp, func(t *testing.T) {
-			fu, err := ErrValueParser.Generate(test.exp)
+			fu, _, err := ErrValueParser.Generate(test.exp)
 			assert.NoError(t, err, test.exp)
 			if fu != nil {
 				res, err := fu(funcGen.NewEmptyStack[value.Value]())

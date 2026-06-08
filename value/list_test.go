@@ -354,7 +354,7 @@ const parallel = `
 `
 
 func TestParallel(t *testing.T) {
-	fu, err := New().Generate(parallel)
+	fu, _, err := New().Generate(parallel)
 	assert.NoError(t, err)
 	r, err := fu(funcGen.NewEmptyStack[Value]())
 	assert.NoError(t, err)
@@ -373,7 +373,7 @@ const parallelError = `
 `
 
 func TestParallelError(t *testing.T) {
-	fu, err := New().AddStaticFunction("error", toLargeErrorFunc(500)).Generate(parallelError)
+	fu, _, err := New().AddStaticFunction("error", toLargeErrorFunc(500)).Generate(parallelError)
 	assert.NoError(t, err)
 	_, err = fu(funcGen.NewEmptyStack[Value]())
 	assert.Error(t, err)
@@ -392,7 +392,7 @@ const parallelError2 = `
 `
 
 func TestParallelError2(t *testing.T) {
-	fu, err := New().AddStaticFunction("error", toLargeErrorFunc(500)).Generate(parallelError2)
+	fu, _, err := New().AddStaticFunction("error", toLargeErrorFunc(500)).Generate(parallelError2)
 	assert.NoError(t, err)
 	_, err = fu(funcGen.NewEmptyStack[Value]())
 	assert.Error(t, err)

@@ -31,7 +31,7 @@ data.iirApply(CLP("f",p->p.t,p->p.s,1/(2*pi)))
 
 func getList(bench string) *List {
 	valueParser := New()
-	f, err := valueParser.Generate(bench)
+	f, _, err := valueParser.Generate(bench)
 	if err != nil {
 		panic(err)
 	}

@@ -416,7 +416,7 @@ func (mh MethodHandlerFunc[V]) GetMethod(value V, methodName string) (Function[V
 
 // Generator is used to define a customized generation of functions
 type Generator[V any] interface {
-	GenerateCustom(parser2.AST, GeneratorContext, *FunctionGenerator[V]) (ParserFunc[V], error)
+	GenerateCustom(parser2.AST, GeneratorContext, *FunctionGenerator[V]) (ParserFunc[V], bool, error)
 }
 
 type ToBool[V any] func(c V) (bool, bool)
@@ -841,12 +841,12 @@ func (g *FunctionGenerator[V]) CreateAst(exp string, idents parser2.Identifiers[
 func (g *FunctionGenerator[V]) GenerateFunc(ast parser2.AST, gc GeneratorContext) (ParserFunc[V], bool, error) {
 	var zero V
 	if g.customGenerator != nil {
-		c, err := g.customGenerator.GenerateCustom(ast, gc, g)
+		c, pure, err := g.customGenerator.GenerateCustom(ast, gc, g)
 		if err != nil {
 			return nil, false, err
 		}
 		if c != nil {
-			return c, false, nil
+			return c, pure, nil
 		}
 	}
 	switch a := ast.(type) {

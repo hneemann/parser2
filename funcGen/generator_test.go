@@ -195,7 +195,7 @@ func TestFunctionGenerator_Generate(t *testing.T) {
 	for _, te := range tests {
 		test := te
 		t.Run(test.exp, func(t *testing.T) {
-			f, err := fg.Generate(test.exp, test.args...)
+			f, _, err := fg.Generate(test.exp, test.args...)
 			assert.NoError(t, err)
 			assert.NotNil(t, f)
 			if f != nil {
@@ -212,7 +212,7 @@ func TestFunctionGenerator_Generate(t *testing.T) {
 }
 
 func TestReflectionError(t *testing.T) {
-	f, err := NewGen().Generate("a.doesNotExist()", "a")
+	f, _, err := NewGen().Generate("a.doesNotExist()", "a")
 	assert.NoError(t, err)
 	_, err = f(NewStack[Value](Float(2)))
 	assert.Error(t, err)
@@ -222,7 +222,7 @@ func TestReflectionError(t *testing.T) {
 }
 
 func BenchmarkFunc(b *testing.B) {
-	f, _ := NewGen().Generate("func f(x) x*x;f(a)+f(2*a)", "a")
+	f, _, _ := NewGen().Generate("func f(x) x*x;f(a)+f(2*a)", "a")
 	argVals := []Value{Float(2)}
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
@@ -231,7 +231,7 @@ func BenchmarkFunc(b *testing.B) {
 }
 
 func BenchmarkFunc2(b *testing.B) {
-	f, _ := NewGen().Generate("let c=1.5;func mul(x) y->y*x*c;mul(b)(a)", "a", "b")
+	f, _, _ := NewGen().Generate("let c=1.5;func mul(x) y->y*x*c;mul(b)(a)", "a", "b")
 	argVals := []Value{Float(3), Float(2)}
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {

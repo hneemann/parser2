@@ -78,7 +78,7 @@ func TestErrors(t *testing.T) {
 	for _, tt := range tests {
 		test := tt
 		t.Run(test.exp, func(t *testing.T) {
-			f, err := fg.Generate(test.exp)
+			f, _, err := fg.Generate(test.exp)
 			var r Value
 			if err == nil {
 				r, err = f(funcGen.NewEmptyStack[Value]())

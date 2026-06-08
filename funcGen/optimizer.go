@@ -196,8 +196,8 @@ func (o optimizer[V]) Optimize(ast parser2.AST) parser2.AST {
 
 	if o.g.closureHandler != nil {
 		if cl, ok := ast.(*parser2.ClosureLiteral); ok && len(cl.OuterIdents) == 0 && !cl.Recursive {
-			closureFunc, err := o.g.GenerateFunc(cl.Func, GeneratorContext{am: cl.Names})
-			if err != nil {
+			closureFunc, pure, err := o.g.GenerateFunc(cl.Func, GeneratorContext{am: cl.Names})
+			if err != nil || !pure {
 				return ast
 			}
 			v := o.g.closureHandler.FromClosure(Function[V]{

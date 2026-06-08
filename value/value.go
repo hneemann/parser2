@@ -412,15 +412,15 @@ func (fg *FunctionGenerator) AccessList(list Value, index Value) (Value, error) 
 	}
 }
 
-func (fg *FunctionGenerator) GenerateCustom(ast parser2.AST, gc funcGen.GeneratorContext, g *funcGen.FunctionGenerator[Value]) (funcGen.ParserFunc[Value], error) {
+func (fg *FunctionGenerator) GenerateCustom(ast parser2.AST, gc funcGen.GeneratorContext, g *funcGen.FunctionGenerator[Value]) (funcGen.ParserFunc[Value], bool, error) {
 	if tc, ok := ast.(*parser2.TryCatch); ok {
-		tryFunc, err := g.GenerateFunc(tc.Try, gc)
+		tryFunc, tPure, err := g.GenerateFunc(tc.Try, gc)
 		if err != nil {
-			return nil, tc.EnhanceErrorf(err, "error in try expression")
+			return nil, false, tc.EnhanceErrorf(err, "error in try expression")
 		}
-		catchFunc, err := g.GenerateFunc(tc.Catch, gc)
+		catchFunc, cPure, err := g.GenerateFunc(tc.Catch, gc)
 		if err != nil {
-			return nil, tc.EnhanceErrorf(err, "error in catch expression")
+			return nil, false, tc.EnhanceErrorf(err, "error in catch expression")
 		}
 		l := tc.GetLine()
 		return func(st funcGen.Stack[Value], cs []Value) (Value, error) {
@@ -436,19 +436,19 @@ func (fg *FunctionGenerator) GenerateCustom(ast parser2.AST, gc funcGen.Generato
 				return theFunc.Eval(st, String(tryErr.Error()))
 			}
 			return catchVal, nil
-		}, nil
+		}, tPure && cPure, nil
 	}
 	if op, ok := ast.(*parser2.Operate); ok {
 		// AND and OR with short evaluation
 		switch op.Operator {
 		case "&":
-			aFunc, err := g.GenerateFunc(op.A, gc)
+			aFunc, aPure, err := g.GenerateFunc(op.A, gc)
 			if err != nil {
-				return nil, err
+				return nil, false, err
 			}
-			bFunc, err := g.GenerateFunc(op.B, gc)
+			bFunc, bPure, err := g.GenerateFunc(op.B, gc)
 			if err != nil {
-				return nil, err
+				return nil, false, err
 			}
 			return func(st funcGen.Stack[Value], cs []Value) (Value, error) {
 				aVal, err := aFunc(st, cs)
@@ -472,15 +472,15 @@ func (fg *FunctionGenerator) GenerateCustom(ast parser2.AST, gc funcGen.Generato
 				} else {
 					return nil, fmt.Errorf("not a bool: %s", TypeName(aVal))
 				}
-			}, nil
+			}, aPure && bPure, nil
 		case "|":
-			aFunc, err := g.GenerateFunc(op.A, gc)
+			aFunc, aPure, err := g.GenerateFunc(op.A, gc)
 			if err != nil {
-				return nil, err
+				return nil, false, err
 			}
-			bFunc, err := g.GenerateFunc(op.B, gc)
+			bFunc, bPure, err := g.GenerateFunc(op.B, gc)
 			if err != nil {
-				return nil, err
+				return nil, false, err
 			}
 			return func(st funcGen.Stack[Value], cs []Value) (Value, error) {
 				aVal, err := aFunc(st, cs)
@@ -504,10 +504,10 @@ func (fg *FunctionGenerator) GenerateCustom(ast parser2.AST, gc funcGen.Generato
 				} else {
 					return nil, fmt.Errorf("not a bool: %s", TypeName(aVal))
 				}
-			}, nil
+			}, aPure && bPure, nil
 		}
 	}
-	return nil, nil
+	return nil, false, nil
 }
 
 func simpleOnlyFloatFunc(name string, f func(float64) float64) funcGen.Function[Value] {

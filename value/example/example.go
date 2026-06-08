@@ -31,7 +31,7 @@ func main() {
 	{
 		// Create a function that evaluates the list of persons.
 		// The argument 'persons' is passed to the function.
-		fu, err := parser.Generate(`
+		fu, _, err := parser.Generate(`
 
 persons.map(p->p.Name).reduce((a,b)->a+", "+b)
 
@@ -48,7 +48,7 @@ persons.map(p->p.Name).reduce((a,b)->a+", "+b)
 	}
 
 	{
-		fu, err := parser.Generate(`
+		fu, _, err := parser.Generate(`
 
 persons
   .accept(p->p.PlaceOfBirth="New York" & p.Age>21)
@@ -68,7 +68,7 @@ persons
 	}
 
 	{
-		fu, err := parser.Generate(`
+		fu, _, err := parser.Generate(`
 
 persons
   .groupByString(p->p.Surname)

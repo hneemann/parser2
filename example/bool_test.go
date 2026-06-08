@@ -26,7 +26,7 @@ func TestBool(t *testing.T) {
 		t.Run(test.exp, func(t *testing.T) {
 			//check result
 			// create the function which evaluates the given expression
-			f, err := boolParser.Generate(test.exp, "a", "b")
+			f, _, err := boolParser.Generate(test.exp, "a", "b")
 			assert.NoError(t, err)
 			// evaluate the function using the given variables
 			r, err := f(funcGen.NewStack(vars...))
