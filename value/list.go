@@ -1520,7 +1520,10 @@ func createListMethods(fg *FunctionGenerator) MethodMap {
 		"minMax": MethodAtType(1, func(list *List, stack funcGen.Stack[Value]) (Value, error) { return list.MinMax(stack, fg) }).
 			SetMethodDescription("func(item) value",
 				"Returns the minimum and maximum value of the list. The function is called for each item in the list and the "+
-					"result is compared to the previous minimum and maximum."),
+					"result is compared to the previous minimum and maximum. "+
+					"The return value is a map containing the keys 'min', 'max', 'minItem', 'maxItem' and 'valid'. "+
+					"The 'min' and 'max' keys contain the minimum and maximum value, the 'minItem' and 'maxItem' keys contain "+
+					"the item for which the minimum and maximum value was returned and the 'valid' key contains a bool indicating if the list was not empty."),
 		"replaceList": MethodAtType(1, func(list *List, stack funcGen.Stack[Value]) (Value, error) { return list.ReplaceList(stack) }).
 			SetMethodDescription("func(list) newItem",
 				"Replaces the list by the result of the given function. The function is called with the list as argument."),
