@@ -16,9 +16,10 @@ import (
 )
 
 type Format struct {
-	Value  value.Value
-	Cell   bool
-	Format value.Value
+	Value   value.Value
+	Cell    bool
+	ColSpan int
+	Format  value.Value
 }
 
 // AddHTMLStylingHelpers adds the following functions to the function generator:
@@ -35,6 +36,7 @@ type Format struct {
 func AddHTMLStylingHelpers(f *value.FunctionGenerator) {
 	f.AddStaticFunction("style", styleFunc)
 	f.AddStaticFunction("styleCell", styleFuncCell)
+	f.AddStaticFunction("colspan", colspanFunc)
 	f.AddStaticFunction("link", linkFunc)
 	//If the parser is used, further modifications are not possible
 	//f.AddStaticFunction("styleBins", funcGen.Function[value.Value]{
@@ -76,6 +78,29 @@ var styleFunc = funcGen.Function[value.Value]{
 	Args:   2,
 	IsPure: true,
 }.SetDescription("style", "value", "Formats the value with the given style.")
+
+// colspanFunc can be used set the colspan of a cell
+var colspanFunc = funcGen.Function[value.Value]{
+	Func: func(st funcGen.Stack[value.Value], cs []value.Value) (value.Value, error) {
+		val := st.Get(1)
+		if spanFloat, ok := st.Get(0).ToFloat(); ok {
+			span := int(spanFloat)
+			if f, ok := val.(Format); ok {
+				f.ColSpan = span
+				return f, nil
+			} else {
+				return Format{
+					Value:   val,
+					ColSpan: span,
+				}, nil
+			}
+		} else {
+			return val, errors.New("colspan requires an in as first argument")
+		}
+	},
+	Args:   2,
+	IsPure: true,
+}.SetDescription("span", "value", "Sets the given colspan to the value.")
 
 // styleFuncCell can be used add a CSS stale to a value
 // If used in a table the Format is applied to the cell instead of the containing value.
@@ -663,13 +688,15 @@ func (t *tableExporter) format(row, col int, item value.Value) value.Value {
 
 func (ex *htmlExporter) toTD(st funcGen.Stack[value.Value], d value.Value) error {
 	var err error
+	ex.w.Open("td")
+	defer ex.w.Close()
 	if formatted, ok := d.(Format); ok {
+		if formatted.ColSpan > 1 {
+			ex.w.Attr("colspan", strconv.Itoa(formatted.ColSpan))
+		}
 		if _, isList := formatted.Value.(*value.List); isList && !formatted.Cell {
-			ex.w.Open("td")
 			err = ex.toHtml(st, formatted.Value, formatted.Format)
-			ex.w.Close()
 		} else {
-			ex.w.Open("td")
 			if strStyle, ok := toStyleStr(formatted.Format); ok {
 				if ex.inlineStyle {
 					ex.w.Attr("style", strStyle)
@@ -678,12 +705,9 @@ func (ex *htmlExporter) toTD(st funcGen.Stack[value.Value], d value.Value) error
 				}
 			}
 			err = ex.toHtml(st, formatted.Value, nil)
-			ex.w.Close()
 		}
 	} else {
-		ex.w.Open("td")
 		err = ex.toHtml(st, d, nil)
-		ex.w.Close()
 	}
 	return err
 }
