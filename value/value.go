@@ -941,8 +941,9 @@ func New() *FunctionGenerator {
 		AddStaticFunction("sqrt", simpleOnlyFloatFuncCheck("sqrt", func(arg float64) bool { return arg >= 0 }, func(x float64) float64 { return math.Sqrt(x) })).
 		AddStaticFunction("ln", simpleOnlyFloatFuncCheck("ln", func(arg float64) bool { return arg >= 0 }, func(x float64) float64 { return math.Log(x) })).
 		AddStaticFunction("log10", simpleOnlyFloatFuncCheck("log", func(arg float64) bool { return arg >= 0 }, func(x float64) float64 { return math.Log10(x) })).
-		AddStaticFunction("trunc", simpleOnlyFloatFunc("trunc", func(x float64) float64 { return math.Trunc(x) })).
-		AddStaticFunction("floor", simpleOnlyFloatFunc("floor", func(x float64) float64 { return math.Floor(x) })).
+		AddStaticFunction("trunc", simpleOnlyFloatFunc("trunc", func(x float64) float64 { return math.Trunc(x) }).SetDescription("x", "returns the integer value of x")).
+		AddStaticFunction("floor", simpleOnlyFloatFunc("floor", func(x float64) float64 { return math.Floor(x) }).SetDescription("x", "returns the greatest integer value less than or equal to x.")).
+		AddStaticFunction("ceil", simpleOnlyFloatFunc("ceil", func(x float64) float64 { return math.Ceil(x) }).SetDescription("x", "returns the least integer value greater than or equal to x.")).
 		AddStaticFunction("exp", simpleOnlyFloatFunc("exp", func(x float64) float64 { return math.Exp(x) })).
 		AddStaticFunction("sin", simpleOnlyFloatFunc("sin", func(x float64) float64 { return math.Sin(x) })).
 		AddStaticFunction("cos", simpleOnlyFloatFunc("cos", func(x float64) float64 { return math.Cos(x) })).
