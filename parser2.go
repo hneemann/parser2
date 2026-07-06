@@ -786,7 +786,7 @@ func (p *Parser[V]) Parse(str string, idents Identifiers[V]) (ast AST, err error
 			SetComfort(p.comfort).
 			Start()
 
-	ast, err = p.parseLet(tokenizer, idents)
+	ast, err = p.parseLet(tokenizer, idents, true)
 	if err != nil {
 		return nil, err
 	}
@@ -806,7 +806,7 @@ func (p *Parser[V]) Parse(str string, idents Identifiers[V]) (ast AST, err error
 	return ast, nil
 }
 
-type parserFunc[V any] func(tokenizer *Tokenizer, constants Identifiers[V]) (AST, error)
+type parserFunc[V any] func(tokenizer *Tokenizer, constants Identifiers[V], letAllowed bool) (AST, error)
 
 type Identifier[V any] struct {
 	Name     string
@@ -928,10 +928,16 @@ func (c Identifiers[V]) AddArgs(names []string, outersUsed *[]string) Identifier
 	}
 }
 
-func (p *Parser[V]) parseLet(tokenizer *Tokenizer, idents Identifiers[V]) (AST, error) {
+func (p *Parser[V]) parseLet(tokenizer *Tokenizer, idents Identifiers[V], letAllowed bool) (AST, error) {
+	// let is not allowed inside a function/method call because let creates a
+	// stack item and the function/method arguments do as well! The function/method arguments are
+	// pushed on the stack right after evaluating them.
 	t := tokenizer.Peek()
 	if t.typ == tKeyWord {
 		if t.image == "let" {
+			if !letAllowed {
+				return nil, t.Errorf("let is not allowed here")
+			}
 			tokenizer.Next()
 			t = tokenizer.Next()
 			if t.typ != tIdent {
@@ -943,7 +949,7 @@ func (p *Parser[V]) parseLet(tokenizer *Tokenizer, idents Identifiers[V]) (AST, 
 			if t := tokenizer.Next(); t.typ != tOperate || t.image != "=" {
 				return nil, unexpected("=", t)
 			}
-			exp, err := p.parseExpression(tokenizer, idents)
+			exp, err := p.parseExpression(tokenizer, idents, letAllowed)
 			if err != nil {
 				return nil, err
 			}
@@ -956,10 +962,10 @@ func (p *Parser[V]) parseLet(tokenizer *Tokenizer, idents Identifiers[V]) (AST, 
 			}
 
 			if c, ok := exp.(*Const[V]); ok {
-				return p.parseLet(tokenizer, idents.AddConst(name, c.Value))
+				return p.parseLet(tokenizer, idents.AddConst(name, c.Value), letAllowed)
 			}
 
-			inner, err := p.parseLet(tokenizer, idents.Add(name))
+			inner, err := p.parseLet(tokenizer, idents.Add(name), letAllowed)
 			if err != nil {
 				return nil, err
 			}
@@ -970,6 +976,9 @@ func (p *Parser[V]) parseLet(tokenizer *Tokenizer, idents Identifiers[V]) (AST, 
 				Line:  line,
 			}, nil
 		} else if t.image == "func" {
+			if !letAllowed {
+				return nil, t.Errorf("func is not allowed here")
+			}
 			tokenizer.Next()
 			t = tokenizer.Next()
 			if t.typ != tIdent {
@@ -986,7 +995,7 @@ func (p *Parser[V]) parseLet(tokenizer *Tokenizer, idents Identifiers[V]) (AST, 
 			}
 			recursive := false
 			var outersUsed []string
-			exp, err := p.parseLet(tokenizer, idents.AddArgs(names, &outersUsed).AddThis(name, &recursive))
+			exp, err := p.parseLet(tokenizer, idents.AddArgs(names, &outersUsed).AddThis(name, &recursive), letAllowed)
 			if err != nil {
 				return nil, err
 			}
@@ -1008,10 +1017,10 @@ func (p *Parser[V]) parseLet(tokenizer *Tokenizer, idents Identifiers[V]) (AST, 
 			}
 
 			if c, ok := clo.(*Const[V]); ok {
-				return p.parseLet(tokenizer, idents.AddConst(name, c.Value))
+				return p.parseLet(tokenizer, idents.AddConst(name, c.Value), letAllowed)
 			}
 
-			inner, err := p.parseLet(tokenizer, idents.Add(name))
+			inner, err := p.parseLet(tokenizer, idents.Add(name), letAllowed)
 			if err != nil {
 				return nil, err
 			}
@@ -1023,17 +1032,17 @@ func (p *Parser[V]) parseLet(tokenizer *Tokenizer, idents Identifiers[V]) (AST, 
 			}, nil
 		}
 	}
-	return p.parseExpression(tokenizer, idents)
+	return p.parseExpression(tokenizer, idents, letAllowed)
 }
 
-func (p *Parser[V]) parseExpression(tokenizer *Tokenizer, constants Identifiers[V]) (AST, error) {
-	return p.parseOp(tokenizer, 0, constants)
+func (p *Parser[V]) parseExpression(tokenizer *Tokenizer, constants Identifiers[V], letAllowed bool) (AST, error) {
+	return p.parseOp(tokenizer, 0, constants, letAllowed)
 }
 
-func (p *Parser[V]) parseOp(tokenizer *Tokenizer, op int, constants Identifiers[V]) (AST, error) {
+func (p *Parser[V]) parseOp(tokenizer *Tokenizer, op int, constants Identifiers[V], letAllowed bool) (AST, error) {
 	next := p.nextParserCall(op)
 	operator := p.operators[op]
-	a, err := next(tokenizer, constants)
+	a, err := next(tokenizer, constants, letAllowed)
 	if err != nil {
 		return nil, err
 	}
@@ -1042,7 +1051,7 @@ func (p *Parser[V]) parseOp(tokenizer *Tokenizer, op int, constants Identifiers[
 		if t.typ == tOperate && t.image == operator {
 			tokenizer.Next()
 			aa := a
-			bb, err := next(tokenizer, constants)
+			bb, err := next(tokenizer, constants, letAllowed)
 			if err != nil {
 				return nil, err
 			}
@@ -1061,15 +1070,15 @@ func (p *Parser[V]) parseOp(tokenizer *Tokenizer, op int, constants Identifiers[
 
 func (p *Parser[V]) nextParserCall(op int) parserFunc[V] {
 	if op+1 < len(p.operators) {
-		return func(tokenizer *Tokenizer, constants Identifiers[V]) (AST, error) {
-			return p.parseOp(tokenizer, op+1, constants)
+		return func(tokenizer *Tokenizer, constants Identifiers[V], letAllowed bool) (AST, error) {
+			return p.parseOp(tokenizer, op+1, constants, letAllowed)
 		}
 	} else {
 		return p.parseUnary
 	}
 }
 
-func (p *Parser[V]) parseUnary(tokenizer *Tokenizer, constants Identifiers[V]) (AST, error) {
+func (p *Parser[V]) parseUnary(tokenizer *Tokenizer, constants Identifiers[V], letAllowed bool) (AST, error) {
 	if t := tokenizer.Peek(); t.typ == tOperate {
 		if un, ok := p.unary[t.image]; ok {
 			t = tokenizer.Next()
@@ -1077,9 +1086,9 @@ func (p *Parser[V]) parseUnary(tokenizer *Tokenizer, constants Identifiers[V]) (
 			var err error
 			if un.opPos >= 0 {
 				// the unary is also an operator ("-")
-				inner, err = p.parseOp(tokenizer, un.opPos+1, constants)
+				inner, err = p.parseOp(tokenizer, un.opPos+1, constants, letAllowed)
 			} else {
-				inner, err = p.parseNonOperator(tokenizer, constants)
+				inner, err = p.parseNonOperator(tokenizer, constants, letAllowed)
 			}
 			if err != nil {
 				return nil, err
@@ -1091,11 +1100,11 @@ func (p *Parser[V]) parseUnary(tokenizer *Tokenizer, constants Identifiers[V]) (
 			}, nil
 		}
 	}
-	return p.parseNonOperator(tokenizer, constants)
+	return p.parseNonOperator(tokenizer, constants, letAllowed)
 }
 
-func (p *Parser[V]) parseNonOperator(tokenizer *Tokenizer, constants Identifiers[V]) (AST, error) {
-	expression, err := p.parseLiteral(tokenizer, constants)
+func (p *Parser[V]) parseNonOperator(tokenizer *Tokenizer, constants Identifiers[V], letAllowed bool) (AST, error) {
+	expression, err := p.parseLiteral(tokenizer, constants, letAllowed)
 	if err != nil {
 		return nil, err
 	}
@@ -1117,7 +1126,7 @@ func (p *Parser[V]) parseNonOperator(tokenizer *Tokenizer, constants Identifiers
 			} else {
 				//Method call
 				tokenizer.Next()
-				args, err := p.parseArgs(tokenizer, tClose, constants)
+				args, err := p.parseArgs(tokenizer, tClose, constants, false)
 				if err != nil {
 					return nil, err
 				}
@@ -1130,7 +1139,7 @@ func (p *Parser[V]) parseNonOperator(tokenizer *Tokenizer, constants Identifiers
 			}
 		case tOpen:
 			t := tokenizer.Next()
-			args, err := p.parseArgs(tokenizer, tClose, constants)
+			args, err := p.parseArgs(tokenizer, tClose, constants, false)
 			if err != nil {
 				return nil, err
 			}
@@ -1142,7 +1151,7 @@ func (p *Parser[V]) parseNonOperator(tokenizer *Tokenizer, constants Identifiers
 
 		case tOpenBracket:
 			tokenizer.Next()
-			indexExpr, err := p.parseExpression(tokenizer, constants)
+			indexExpr, err := p.parseExpression(tokenizer, constants, letAllowed)
 			if err != nil {
 				return nil, err
 			}
@@ -1161,7 +1170,7 @@ func (p *Parser[V]) parseNonOperator(tokenizer *Tokenizer, constants Identifiers
 	}
 }
 
-func (p *Parser[V]) parseLiteral(tokenizer *Tokenizer, idents Identifiers[V]) (AST, error) {
+func (p *Parser[V]) parseLiteral(tokenizer *Tokenizer, idents Identifiers[V], letAllowed bool) (AST, error) {
 	t := tokenizer.Next()
 	switch t.typ {
 	case tIdent:
@@ -1170,7 +1179,7 @@ func (p *Parser[V]) parseLiteral(tokenizer *Tokenizer, idents Identifiers[V]) (A
 			// closure, short definition x->[exp]
 			tokenizer.Next()
 			var outersUsed []string
-			e, err := p.parseLet(tokenizer, idents.AddArgs([]string{name}, &outersUsed))
+			e, err := p.parseLet(tokenizer, idents.AddArgs([]string{name}, &outersUsed), true)
 			if err != nil {
 				return nil, err
 			}
@@ -1205,7 +1214,7 @@ func (p *Parser[V]) parseLiteral(tokenizer *Tokenizer, idents Identifiers[V]) (A
 	case tKeyWord:
 		name := t.image
 		if name == "try" {
-			tryExp, err := p.parseLet(tokenizer, idents)
+			tryExp, err := p.parseLet(tokenizer, idents, letAllowed)
 			if err != nil {
 				return nil, err
 			}
@@ -1213,7 +1222,7 @@ func (p *Parser[V]) parseLiteral(tokenizer *Tokenizer, idents Identifiers[V]) (A
 			if !(t.typ == tKeyWord && t.image == "catch") {
 				return nil, unexpected("catch", t)
 			}
-			catchExp, err := p.parseLet(tokenizer, idents)
+			catchExp, err := p.parseLet(tokenizer, idents, letAllowed)
 			if err != nil {
 				return nil, err
 			}
@@ -1223,7 +1232,7 @@ func (p *Parser[V]) parseLiteral(tokenizer *Tokenizer, idents Identifiers[V]) (A
 				Line:  t.Line,
 			}, nil
 		} else if name == "if" {
-			cond, err := p.parseExpression(tokenizer, idents)
+			cond, err := p.parseExpression(tokenizer, idents, letAllowed)
 			if err != nil {
 				return nil, err
 			}
@@ -1231,7 +1240,7 @@ func (p *Parser[V]) parseLiteral(tokenizer *Tokenizer, idents Identifiers[V]) (A
 			if !(t.typ == tKeyWord && t.image == "then") {
 				return nil, unexpected("then", t)
 			}
-			thenExp, err := p.parseLet(tokenizer, idents)
+			thenExp, err := p.parseLet(tokenizer, idents, letAllowed)
 			if err != nil {
 				return nil, err
 			}
@@ -1239,7 +1248,7 @@ func (p *Parser[V]) parseLiteral(tokenizer *Tokenizer, idents Identifiers[V]) (A
 			if !(t.typ == tKeyWord && t.image == "else") {
 				return nil, unexpected("else", t)
 			}
-			elseExp, err := p.parseLet(tokenizer, idents)
+			elseExp, err := p.parseLet(tokenizer, idents, letAllowed)
 			if err != nil {
 				return nil, err
 			}
@@ -1250,7 +1259,7 @@ func (p *Parser[V]) parseLiteral(tokenizer *Tokenizer, idents Identifiers[V]) (A
 				Line: t.Line,
 			}, nil
 		} else if name == "switch" {
-			switchValue, err := p.parseExpression(tokenizer, idents)
+			switchValue, err := p.parseExpression(tokenizer, idents, letAllowed)
 			if err != nil {
 				return nil, err
 			}
@@ -1259,7 +1268,7 @@ func (p *Parser[V]) parseLiteral(tokenizer *Tokenizer, idents Identifiers[V]) (A
 				t := tokenizer.Next()
 				if t.typ == tKeyWord {
 					if t.image == "case" {
-						constFunc, err := p.parseExpression(tokenizer, idents)
+						constFunc, err := p.parseExpression(tokenizer, idents, letAllowed)
 						if err != nil {
 							return nil, err
 						}
@@ -1267,7 +1276,7 @@ func (p *Parser[V]) parseLiteral(tokenizer *Tokenizer, idents Identifiers[V]) (A
 						if !(t.typ == tColon) {
 							return nil, unexpected(":", t)
 						}
-						resultExp, err := p.parseLet(tokenizer, idents)
+						resultExp, err := p.parseLet(tokenizer, idents, letAllowed)
 						if err != nil {
 							return nil, err
 						}
@@ -1276,7 +1285,7 @@ func (p *Parser[V]) parseLiteral(tokenizer *Tokenizer, idents Identifiers[V]) (A
 							Value:     resultExp,
 						})
 					} else if t.image == "default" {
-						resultExp, err := p.parseLet(tokenizer, idents)
+						resultExp, err := p.parseLet(tokenizer, idents, letAllowed)
 						if err != nil {
 							return nil, err
 						}
@@ -1297,9 +1306,9 @@ func (p *Parser[V]) parseLiteral(tokenizer *Tokenizer, idents Identifiers[V]) (A
 			return nil, t.Errorf("expected keyword, found %v", t)
 		}
 	case tOpenCurly:
-		return p.parseMap(tokenizer, idents)
+		return p.parseMap(tokenizer, idents, letAllowed)
 	case tOpenBracket:
-		args, err := p.parseArgs(tokenizer, tCloseBracket, idents)
+		args, err := p.parseArgs(tokenizer, tCloseBracket, idents, letAllowed)
 		if err != nil {
 			return nil, err
 		}
@@ -1327,7 +1336,7 @@ func (p *Parser[V]) parseLiteral(tokenizer *Tokenizer, idents Identifiers[V]) (A
 				return nil, unexpected("->", t)
 			}
 			var outersUsed []string
-			e, err := p.parseLet(tokenizer, idents.AddArgs(names, &outersUsed))
+			e, err := p.parseLet(tokenizer, idents.AddArgs(names, &outersUsed), true)
 			if err != nil {
 				return nil, err
 			}
@@ -1338,7 +1347,7 @@ func (p *Parser[V]) parseLiteral(tokenizer *Tokenizer, idents Identifiers[V]) (A
 				OuterIdents: outersUsed,
 			}, nil
 		} else {
-			e, err := p.parseExpression(tokenizer, idents)
+			e, err := p.parseExpression(tokenizer, idents, letAllowed)
 			if err != nil {
 				return nil, err
 			}
@@ -1352,14 +1361,14 @@ func (p *Parser[V]) parseLiteral(tokenizer *Tokenizer, idents Identifiers[V]) (A
 	return nil, t.Errorf("unexpected token type: %v", t.image)
 }
 
-func (p *Parser[V]) parseArgs(tokenizer *Tokenizer, closeList TokenType, constants Identifiers[V]) ([]AST, error) {
+func (p *Parser[V]) parseArgs(tokenizer *Tokenizer, closeList TokenType, constants Identifiers[V], letAllowed bool) ([]AST, error) {
 	var args []AST
 	if tokenizer.Peek().typ == closeList {
 		tokenizer.Next()
 		return args, nil
 	}
 	for {
-		element, err := p.parseLet(tokenizer, constants)
+		element, err := p.parseLet(tokenizer, constants, letAllowed)
 		if err != nil {
 			return nil, err
 		}
@@ -1378,7 +1387,7 @@ func (p *Parser[V]) parseArgs(tokenizer *Tokenizer, closeList TokenType, constan
 	}
 }
 
-func (p *Parser[V]) parseMap(tokenizer *Tokenizer, constants Identifiers[V]) (*MapLiteral, error) {
+func (p *Parser[V]) parseMap(tokenizer *Tokenizer, constants Identifiers[V], letAllowed bool) (*MapLiteral, error) {
 	m := listMap.New[AST](1)
 	for {
 		switch t := tokenizer.Next(); t.typ {
@@ -1391,7 +1400,7 @@ func (p *Parser[V]) parseMap(tokenizer *Tokenizer, constants Identifiers[V]) (*M
 			if c := tokenizer.Next(); c.typ != tColon {
 				return nil, unexpected(":", c)
 			}
-			entryAst, err := p.parseLet(tokenizer, constants)
+			entryAst, err := p.parseLet(tokenizer, constants, letAllowed)
 			if err != nil {
 				return nil, err
 			}

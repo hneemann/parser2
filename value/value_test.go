@@ -234,6 +234,56 @@ func shrinkSpace(str string) string {
 	return b.String()
 }
 
+func TestWithArg(t *testing.T) {
+	tests := []struct {
+		name    string
+		exp     string
+		argName string
+		argVal  Value
+		result  Value
+		error   string
+	}{
+		{name: "simple", exp: "n*2", argName: "n", argVal: Int(3), result: Int(6)},
+		{name: "simple2", exp: "[1,let u=n*2;u+2,3]", argName: "n", argVal: Float(2), result: NewList(Int(1), Float(6), Int(3))},
+		{name: "bug1", exp: "[let m=2*a; 2*m]", argName: "a", argVal: Float(2), result: NewList(Float(8))},
+		{name: "bug2", exp: "sprintf(\"%0.1f\", [let m=2*a; 2*m] )", argName: "a", argVal: Float(2), error: "let is not allowed here"},
+		{name: "bug3", exp: "[1,a,3].map(n->let a=n*2;a*2)", argName: "a", argVal: Int(2), result: NewList(Int(4), Int(8), Int(12))},
+	}
+
+	valueParser := New()
+	for _, test := range tests {
+		test := test
+		t.Run(test.name, func(t *testing.T) {
+			fu, _, err := valueParser.Generate(test.exp, test.argName)
+			if test.error == "" {
+				assert.NoError(t, err, test.exp)
+				if fu != nil {
+					res, err := fu(funcGen.NewStack(test.argVal))
+					assert.NoError(t, err, test.exp)
+					if tr, ok := test.result.(Float); ok {
+						float, ok := res.(Float)
+						assert.True(t, ok)
+						assert.InDelta(t, float64(tr), float64(float), 1e-6, test.exp)
+					} else if expList, ok := test.result.(*List); ok {
+						actList, ok := res.(*List)
+						assert.True(t, ok)
+						st := funcGen.NewEmptyStack[Value]()
+						slice, err := expList.ToSlice(st)
+						assert.NoError(t, err)
+						toSlice, err := actList.ToSlice(st)
+						assert.NoError(t, err)
+						assert.Equal(t, slice, toSlice, test.exp)
+					} else {
+						assert.Equal(t, test.result, res, test.exp)
+					}
+				}
+			} else {
+				assert.True(t, strings.Contains(err.Error(), test.error), "expected error '%s' but got '%v'", test.error, err)
+			}
+		})
+	}
+}
+
 func TestOptimizer(t *testing.T) {
 	tests := []struct {
 		exp string
