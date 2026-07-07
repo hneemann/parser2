@@ -936,7 +936,7 @@ func (p *Parser[V]) parseLet(tokenizer *Tokenizer, idents Identifiers[V], letAll
 	if t.typ == tKeyWord {
 		if t.image == "let" {
 			if !letAllowed {
-				return nil, t.Errorf("let is not allowed here")
+				return nil, t.Errorf("let is not allowed in function/method arguments")
 			}
 			tokenizer.Next()
 			t = tokenizer.Next()
@@ -977,7 +977,7 @@ func (p *Parser[V]) parseLet(tokenizer *Tokenizer, idents Identifiers[V], letAll
 			}, nil
 		} else if t.image == "func" {
 			if !letAllowed {
-				return nil, t.Errorf("func is not allowed here")
+				return nil, t.Errorf("func is not allowed in function/method arguments")
 			}
 			tokenizer.Next()
 			t = tokenizer.Next()
