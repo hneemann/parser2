@@ -773,6 +773,19 @@ func New() *FunctionGenerator {
 			Args:   1,
 			IsPure: true,
 		}.SetDescription("value", "Returns true if the value is a int.")).
+		AddStaticFunction("isAny", funcGen.Function[Value]{
+			Func: func(st funcGen.Stack[Value], cs []Value) (Value, error) {
+				v := st.Get(0)
+				if l, ok := v.ToList(); ok && l.itemsPresent && l.size == 0 {
+					return Bool(false), nil
+				} else if m, ok := v.ToMap(); ok && m.Size() == 0 {
+					return Bool(false), nil
+				}
+				return Bool(true), nil
+			},
+			Args:   1,
+			IsPure: true,
+		}.SetDescription("value", "Returns true if the value is not an empty list or map.")).
 		AddStaticFunction("float", funcGen.Function[Value]{
 			Func: func(st funcGen.Stack[Value], cs []Value) (Value, error) {
 				v := st.Get(0)

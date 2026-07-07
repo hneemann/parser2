@@ -146,6 +146,13 @@ func TestBasic(t *testing.T) {
 		{exp: "func sqr(a) a*a; sqr.invoke([2])", res: Int(4)},
 		{exp: "func mul(a,b) a*b; mul.invoke([2,3])", res: Int(6)},
 
+		{exp: "isAny(1)", res: Bool(true)},
+		{exp: "isAny(1.3)", res: Bool(true)},
+		{exp: "isAny([1.3])", res: Bool(true)},
+		{exp: "isAny({a:1.3})", res: Bool(true)},
+		{exp: "isAny([])", res: Bool(false)},
+		{exp: "isAny({})", res: Bool(false)},
+
 		// Currying
 		{exp: "let m=a->b->a*b; [m(2)(3),m(4)(5),m(4.5)(5.5)].string()", res: String("[6, 20, 24.75]")},
 		{exp: "func mul(a) b->a*b; [mul(2)(3),mul(4)(5),mul(4.5)(5.5)].string()", res: String("[6, 20, 24.75]")},
