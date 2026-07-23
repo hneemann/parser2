@@ -963,8 +963,19 @@ func New() *FunctionGenerator {
 		AddStaticFunction("tan", simpleOnlyFloatFunc("tan", func(x float64) float64 { return math.Tan(x) })).
 		AddStaticFunction("asin", simpleOnlyFloatFuncCheck("asin", func(arg float64) bool { return arg >= -1 && arg <= 1 }, func(x float64) float64 { return math.Asin(x) })).
 		AddStaticFunction("acos", simpleOnlyFloatFuncCheck("acos", func(arg float64) bool { return arg >= -1 && arg <= 1 }, func(x float64) float64 { return math.Acos(x) })).
-		AddStaticFunction("atan", simpleOnlyFloatFunc("atan", func(x float64) float64 { return math.Atan(x) }))
-
+		AddStaticFunction("atan", simpleOnlyFloatFunc("atan", func(x float64) float64 { return math.Atan(x) })).
+		AddStaticFunction("atan2", funcGen.Function[Value]{
+			Func: func(st funcGen.Stack[Value], cs []Value) (Value, error) {
+				if x, xok := st.Get(0).ToFloat(); xok {
+					if y, yok := st.Get(1).ToFloat(); yok {
+						return Float(math.Atan2(y, x)), nil
+					}
+				}
+				return nil, errors.New("atan2 requires two floats")
+			},
+			Args:   2,
+			IsPure: true,
+		}.SetDescription("dx", "dy", "Returns the arc tangent of dy/dx, using the signs of the two to determine the quadrant of the return value."))
 	f.RegisterMethods(ListTypeId, createListMethods(f))
 	f.RegisterMethods(MapTypeId, createMapMethods())
 	f.RegisterMethods(StringTypeId, createStringMethods())
