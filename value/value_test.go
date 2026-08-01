@@ -253,7 +253,7 @@ func TestWithArg(t *testing.T) {
 		{name: "simple", exp: "n*2", argName: "n", argVal: Int(3), result: Int(6)},
 		{name: "simple2", exp: "[1,let u=n*2;u+2,3]", argName: "n", argVal: Float(2), result: NewList(Int(1), Float(6), Int(3))},
 		{name: "bug1", exp: "[let m=2*a; 2*m]", argName: "a", argVal: Float(2), result: NewList(Float(8))},
-		{name: "bug2", exp: "sprintf(\"%0.1f\", [let m=2*a; 2*m] )", argName: "a", argVal: Float(2), error: "let is not allowed here"},
+		{name: "bug2", exp: "sprintf(\"%0.1f\", [let m=2*a; 2*m] )", argName: "a", argVal: Float(2), error: "let is not allowed in function/method arguments"},
 		{name: "bug3", exp: "[1,a,3].map(n->let a=n*2;a*2)", argName: "a", argVal: Int(2), result: NewList(Int(4), Int(8), Int(12))},
 	}
 
