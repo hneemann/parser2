@@ -10,6 +10,7 @@ import (
 	"html/template"
 	"log"
 	"math"
+	"runtime/debug"
 	"sort"
 	"strconv"
 	"strings"
@@ -172,6 +173,7 @@ func ToHtml(v value.Value, maxListSize int, custom CustomHTML, inlineStyle bool)
 	defer func() {
 		if rec := recover(); rec != nil {
 			log.Print("panic in ToHtml: ", rec)
+			log.Print(string(debug.Stack()))
 			err = parser2.AnyToError(rec)
 			res = ""
 		}

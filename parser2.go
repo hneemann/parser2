@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"github.com/hneemann/parser2/listMap"
 	"log"
+	"runtime/debug"
 	"strconv"
 	"strings"
 	"unicode"
@@ -115,6 +116,7 @@ func Optimize(ast AST, optimizer Optimizer) (astRet AST) {
 	defer func() {
 		if rec := recover(); rec != nil {
 			log.Print("panic in optimizer: ", rec)
+			log.Print(string(debug.Stack()))
 			astRet = ast
 		}
 	}()
