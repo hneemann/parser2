@@ -54,6 +54,20 @@ func NewStack[V any](v ...V) Stack[V] {
 	}
 }
 
+func (s Stack[V]) String() string {
+	var b bytes.Buffer
+	b.WriteString("Stack[")
+	for i, v := range s.ToSlice() {
+		if i > 0 {
+			b.WriteString(", ")
+		}
+		b.WriteString(fmt.Sprintf("%v\n", v))
+	}
+	b.WriteString("]")
+	b.WriteString(fmt.Sprintf(" offs=%d, size=%d", s.offs, s.size))
+	return b.String()
+}
+
 func (s Stack[V]) ToSlice() []V {
 	return s.storage.data[s.offs : s.offs+s.size]
 }
@@ -78,6 +92,9 @@ func (s *Stack[V]) Push(v V) {
 	s.size++
 }
 
+// CreateFrame creates a new stack frame with the given size.
+// The new frame shares the same storage as the original stack, but has its own offset and size.
+// The original stack's size is already reduced by the size of the new frame.
 func (s *Stack[V]) CreateFrame(size int) Stack[V] {
 	s.size -= size
 	st := Stack[V]{

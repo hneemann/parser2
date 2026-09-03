@@ -410,6 +410,38 @@ func TestSolve(t *testing.T) {
 	}
 }
 
+func TestBug(t *testing.T) {
+	tests := []struct {
+		name string
+		exp  string
+	}{
+		{name: "race", exp: `
+numbers(10000)
+ .iir(n->{t:n,n:n}, (n,l)->{t:n,n:n})
+ .map(e->{m:e.n})
+ .mapReduce({m:0}, (a,b)->{m:a.m+b.m})
+`},
+	}
+
+	valueParser := New()
+	for _, test := range tests {
+		test := test
+		t.Run(test.name, func(t *testing.T) {
+			f, _, err := valueParser.Generate(test.exp, "a")
+			assert.NoError(t, err, test.name)
+			if f != nil {
+				r, err := f(funcGen.NewEmptyStack[Value]())
+				assert.NoError(t, err, test.name)
+				if err == nil {
+					str, err := r.ToString(funcGen.NewEmptyStack[Value]())
+					assert.NoError(t, err, test.name)
+					fmt.Println("result:", str)
+				}
+			}
+		})
+	}
+}
+
 func BenchmarkRegulaFalsi(b *testing.B) {
 	f, _, _ := New().Generate(regulaFalsi, "a")
 	args := funcGen.NewStack[Value](Float(2))

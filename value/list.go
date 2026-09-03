@@ -320,7 +320,9 @@ func (l *List) Map(sta funcGen.Stack[Value]) (*List, error) {
 		return nil, err
 	}
 	return NewListFromSizedIterable(func(st funcGen.Stack[Value]) iterator.Producer[Value] {
-		return iterator.MapAuto[Value, Value](l.iterable(st), func() func(i int, v Value) (Value, error) {
+		// If map is parallelized, we need to create a new stack for the element creation because
+		// the creation and the processing of the mapped elements could be done in parallel.
+		return iterator.MapAuto[Value, Value](l.iterable(funcGen.NewEmptyStack[Value]()), func() func(i int, v Value) (Value, error) {
 			s := funcGen.NewEmptyStack[Value]()
 			return func(i int, v Value) (Value, error) {
 				return f.Eval(s, v)
@@ -727,6 +729,9 @@ func (l *List) IIrApply(sta funcGen.Stack[Value]) (*List, error) {
 			return nil, err
 		}
 		function, err := funcFromMap(m, "filter", 3)
+		if err != nil {
+			return nil, err
+		}
 		return NewListFromSizedIterable(func(st funcGen.Stack[Value]) iterator.Producer[Value] {
 			return iterator.IirMap[Value, Value](l.iterable(st),
 				func(item Value) (Value, error) {
