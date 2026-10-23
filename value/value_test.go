@@ -136,7 +136,7 @@ func TestBasic(t *testing.T) {
 		{exp: "let a=2; func cl(b) x->x*a*b; cl(4)(3)", res: Int(24)},
 		{exp: "let a=2; func cl(b) let f=a*b;x->x*f; cl(4)(3)", res: Int(24)},
 
-		{exp: "bisection(x->sqr(x)-2,1,2)", res: Float(math.Sqrt(2))},
+		{exp: "(x->sqr(x)-2).bisection(1,2)", res: Float(math.Sqrt(2))},
 
 		{exp: "let p={a:1,b:2}; try p.a catch 5", res: Int(1)},
 		{exp: "let p={a:1,b:2}; try p.c catch 5", res: Int(5)},

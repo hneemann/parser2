@@ -148,6 +148,37 @@ func createClosureMethods() MethodMap {
 			}
 		}).
 			SetMethodDescription("arg_list", "Invokes the function. The values of the given list are passed to the function as arguments."),
+		"bisection": MethodAtType(3, func(c Closure, stack funcGen.Stack[Value]) (Value, error) {
+			if c.Args != 1 {
+				return nil, fmt.Errorf("bisection method only works on functions with one argument, not %d", c.Args)
+			}
+			if xMin, ok := stack.Get(1).ToFloat(); !ok {
+				return nil, fmt.Errorf("first argument of bisection needs to be a float, not: %s", TypeName(stack.Get(1)))
+			} else if xMax, ok := stack.Get(2).ToFloat(); !ok {
+				return nil, fmt.Errorf("second argument of bisection needs to be a float, not: %s", TypeName(stack.Get(2)))
+			} else if eps, ok := stack.GetOptional(3, Float(1e-10)).ToFloat(); !ok {
+				return nil, fmt.Errorf("third argument of bisection needs to be a float, not: %s", TypeName(stack.Get(3)))
+			} else {
+
+				fu := func(x float64) (float64, error) {
+					r, err := c.Eval(stack, Float(x))
+					if err != nil {
+						return 0, err
+					}
+					if r, ok := r.ToFloat(); ok {
+						return r, nil
+					}
+					return 0, fmt.Errorf("solve function must return a float, but returned %s", TypeName(r))
+				}
+
+				r, err := Bisection(fu, xMin, xMax, eps)
+				return Float(r), err
+			}
+
+		}).SetMethodDescription("xMin", "xMax", "eps", "Searches a zero in the function by using the bisection method. "+
+			"The function must have one argument and return a float. The first two arguments are the minimum and maximum of the search interval. "+
+			"The third argument is the precision of the search. If the third argument is missing, a default value of 1e-10 is used. "+
+			"The function must have different signs at the two ends of the interval.").VarArgsMethod(2, 3),
 	}
 }
 
@@ -914,11 +945,6 @@ func New() *FunctionGenerator {
 			Args:   2,
 			IsPure: true,
 		}.SetDescription("a", "b", "Returns the binary or of a, b.")).
-		AddStaticFunction("bisection", funcGen.Function[Value]{
-			Func:   bisectionValue,
-			Args:   4,
-			IsPure: true,
-		}.SetDescription("func(float) float", "min", "max", "eps", "Searches a zero in the given function by using the bisection method.").VarArgs(3, 4)).
 		AddStaticFunction("createLowPass", funcGen.Function[Value]{
 			Func:   createLowPass,
 			Args:   4,
@@ -1136,40 +1162,6 @@ func createLowPass(st funcGen.Stack[Value], store []Value) (Value, error) {
 		IsPure: true,
 	})
 	return NewMap(listMap.New[Value](2).Append("filter", lp).Append("initial", in)), nil
-}
-
-func bisectionValue(st funcGen.Stack[Value], _ []Value) (Value, error) {
-	if f, err := ToFunc("bisection", st, 0, 1); err != nil {
-		return nil, err
-	} else {
-		if xMin, err := ToFloat("bisection", st, 1); err != nil {
-			return nil, err
-		} else {
-			if xMax, err := ToFloat("bisection", st, 2); err != nil {
-				return nil, err
-			} else {
-
-				eps := 1e-10
-				if e, ok := st.GetOptional(3, Float(1e-10)).ToFloat(); ok {
-					eps = e
-				}
-
-				fu := func(x float64) (float64, error) {
-					r, err := f.Eval(st, Float(x))
-					if err != nil {
-						return 0, err
-					}
-					if r, ok := r.ToFloat(); ok {
-						return r, nil
-					}
-					return 0, fmt.Errorf("solve function must return a float, but returned %s", TypeName(r))
-				}
-
-				r, err := Bisection(fu, xMin, xMax, eps)
-				return Float(r), err
-			}
-		}
-	}
 }
 
 func Bisection(f func(float64) (float64, error), xMin, xMax, eps float64) (float64, error) {
