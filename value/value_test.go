@@ -138,6 +138,11 @@ func TestBasic(t *testing.T) {
 
 		{exp: "(x->sqr(x)-2).bisection(1,2)", res: Float(math.Sqrt(2))},
 
+		{exp: "(x->x).integrate(0,2,2)", res: Float(2)},
+		{exp: "(x->sin(x)).integrate(0,pi)", res: Float(2)},
+
+		{exp: "let fs=(x->x^2).dif();[fs(0),fs(1),fs(2)]", res: NewList(Float(0), Float(2), Float(4))},
+
 		{exp: "let p={a:1,b:2}; try p.a catch 5", res: Int(1)},
 		{exp: "let p={a:1,b:2}; try p.c catch 5", res: Int(5)},
 		{exp: "let p={a:1,b:2}; try p.c catch e->\"caught error: \"+e", res: String("caught error: key 'c' not found in map; available are: a, b")},
@@ -203,25 +208,33 @@ func runTest(t *testing.T, tests []testType) {
 			if fu != nil {
 				res, err := fu(funcGen.NewEmptyStack[Value]())
 				assert.NoError(t, err, test.exp)
-				if tr, ok := test.res.(Float); ok {
-					float, ok := res.(Float)
-					assert.True(t, ok)
-					assert.InDelta(t, float64(tr), float64(float), 1e-6, test.exp)
-				} else if expList, ok := test.res.(*List); ok {
-					actList, ok := res.(*List)
-					assert.True(t, ok)
-					st := funcGen.NewEmptyStack[Value]()
-					slice, err := expList.ToSlice(st)
-					assert.NoError(t, err)
-					toSlice, err := actList.ToSlice(st)
-					assert.NoError(t, err)
-					assert.Equal(t, slice, toSlice, test.exp)
-				} else {
-					assert.Equal(t, test.res, res, test.exp)
-				}
+				cmpValues(t, test.res, res, test.exp)
 			}
 		})
 	}
+}
+
+func cmpValues(t *testing.T, exp Value, res Value, msg string) {
+	if tr, ok := res.(Float); ok {
+		float, ok := res.(Float)
+		assert.True(t, ok)
+		assert.InDelta(t, float64(tr), float64(float), 1e-6, msg)
+	} else if expList, ok := exp.(*List); ok {
+		actList, ok := res.(*List)
+		assert.True(t, ok)
+		st := funcGen.NewEmptyStack[Value]()
+		expSlice, err := expList.ToSlice(st)
+		assert.NoError(t, err)
+		actSlice, err := actList.ToSlice(st)
+		assert.NoError(t, err)
+		assert.Equal(t, len(expSlice), len(actSlice), msg)
+		for i := range expSlice {
+			cmpValues(t, expSlice[i], actSlice[i], msg)
+		}
+	} else {
+		assert.Equal(t, exp, res, msg)
+	}
+
 }
 
 func shrinkSpace(str string) string {
@@ -267,22 +280,7 @@ func TestWithArg(t *testing.T) {
 				if fu != nil {
 					res, err := fu(funcGen.NewStack(test.argVal))
 					assert.NoError(t, err, test.exp)
-					if tr, ok := test.result.(Float); ok {
-						float, ok := res.(Float)
-						assert.True(t, ok)
-						assert.InDelta(t, float64(tr), float64(float), 1e-6, test.exp)
-					} else if expList, ok := test.result.(*List); ok {
-						actList, ok := res.(*List)
-						assert.True(t, ok)
-						st := funcGen.NewEmptyStack[Value]()
-						slice, err := expList.ToSlice(st)
-						assert.NoError(t, err)
-						toSlice, err := actList.ToSlice(st)
-						assert.NoError(t, err)
-						assert.Equal(t, slice, toSlice, test.exp)
-					} else {
-						assert.Equal(t, test.result, res, test.exp)
-					}
+					cmpValues(t, test.result, res, test.exp)
 				}
 			} else {
 				assert.True(t, strings.Contains(err.Error(), test.error), "expected error '%s' but got '%v'", test.error, err)
@@ -294,7 +292,7 @@ func TestWithArg(t *testing.T) {
 func TestOptimizer(t *testing.T) {
 	tests := []struct {
 		exp string
-		res any
+		res Value
 	}{
 		{exp: "1+2", res: Int(3)},
 		{exp: "\"test\"+\"hello\"", res: String("testhello")},
@@ -319,22 +317,7 @@ func TestOptimizer(t *testing.T) {
 			ast, err := valueParser.CreateAst(test.exp, valueParser.Identifier())
 			assert.NoError(t, err, test.exp)
 			if c, ok := ast.(*parser2.Const[Value]); ok {
-				if f, ok := test.res.(Float); ok {
-					fl, ok := c.Value.ToFloat()
-					assert.True(t, ok)
-					assert.InDelta(t, float64(f), fl, 1e-7)
-				} else if expList, ok := test.res.(*List); ok {
-					actList, ok := c.Value.(*List)
-					st := funcGen.NewEmptyStack[Value]()
-					assert.True(t, ok)
-					slice, err := expList.ToSlice(st)
-					assert.NoError(t, err)
-					toSlice, err := actList.ToSlice(st)
-					assert.NoError(t, err)
-					assert.EqualValues(t, slice, toSlice, test.exp)
-				} else {
-					assert.EqualValues(t, test.res, c.Value)
-				}
+				cmpValues(t, test.res, c.Value, test.exp)
 			} else {
 				t.Errorf("not a constant: %v -> %v", test.exp, ast)
 			}

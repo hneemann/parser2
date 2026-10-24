@@ -179,6 +179,63 @@ func createClosureMethods() MethodMap {
 			"The function must have one argument and return a float. The first two arguments are the minimum and maximum of the search interval. "+
 			"The third argument is the precision of the search. If the third argument is missing, a default value of 1e-10 is used. "+
 			"The function must have different signs at the two ends of the interval.").VarArgsMethod(2, 3),
+		"integrate": MethodAtType(3, func(f Closure, st funcGen.Stack[Value]) (Value, error) {
+			if a, ok := st.Get(1).ToFloat(); ok {
+				if b, ok := st.Get(2).ToFloat(); ok {
+					if steps, ok := st.GetOptional(3, Int(2000)).ToFloat(); ok {
+						if f.Args != 1 {
+							return nil, fmt.Errorf("integrate requires a function with one argument")
+						}
+						fu := func(x float64) (float64, error) {
+							y, err := f.Eval(st, Float(x))
+							if err != nil {
+								return 0, err
+							}
+							if yFl, ok := y.ToFloat(); ok {
+								return yFl, nil
+							}
+							return 0, fmt.Errorf("integrate requires a function that returns a float")
+						}
+						return IntegrateFunc(fu, a, b, int(steps))
+					}
+				}
+			}
+			return nil, fmt.Errorf("integrate requires a function and two floats and an optional int")
+		}).SetMethodDescription("a", "b", "steps", "Calculates the integral of the function f from a to b using the trapezoidal rule. "+
+			"The value steps specifies the number of steps for the trapezoidal calculation. The default is 2000.").VarArgsMethod(2, 3),
+		"dif": MethodAtType(1, func(f Closure, st funcGen.Stack[Value]) (Value, error) {
+			if f.Args != 1 {
+				return nil, fmt.Errorf("dif requires a function with one argument")
+			}
+			h, ok := st.GetOptional(1, Float(1e-8)).ToFloat()
+			if !ok {
+				return nil, fmt.Errorf("dif requires an optional float")
+			}
+			return Closure(funcGen.Function[Value]{
+				Func: func(st funcGen.Stack[Value], cs []Value) (Value, error) {
+					if x, ok := st.Get(0).ToFloat(); ok {
+						f0, err := f.Eval(st, Float(x))
+						if err != nil {
+							return nil, fmt.Errorf("dif requires a function that returns a float")
+						}
+						f1, err := f.Eval(st, Float(x+h))
+						if err != nil {
+							return nil, fmt.Errorf("dif requires a function that returns a float")
+						}
+						if f0Fl, ok := f0.ToFloat(); ok {
+							if f1Fl, ok := f1.ToFloat(); ok {
+								return Float((f1Fl - f0Fl) / h), nil
+							}
+						}
+						return nil, fmt.Errorf("dif requires a function that returns a float")
+					}
+					return nil, fmt.Errorf("dif requires a float argument")
+				},
+				Args:   1,
+				IsPure: f.IsPure,
+			}), nil
+		}).Pure(true).SetMethodDescription("h", "Returns a function which is the derivative of the function f. "+
+			"The default value for h is 1e-8. The function f must have one argument and return a float.").VarArgsMethod(0, 1),
 	}
 }
 
@@ -1210,6 +1267,34 @@ func Bisection(f func(float64) (float64, error), xMin, xMax, eps float64) (float
 			return 0, fmt.Errorf("solve function did not converge in 1000 iterations for interval [%f,%f]", xMin, xMax)
 		}
 	}
+}
+
+func IntegrateFunc(f func(x float64) (float64, error), a float64, b float64, i int) (Value, error) {
+	if i <= 0 {
+		return nil, fmt.Errorf("integrate requires a positive number of steps")
+	}
+	if a > b {
+		a, b = b, a
+	}
+	h := (b - a) / float64(i)
+	fa, err := f(a)
+	if err != nil {
+		return nil, fmt.Errorf("integration: error evaluating function at initial a: %v", err)
+	}
+	fb, err := f(b)
+	if err != nil {
+		return nil, fmt.Errorf("integration: error evaluating function at final b: %v", err)
+	}
+	sum := (fa + fb) / 2
+	for j := 1; j < i; j++ {
+		x := a + float64(j)*h
+		f0, err := f(x)
+		if err != nil {
+			return nil, fmt.Errorf("integration: error evaluating function at x=%f: %v", x, err)
+		}
+		sum += f0
+	}
+	return Float(sum * h), nil
 }
 
 func Must[V any](v V, err error) V {
