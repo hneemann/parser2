@@ -214,13 +214,13 @@ func runTest(t *testing.T, tests []testType) {
 	}
 }
 
-func cmpValues(t *testing.T, exp Value, res Value, msg string) {
-	if tr, ok := res.(Float); ok {
-		float, ok := res.(Float)
+func cmpValues(t *testing.T, expected Value, actual Value, msg string) {
+	if expFloat, ok := expected.ToFloat(); ok {
+		actFloat, ok := actual.ToFloat()
 		assert.True(t, ok)
-		assert.InDelta(t, float64(tr), float64(float), 1e-6, msg)
-	} else if expList, ok := exp.(*List); ok {
-		actList, ok := res.(*List)
+		assert.InDelta(t, float64(expFloat), float64(actFloat), 1e-6, msg)
+	} else if expList, ok := expected.(*List); ok {
+		actList, ok := actual.(*List)
 		assert.True(t, ok)
 		st := funcGen.NewEmptyStack[Value]()
 		expSlice, err := expList.ToSlice(st)
@@ -232,7 +232,7 @@ func cmpValues(t *testing.T, exp Value, res Value, msg string) {
 			cmpValues(t, expSlice[i], actSlice[i], msg)
 		}
 	} else {
-		assert.Equal(t, exp, res, msg)
+		assert.Equal(t, expected, actual, msg)
 	}
 
 }
