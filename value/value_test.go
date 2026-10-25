@@ -541,25 +541,25 @@ func TestIntegrateFunc(t *testing.T) {
 	}{
 		{
 			name: "integrate sin(x) from 0 to pi", args: args{
-			f: func(x float64) (float64, error) {
-				return math.Sin(x), nil
+				f: func(x float64) (float64, error) {
+					return math.Sin(x), nil
+				},
+				a: 0,
+				b: math.Pi,
+				i: 2000,
 			},
-			a: 0,
-			b: math.Pi,
-			i: 2000,
-		},
 			want:    2,
 			wantErr: assert.NoError,
 		},
 		{
 			name: "integrate 1/x² from -1 to 1", args: args{
-			f: func(x float64) (float64, error) {
-				return 1 / (x*x + 1), nil
+				f: func(x float64) (float64, error) {
+					return 1 / (x*x + 1), nil
+				},
+				a: -1,
+				b: 1,
+				i: 2000,
 			},
-			a: -1,
-			b: 1,
-			i: 2000,
-		},
 			want:    math.Pi / 2,
 			wantErr: assert.NoError,
 		},
