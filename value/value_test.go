@@ -552,7 +552,7 @@ func TestIntegrateFunc(t *testing.T) {
 			wantErr: assert.NoError,
 		},
 		{
-			name: "integrate 1/x² from -1 to 1", args: args{
+			name: "integrate 1/(x²+1) from -1 to 1", args: args{
 				f: func(x float64) (float64, error) {
 					return 1 / (x*x + 1), nil
 				},
