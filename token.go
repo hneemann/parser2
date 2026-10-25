@@ -382,6 +382,8 @@ func (t *Tokenizer) peek(skipComment bool) rune {
 	}
 
 	switch t.last {
+	case '·':
+		t.last = '*'
 	case '•':
 		t.last = '*'
 	case '×':
